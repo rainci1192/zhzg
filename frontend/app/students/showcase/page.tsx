@@ -1,9 +1,41 @@
+// app/students/showcase/page.tsx
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import Sidebar from '@/components/layout/Sidebar';
 import Breadcrumb from '@/components/layout/Breadcrumb';
+import Link from 'next/link';
+import Image from 'next/image';
+import pool from '@/lib/db';
 
-export default function StudentsShowcase() {
+const PAGE_SIZE = 6; // 3列 × 2行
+
+type ShowcaseItem = {
+  id: number;
+  name: string;
+  description: string | null;
+  image_url: string;
+};
+
+function getPageNumbers(current: number, total: number): (number | '...')[] {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+  const pages: (number | '...')[] = [1];
+  if (current > 4) pages.push('...');
+  const start = Math.max(2, current - 1);
+  const end = Math.min(total - 1, current + 1);
+  for (let i = start; i <= end; i++) pages.push(i);
+  if (current < total - 3) pages.push('...');
+  pages.push(total);
+  return pages;
+}
+
+export default async function StudentsShowcase({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>;
+}) {
+  const sp = await searchParams;
+  const currentPage = Math.max(1, Number(sp?.page || '1') || 1);
+
   const sidebarItems = [
     { name: '学生管理', href: '/students/management' },
     { name: '学生活动', href: '/students/activities' },
@@ -16,12 +48,28 @@ export default function StudentsShowcase() {
     { name: '学生风采', href: '/students/showcase' },
   ];
 
-  const students = [
-    //{ name: '张同学', achievement: '获国家奖学金，发表SCI论文2篇' },
-    //{ name: '李同学', achievement: '获全国大学生创新创业大赛一等奖' },
-    //{ name: '王同学', achievement: '获省级优秀毕业生称号' },
-  {},
-  ];
+  const countRes = await pool.query(
+    `SELECT COUNT(*)::int AS total FROM student_showcase WHERE is_active = true`
+  );
+
+  const total = countRes.rows[0]?.total || 0;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const safePage = Math.min(currentPage, totalPages);
+  const safeOffset = (safePage - 1) * PAGE_SIZE;
+
+  const listRes = await pool.query(
+    `
+    SELECT id, name, description, image_url
+    FROM student_showcase
+    WHERE is_active = true
+    ORDER BY sort_order, id ASC
+    LIMIT $1 OFFSET $2
+    `,
+    [PAGE_SIZE, safeOffset]
+  );
+
+  const items: ShowcaseItem[] = listRes.rows;
+  const pageNumbers = getPageNumbers(safePage, totalPages);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -33,23 +81,102 @@ export default function StudentsShowcase() {
             <Breadcrumb items={breadcrumbItems} />
           </div>
         </div>
-        
+
         <div className="max-w-7xl mx-auto px-4 py-8">
           <div className="flex gap-6">
             <aside className="w-64 flex-shrink-0">
               <Sidebar title="学生工作" items={sidebarItems} />
             </aside>
-            
-            <div className="flex-1 bg-white rounded-lg shadow-lg p-8">
-              <h2 className="text-2xl font-bold text-gray-800 mb-6 pb-3 border-b-2 border-blue-600">学生风采</h2>
-              {/* <div className="grid gap-6">
-                {students.map((student, index) => (
-                  <div key={index} className="bg-gradient-to-r from-blue-50 to-white rounded-lg p-6 border-l-4 border-blue-600 hover:shadow-lg transition-all duration-300">
-                    <h3 className="text-xl font-bold text-gray-800 mb-3">{student.name}</h3>
-                    <p className="text-gray-600">{student.achievement}</p>
-                  </div>
-                ))}
-              </div> */}
+
+            <div className="flex-1">
+              {items.length === 0 ? (
+                <div className="bg-white rounded-lg shadow-sm p-8 text-gray-500">暂无学生风采数据</div>
+              ) : (
+                <div className="grid grid-cols-3 gap-6">
+                  {items.map((item) => (
+                    <div
+                      key={item.id}
+                      className="group bg-white rounded-lg shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden"
+                    >
+                      {/* 图片区域 */}
+                      <div className="relative w-full aspect-[3/4] overflow-hidden bg-gray-100">
+                        <Image
+                          src={item.image_url}
+                          alt={item.name}
+                          fill
+                          className="object-cover group-hover:scale-105 transition-transform duration-500"
+                          sizes="(max-width: 1280px) 33vw"
+                          onError={undefined}
+                        />
+                        {/* hover 遮罩 */}
+                        <div className="absolute inset-0 bg-blue-600/0 group-hover:bg-blue-600/20 transition-all duration-300"></div>
+                      </div>
+
+                      {/* 文字区域 */}
+                      <div className="p-4">
+                        <h3 className="text-base font-bold text-gray-800 group-hover:text-blue-600 transition-colors duration-300 mb-2 line-clamp-1">
+                          {item.name}
+                        </h3>
+                        {item.description && (
+                          <p className="text-sm text-gray-500 line-clamp-3 leading-relaxed">
+                            {item.description}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* 底部蓝色进度条 */}
+                      <div className="h-0.5 bg-gradient-to-r from-blue-500 to-blue-600 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 origin-left"></div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* 分页 */}
+              <div className="flex justify-center items-center gap-2 mt-8 flex-wrap">
+                {safePage > 1 ? (
+                  <Link
+                    href={`/students/showcase?page=${safePage - 1}`}
+                    className="px-4 py-2 bg-gray-200 text-gray-600 rounded hover:bg-gray-300"
+                  >
+                    上一页
+                  </Link>
+                ) : (
+                  <span className="px-4 py-2 bg-gray-100 text-gray-400 rounded cursor-not-allowed">
+                    上一页
+                  </span>
+                )}
+
+                {pageNumbers.map((p, idx) =>
+                  p === '...' ? (
+                    <span key={`ellipsis-${idx}`} className="px-2 py-2 text-gray-400">...</span>
+                  ) : (
+                    <Link
+                      key={p}
+                      href={`/students/showcase?page=${p}`}
+                      className={`px-4 py-2 rounded transition-colors ${
+                        p === safePage
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                      }`}
+                    >
+                      {p}
+                    </Link>
+                  )
+                )}
+
+                {safePage < totalPages ? (
+                  <Link
+                    href={`/students/showcase?page=${safePage + 1}`}
+                    className="px-4 py-2 bg-gray-200 text-gray-600 rounded hover:bg-gray-300"
+                  >
+                    下一页
+                  </Link>
+                ) : (
+                  <span className="px-4 py-2 bg-gray-100 text-gray-400 rounded cursor-not-allowed">
+                    下一页
+                  </span>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -58,4 +185,3 @@ export default function StudentsShowcase() {
     </div>
   );
 }
-

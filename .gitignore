@@ -1,7 +1,27 @@
-node_modules
-dist
-build
+# node
+node_modules/
+npm-debug.log*
+yarn-error.log*
+
+# build
+.next/
+dist/
+build/
+.cache/
+
+# env secrets
 .env
-.env.local
-.vercel
+.env.*
+!.env.example
+
+# strapi
+backend/.tmp/
+backend/.cache/
+backend/build/
+
+# logs
+*.log
+
+# system
 .DS_Store
+Thumbs.db

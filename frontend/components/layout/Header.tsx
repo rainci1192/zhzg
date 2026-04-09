@@ -7,6 +7,7 @@ export default function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
 
   const navItems = [
@@ -22,15 +23,6 @@ export default function Header() {
       ],
     },
     {
-      name: '校企合作',
-      href: '/cooperation/projects',
-      children: [
-        { name: '合作项目', href: '/cooperation/projects' },
-        { name: '合作单位', href: '/cooperation/partners' },
-        { name: '理事单位动态', href: '/cooperation/news' },
-      ],
-    },
-    {
       name: '招生信息',
       href: '/admission/master',
       children: [
@@ -39,11 +31,28 @@ export default function Header() {
       ],
     },
     {
+      name: '科学研究',
+      href: '/research/institutions',
+      children: [
+        { name: '科研机构', href: '/research/institutions' },
+        { name: '科研动态', href: '/research/news' },
+        { name: '成果转化', href: '/research/transfer' },
+      ],
+    },
+    {
       name: '师资队伍',
       href: '/faculty/internal',
       children: [
-        { name: '校内导师', href: '/faculty/internal' },
-        { name: '企业导师', href: '/faculty/enterprise' },
+        { name: '校内培养导师', href: '/faculty/internal' },
+        { name: '企业培养导师', href: '/faculty/enterprise' },
+      ],
+    },
+    {
+      name: '校企合作',
+      href: '/cooperation/news',
+      children: [
+        { name: '合作动态', href: '/cooperation/news' },
+        { name: '合作单位', href: '/cooperation/partner' },
       ],
     },
     {
@@ -89,19 +98,27 @@ export default function Header() {
     };
   }, [searchOpen]);
 
+  useEffect(() => {
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 60);
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
   return (
-    <header className="bg-[#003d82] shadow-md sticky top-0 z-50">
-      <div className="max-w-[1400px] mx-auto px-2">
-        <div className="flex items-center h-28">
-          <Link href="/" className="flex items-center flex-shrink-0 -ml-4">
+    <header className={`bg-[#003d82] shadow-md sticky top-0 z-50 transition-all duration-300`}>
+      <div className="max-w-[1600px] mx-auto px-2">
+        <div className={`flex items-center transition-all duration-300 ${scrolled ? 'h-16' : 'h-28'}`}>
+          <Link href="/" className="flex items-center flex-shrink-0 -ml-6 mr-4">
             <img
               src="/images/logo.png"
               alt="Logo"
-              className="h-20 w-auto object-contain"
+              className={`w-auto object-contain transition-all duration-300 ${scrolled ? 'h-12' : 'h-20'}`}
             />
           </Link>
 
-          <nav className="hidden lg:flex space-x-2 flex-1 justify-center ml-12">
+          <nav className="hidden lg:flex flex-1 justify-between items-center">
             {navItems.map((item) => (
               <div
                 key={item.name}
@@ -111,12 +128,12 @@ export default function Header() {
               >
                 <Link
                   href={item.href}
-                  className="px-5 py-2 text-white text-lg font-medium hover:bg-white/10 rounded transition-colors inline-block whitespace-nowrap"
+                  className="px-3 py-2 text-white text-lg font-medium hover:bg-white/10 rounded transition-colors inline-block whitespace-nowrap"
                 >
                   {item.name}
                 </Link>
                 {item.children && activeDropdown === item.name && (
-                  <div className="absolute left-0 top-full mt-0 bg-[#003d82]/70 backdrop-blur-md shadow-lg rounded-b-md min-w-[160px] py-2">
+                  <div className="absolute left-0 top-full mt-0 bg-[#003d82]/70 backdrop-blur-md shadow-lg rounded-b-md min-w-[148px] py-2">
                     {item.children.map((child) => (
                       <Link
                         key={child.name}
