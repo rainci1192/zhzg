@@ -1,10 +1,10 @@
 {
-  "kind": "singleType",
-  "collectionName": "site_settings",
+  "kind": "collectionType",
+  "collectionName": "site_configs",
   "info": {
-    "singularName": "site-setting",
-    "pluralName": "site-settings",
-    "displayName": "SiteSetting"
+    "singularName": "site-config",
+    "pluralName": "site-configs",
+    "displayName": "SiteConfig"
   },
   "options": {
     "draftAndPublish": true

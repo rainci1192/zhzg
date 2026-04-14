@@ -441,13 +441,7 @@ export interface ApiArticleArticle extends Struct.CollectionTypeSchema {
     draftAndPublish: true;
   };
   attributes: {
-    articles: Schema.Attribute.Relation<'oneToMany', 'api::article.article'>;
-    attachments: Schema.Attribute.Relation<
-      'oneToMany',
-      'api::attachment.attachment'
-    >;
-    category: Schema.Attribute.Relation<'manyToOne', 'api::article.article'>;
-    content: Schema.Attribute.Blocks;
+    content: Schema.Attribute.RichText;
     cover: Schema.Attribute.Media<'images'>;
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
@@ -459,13 +453,21 @@ export interface ApiArticleArticle extends Struct.CollectionTypeSchema {
       'api::article.article'
     > &
       Schema.Attribute.Private;
+    primary_category: Schema.Attribute.Relation<
+      'manyToOne',
+      'api::category.category'
+    >;
     publish_time: Schema.Attribute.DateTime;
     publishedAt: Schema.Attribute.DateTime;
     review_status: Schema.Attribute.Enumeration<
-      ['draft', 'pending', 'published', 'rejected']
+      ['draft', 'pending', 'published', 'rejected', 'approved']
     > &
       Schema.Attribute.Required &
       Schema.Attribute.DefaultTo<'draft'>;
+    secondary_category: Schema.Attribute.Relation<
+      'manyToOne',
+      'api::category.category'
+    >;
     slug: Schema.Attribute.UID<'title'> & Schema.Attribute.Required;
     summary: Schema.Attribute.Text;
     title: Schema.Attribute.String & Schema.Attribute.Required;
@@ -486,7 +488,6 @@ export interface ApiAttachmentAttachment extends Struct.CollectionTypeSchema {
     draftAndPublish: true;
   };
   attributes: {
-    category: Schema.Attribute.Relation<'manyToOne', 'api::article.article'>;
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
@@ -550,14 +551,12 @@ export interface ApiCategoryCategory extends Struct.CollectionTypeSchema {
     draftAndPublish: true;
   };
   attributes: {
-    categories: Schema.Attribute.Relation<
-      'oneToMany',
-      'api::category.category'
-    >;
+    children: Schema.Attribute.Relation<'oneToMany', 'api::category.category'>;
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
     is_visible: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<true>;
+    level: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<1>;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<
       'oneToMany',
@@ -565,10 +564,22 @@ export interface ApiCategoryCategory extends Struct.CollectionTypeSchema {
     > &
       Schema.Attribute.Private;
     name: Schema.Attribute.String & Schema.Attribute.Required;
-    parent: Schema.Attribute.Relation<'manyToOne', 'api::category.category'>;
+    parentCategory: Schema.Attribute.Relation<
+      'manyToOne',
+      'api::category.category'
+    >;
+    primary_articles: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::article.article'
+    >;
     publishedAt: Schema.Attribute.DateTime;
+    secondary_articles: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::article.article'
+    >;
     slug: Schema.Attribute.UID<'name'> & Schema.Attribute.Required;
     sort_order: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<0>;
+    type_key: Schema.Attribute.Enumeration<['news', 'notice']>;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
@@ -604,12 +615,12 @@ export interface ApiLinkLink extends Struct.CollectionTypeSchema {
   };
 }
 
-export interface ApiSiteSettingSiteSetting extends Struct.SingleTypeSchema {
-  collectionName: 'site_settings';
+export interface ApiSiteConfigSiteConfig extends Struct.CollectionTypeSchema {
+  collectionName: 'site_configs';
   info: {
-    displayName: 'SiteSetting';
-    pluralName: 'site-settings';
-    singularName: 'site-setting';
+    displayName: 'SiteConfig';
+    pluralName: 'site-configs';
+    singularName: 'site-config';
   };
   options: {
     draftAndPublish: true;
@@ -623,7 +634,7 @@ export interface ApiSiteSettingSiteSetting extends Struct.SingleTypeSchema {
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<
       'oneToMany',
-      'api::site-setting.site-setting'
+      'api::site-config.site-config'
     > &
       Schema.Attribute.Private;
     logo: Schema.Attribute.Media<'images'>;
@@ -1154,7 +1165,7 @@ declare module '@strapi/strapi' {
       'api::banner.banner': ApiBannerBanner;
       'api::category.category': ApiCategoryCategory;
       'api::link.link': ApiLinkLink;
-      'api::site-setting.site-setting': ApiSiteSettingSiteSetting;
+      'api::site-config.site-config': ApiSiteConfigSiteConfig;
       'plugin::content-releases.release': PluginContentReleasesRelease;
       'plugin::content-releases.release-action': PluginContentReleasesReleaseAction;
       'plugin::i18n.locale': PluginI18NLocale;

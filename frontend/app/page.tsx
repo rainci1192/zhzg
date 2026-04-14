@@ -4,6 +4,9 @@ import Banner from '@/components/home/Banner';
 import NewsList from '@/components/home/NewsList';
 import NoticeList from '@/components/home/NoticeList';
 
+// 保证首页每次请求都可拿到最新 CMS 数据（开发阶段建议开启）
+export const dynamic = 'force-dynamic';
+
 export default function Home() {
   return (
     <div className="min-h-screen flex flex-col">

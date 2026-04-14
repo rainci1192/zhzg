@@ -27,12 +27,6 @@
       "type": "integer",
       "default": 0
     },
-    "category": {
-      "type": "relation",
-      "relation": "manyToOne",
-      "target": "api::article.article",
-      "inversedBy": "attachments"
-    },
     "is_active": {
       "type": "boolean",
       "default": true

@@ -28,17 +28,40 @@
       "type": "boolean",
       "default": true
     },
-    "categories": {
+    "children": {
       "type": "relation",
       "relation": "oneToMany",
       "target": "api::category.category",
-      "mappedBy": "parent"
+      "mappedBy": "parentCategory"
     },
-    "parent": {
+    "parentCategory": {
       "type": "relation",
       "relation": "manyToOne",
       "target": "api::category.category",
-      "inversedBy": "categories"
+      "inversedBy": "children"
+    },
+    "level": {
+      "type": "integer",
+      "default": 1
+    },
+    "type_key": {
+      "type": "enumeration",
+      "enum": [
+        "news",
+        "notice"
+      ]
+    },
+    "primary_articles": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::article.article",
+      "mappedBy": "primary_category"
+    },
+    "secondary_articles": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::article.article",
+      "mappedBy": "secondary_category"
     }
   }
 }

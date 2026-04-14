@@ -23,9 +23,6 @@
     "summary": {
       "type": "text"
     },
-    "content": {
-      "type": "blocks"
-    },
     "review_status": {
       "type": "enumeration",
       "required": true,
@@ -34,7 +31,8 @@
         "draft",
         "pending",
         "published",
-        "rejected"
+        "rejected",
+        "approved"
       ]
     },
     "publish_time": {
@@ -44,6 +42,9 @@
       "type": "boolean",
       "default": false
     },
+    "content": {
+      "type": "richtext"
+    },
     "cover": {
       "type": "media",
       "multiple": false,
@@ -51,23 +52,17 @@
         "images"
       ]
     },
-    "articles": {
-      "type": "relation",
-      "relation": "oneToMany",
-      "target": "api::article.article",
-      "mappedBy": "category"
-    },
-    "category": {
+    "primary_category": {
       "type": "relation",
       "relation": "manyToOne",
-      "target": "api::article.article",
-      "inversedBy": "articles"
+      "target": "api::category.category",
+      "inversedBy": "primary_articles"
     },
-    "attachments": {
+    "secondary_category": {
       "type": "relation",
-      "relation": "oneToMany",
-      "target": "api::attachment.attachment",
-      "mappedBy": "category"
+      "relation": "manyToOne",
+      "target": "api::category.category",
+      "inversedBy": "secondary_articles"
     }
   }
 }
