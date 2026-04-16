@@ -1,8 +1,223 @@
-// app/article/[slug]/page.tsx
+import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+import Link from 'next/link';
+import Image from 'next/image';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
-import pool from '@/lib/db';
+
+export const dynamic = 'force-dynamic';
+
+const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:1337';
+
+type PrevNextItem = {
+  id: number;
+  slug: string;
+  title: string;
+  publish_time?: string;
+  is_top?: boolean;
+};
+
+type FullArticle = {
+  id: number;
+  slug: string;
+  title: string;
+  content?: string;
+  summary?: string;
+  publish_time?: string;
+  is_top?: boolean;
+  cover?: { url?: string } | null;
+  primary_category?: { name?: string } | null;
+  secondary_category?: { name?: string } | null;
+};
+
+type FromType =
+  | 'news'
+  | 'notice'
+  | 'research'
+  | 'activities'
+  | 'transfer'
+  | 'cooperation';
+
+function htmlToPlainText(html?: string) {
+  if (!html) return '';
+  return html
+    .replace(/<style[\s\S]*?<\/style>/gi, '')
+    .replace(/<script[\s\S]*?<\/script>/gi, '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function ellipsis(text: string, max = 120) {
+  if (!text) return '';
+  return text.length > max ? `${text.slice(0, max)}...` : text;
+}
+
+async function getArticleFullBySlug(slug: string): Promise<FullArticle | null> {
+  const qs = new URLSearchParams({
+    'filters[slug][$eq]': slug,
+    'populate[0]': 'cover',
+    'populate[1]': 'primary_category',
+    'populate[2]': 'secondary_category',
+  }).toString();
+
+  const res = await fetch(`${API}/api/articles?${qs}`, {
+    next: { revalidate: 30 },
+    headers: { Accept: 'application/json' },
+  });
+
+  if (!res.ok) return null;
+
+  const json = await res.json();
+  const item = json?.data?.[0];
+  if (!item) return null;
+
+  return {
+    id: item.id,
+    slug: item.slug || '',
+    title: item.title || '',
+    content: item.content || '',
+    summary: item.summary || '',
+    publish_time: item.publish_time || '',
+    is_top: Boolean(item.is_top),
+    cover: item.cover || null,
+    primary_category: item.primary_category || null,
+    secondary_category: item.secondary_category || null,
+  };
+}
+
+function inferFromByArticle(article: FullArticle): FromType {
+  const p = article.primary_category?.name || '';
+  const s = article.secondary_category?.name || '';
+
+  if (p === '学院新闻' && s === '合作动态') return 'cooperation';
+  if (s === '科研动态') return 'research';
+  if (s === '学生活动') return 'activities';
+  if (s === '成果转化') return 'transfer';
+  if (p === '通知公告') return 'notice';
+  return 'news';
+}
+
+function resolveFrom(inputFrom: string | undefined, article: FullArticle): FromType {
+  const legal = new Set<FromType>([
+    'news',
+    'notice',
+    'research',
+    'activities',
+    'transfer',
+    'cooperation',
+  ]);
+  if (inputFrom && legal.has(inputFrom as FromType)) return inputFrom as FromType;
+  return inferFromByArticle(article);
+}
+
+function appendFiltersByRule(qs: URLSearchParams, rule: FromType) {
+  if (rule === 'news') {
+    qs.append('filters[$or][0][primary_category][name][$eq]', '学院新闻');
+    qs.append('filters[$or][1][secondary_category][name][$eq]', '科研动态');
+  } else if (rule === 'notice') {
+    qs.append('filters[primary_category][name][$eq]', '通知公告');
+  } else if (rule === 'research') {
+    qs.append('filters[secondary_category][name][$eq]', '科研动态');
+  } else if (rule === 'activities') {
+    qs.append('filters[secondary_category][name][$eq]', '学生活动');
+  } else if (rule === 'transfer') {
+    qs.append('filters[secondary_category][name][$eq]', '成果转化');
+  } else if (rule === 'cooperation') {
+    qs.append('filters[primary_category][name][$eq]', '学院新闻');
+    qs.append('filters[secondary_category][name][$eq]', '合作动态');
+  }
+}
+
+function mapCrumbByFrom(from: FromType): { listHref: string; listName: string } {
+  if (from === 'research') return { listHref: '/research/news', listName: '科研动态' };
+  if (from === 'activities') return { listHref: '/students/activities', listName: '学生活动' };
+  if (from === 'transfer') return { listHref: '/research/transfer', listName: '成果转化' };
+  if (from === 'notice') return { listHref: '/notice', listName: '通知公告' };
+  if (from === 'cooperation') return { listHref: '/cooperation/news', listName: '合作动态' };
+  return { listHref: '/news', listName: '新闻动态' };
+}
+
+async function fetchArticlesForPrevNext(rule: FromType): Promise<PrevNextItem[]> {
+  const qs = new URLSearchParams();
+  qs.append('filters[review_status][$eq]', 'published');
+  qs.append('pagination[limit]', '400');
+  qs.append('sort[0]', 'is_top:desc');
+  qs.append('sort[1]', 'publish_time:desc');
+  qs.append('sort[2]', 'id:desc');
+
+  appendFiltersByRule(qs, rule);
+
+  const res = await fetch(`${API}/api/articles?${qs.toString()}`, {
+    next: { revalidate: 30 },
+    headers: { Accept: 'application/json' },
+  });
+
+  if (!res.ok) return [];
+
+  const json = await res.json();
+  const data = json?.data || [];
+
+  return data.map((item: any) => ({
+    id: item.id,
+    slug: item.slug || '',
+    title: item.title || '',
+    publish_time: item.publish_time || '',
+    is_top: Boolean(item.is_top),
+  }));
+}
+
+function getPrevNextByOrderedList(
+  orderedList: PrevNextItem[],
+  currentSlug: string
+): { prev: PrevNextItem | null; next: PrevNextItem | null } {
+  const idx = orderedList.findIndex((x) => x.slug === currentSlug);
+  if (idx === -1) return { prev: null, next: null };
+  return {
+    prev: idx > 0 ? orderedList[idx - 1] : null,
+    next: idx < orderedList.length - 1 ? orderedList[idx + 1] : null,
+  };
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  const article = await getArticleFullBySlug(slug);
+
+  if (!article) {
+    return {
+      title: '文章详情 - 国家卓越工程师学院',
+      description: '文章详情页',
+      robots: { index: false, follow: true },
+    };
+  }
+
+  const contentText = htmlToPlainText(article.content || '');
+  const description = ellipsis(contentText, 120);
+
+  const siteUrl = process.env.NEXT_PUBLIC_WEB_URL || 'http://localhost:3000';
+  const url = `${siteUrl}/article/${article.slug}`;
+
+  return {
+    title: `${article.title} - 国家卓越工程师学院`,
+    description,
+    alternates: { canonical: url },
+    openGraph: {
+      title: article.title,
+      description,
+      url,
+      type: 'article',
+    },
+    robots: { index: true, follow: true },
+  };
+}
 
 export default async function ArticlePage({
   params,
@@ -13,202 +228,120 @@ export default async function ArticlePage({
 }) {
   const { slug } = await params;
   const sp = await searchParams;
-  const from = sp?.from; // 'news' | 'research' | undefined
 
-  try {
-    // 1. 查询当前文章（含分类）
-    const articleResult = await pool.query(
-      `
-      SELECT 
-        a.id, a.title, a.subtitle, a.summary, a.content_html, a.publish_time, 
-        a.cover_image_url, a.images, a.author_name, a.source, a.view_count, a.category_id,
-        c.name AS category_name,
-        c.slug AS category_slug
-      FROM articles a
-      LEFT JOIN categories c ON c.id = a.category_id
-      WHERE a.slug = $1 AND a.status = 'published'
-      LIMIT 1
-      `,
-      [slug]
-    );
+  const article = await getArticleFullBySlug(slug);
+  if (!article) notFound();
 
-    if (articleResult.rows.length === 0) notFound();
-    const article = articleResult.rows[0];
+  const effectiveFrom = resolveFrom(sp?.from, article);
+  const { listHref, listName } = mapCrumbByFrom(effectiveFrom);
 
-    // 2. 来源优先决定：面包屑 + 上下篇联动范围
-    let listHref = '/news';
-    let listName = '新闻动态';
-    let linkedCategorySlugs: string[] = ['news', 'research-news'];
+  const ordered = await fetchArticlesForPrevNext(effectiveFrom);
+  const { prev, next } = getPrevNextByOrderedList(ordered, article.slug);
 
-    if (from === 'research') {
-      // 来自“科研动态”
-      listHref = '/research/news';
-      listName = '科研动态';
-      linkedCategorySlugs = ['research-news'];
-    } else if (from === 'news') {
-      // 来自“新闻动态”（新闻动态包含科研动态）
-      listHref = '/news';
-      listName = '新闻动态';
-      linkedCategorySlugs = ['news', 'research-news'];
-    }else if (from === 'transfer') {
-      listHref = '/research/transfer';
-      listName = '成果转化';
-      linkedCategorySlugs = ['research-transfer'];
-    } else if (from === 'activities') {
-      listHref = '/students/activities';
-      listName = '学生活动';
-      linkedCategorySlugs = ['student-activities'];
-    }else if (from === 'notice') {
-      listHref = '/notice';
-      listName = '通知公告';
-    }else {
-      // 无 from 参数时兜底：按文章实际分类
-      const isResearchNews = article.category_slug === 'research-news';
-      listHref = isResearchNews ? '/research/news' : '/news';
-      listName = isResearchNews ? '科研动态' : '新闻动态';
-      linkedCategorySlugs = isResearchNews ? ['research-news'] : ['news', 'research-news'];
-    }
+  const fromQuery = `?from=${effectiveFrom}`;
+  const coverImage = article.cover?.url ? `${API}${article.cover.url}` : null;
 
-    // 3. 查询上一篇（按联动范围）
-    const prevResult = await pool.query(
-      `
-      SELECT a.slug, a.title
-      FROM articles a
-      JOIN categories c ON c.id = a.category_id
-      WHERE a.status = 'published'
-        AND c.slug = ANY($1::text[])
-        AND a.publish_time < $2
-        AND a.id != $3
-      ORDER BY a.publish_time DESC, a.id DESC
-      LIMIT 1
-      `,
-      [linkedCategorySlugs, article.publish_time, article.id]
-    );
+  return (
+    <>
+      <Header />
 
-    // 4. 查询下一篇（按联动范围）
-    const nextResult = await pool.query(
-      `
-      SELECT a.slug, a.title
-      FROM articles a
-      JOIN categories c ON c.id = a.category_id
-      WHERE a.status = 'published'
-        AND c.slug = ANY($1::text[])
-        AND a.publish_time > $2
-        AND a.id != $3
-      ORDER BY a.publish_time ASC, a.id ASC
-      LIMIT 1
-      `,
-      [linkedCategorySlugs, article.publish_time, article.id]
-    );
+      <div className="bg-gray-100 py-3">
+        <div className="max-w-5xl mx-auto px-6">
+          <nav className="flex text-sm text-gray-600">
+            <Link href="/" className="hover:text-blue-600">首页</Link>
+            <span className="mx-2">›</span>
+            <Link href={listHref} className="hover:text-blue-600">{listName}</Link>
+            <span className="mx-2">›</span>
+            <span className="text-blue-600 line-clamp-1">{article.title}</span>
+          </nav>
+        </div>
+      </div>
 
-    const prevArticle = prevResult.rows[0] || null;
-    const nextArticle = nextResult.rows[0] || null;
+      <div className="max-w-5xl mx-auto px-6 py-10">
+        <h1 className="text-3xl md:text-4xl font-bold mb-4 text-gray-900 leading-tight">
+          {article.title}
+        </h1>
 
-    const coverImage =
-      (article.images && article.images.length > 0
-        ? article.images[0]
-        : article.cover_image_url) || null;
-
-    const fromQuery = from ? `?from=${from}` : '';
-
-    return (
-      <>
-        <Header />
-
-        {/* 面包屑 */}
-        <div className="bg-gray-100 py-3">
-          <div className="max-w-5xl mx-auto px-6">
-            <nav className="flex text-sm text-gray-600">
-              <a href="/" className="hover:text-blue-600">首页</a>
-              <span className="mx-2">›</span>
-              <a href={listHref} className="hover:text-blue-600">{listName}</a>
-              <span className="mx-2">›</span>
-              <span className="text-blue-600 line-clamp-1">{article.title}</span>
-            </nav>
-          </div>
+        <div className="flex flex-wrap gap-x-6 gap-y-2 text-base text-gray-500 mb-8 border-b pb-6">
+          <span>
+            {article.publish_time
+              ? new Date(article.publish_time).toLocaleDateString('zh-CN')
+              : '--'}
+          </span>
+          {article.is_top && (
+            <span className="px-3 py-1 bg-amber-100 text-amber-700 text-xs rounded-full">
+              置顶
+            </span>
+          )}
         </div>
 
-        {/* 主内容 */}
-        <div className="max-w-5xl mx-auto px-6 py-10">
-          <h1 className="text-3xl md:text-4xl font-bold mb-4 text-gray-900 leading-tight">
-            {article.title}
-          </h1>
+        <div
+          className="prose prose-gray max-w-none text-xl leading-9 md:text-[22px] md:leading-10
+                     prose-table:border prose-table:border-gray-400 prose-table:border-collapse
+                     prose-table:w-full prose-table:table-auto
+                     prose-th:border prose-th:border-gray-400 prose-th:bg-gray-100
+                     prose-th:font-semibold prose-th:p-4 prose-th:text-left prose-th:align-middle
+                     prose-td:border prose-td:border-gray-400 prose-td:p-4 prose-td:text-left prose-td:align-middle
+                     prose-headings:font-bold prose-headings:text-gray-900
+                     prose-strong:font-semibold"
+          dangerouslySetInnerHTML={{ __html: article.content || '<p>暂无内容</p>' }}
+        />
 
-          {article.subtitle && (
-            <p className="text-2xl text-gray-600 mb-6">{article.subtitle}</p>
-          )}
-
-          <div className="flex flex-wrap gap-x-6 gap-y-2 text-base text-gray-500 mb-8 border-b pb-6">
-            <span>
-              {article.publish_time
-                ? new Date(article.publish_time).toLocaleDateString('zh-CN')
-                : '--'}
-            </span>
-            {article.author_name && <span>作者：{article.author_name}</span>}
-            {article.source && <span>来源：{article.source}</span>}
-            <span>浏览量：{article.view_count || 0}</span>
-          </div>
-
-          <div
-            className="prose prose-gray max-w-none text-xl leading-9 md:text-[22px] md:leading-10"
-            dangerouslySetInnerHTML={{ __html: article.content_html || '' }}
-          />
-
-          {coverImage && (
-            <img
+        {coverImage && (
+          <div className="relative w-full mt-10 rounded-xl overflow-hidden shadow-md aspect-[16/9]">
+            <Image
               src={coverImage}
               alt={article.title}
-              className="w-full rounded-xl mt-10 object-cover shadow-md"
+              fill
+              className="object-cover"
+              sizes="(max-width: 768px) 100vw, 80vw"
+              priority
             />
-          )}
-        </div>
+          </div>
+        )}
+      </div>
 
-        {/* 上一条 / 下一条（保留 from 参数） */}
-        <div className="w-full border-t border-gray-200 bg-white py-12">
-          <div className="max-w-5xl mx-auto px-6">
-            <div className="flex flex-col md:flex-row justify-between items-stretch gap-8 text-base">
-              {prevArticle ? (
-                <a
-                  href={`/article/${prevArticle.slug}${fromQuery}`}
-                  className="group flex-1 flex items-start gap-5 p-6 rounded-2xl border border-gray-100 hover:border-blue-200 hover:bg-blue-50/80 transition-all shadow-sm"
-                >
-                  <div className="text-4xl text-blue-500 font-light leading-none mt-0.5">←</div>
-                  <div className="flex-1">
-                    <span className="text-blue-600 text-sm font-medium tracking-widest">上一条</span>
-                    <p className="mt-2 text-lg font-medium text-gray-800 group-hover:text-blue-700 line-clamp-2 leading-snug">
-                      {prevArticle.title}
-                    </p>
-                  </div>
-                </a>
-              ) : (
-                <div className="flex-1 p-6 text-gray-400 text-base">没有更多了</div>
-              )}
+      <div className="w-full border-t border-gray-200 bg-white py-12">
+        <div className="max-w-5xl mx-auto px-6">
+          <div className="flex flex-col md:flex-row justify-between items-stretch gap-8 text-base">
+            {prev ? (
+              <Link
+                href={`/article/${prev.slug}${fromQuery}`}
+                className="group flex-1 flex items-start gap-5 p-6 rounded-2xl border border-gray-100 hover:border-blue-200 hover:bg-blue-50/80 transition-all shadow-sm"
+              >
+                <div className="text-4xl text-blue-500 font-light leading-none mt-0.5">←</div>
+                <div className="flex-1">
+                  <span className="text-blue-600 text-sm font-medium tracking-widest">上一条</span>
+                  <p className="mt-2 text-lg font-medium text-gray-800 group-hover:text-blue-700 line-clamp-2 leading-snug">
+                    {prev.title}
+                  </p>
+                </div>
+              </Link>
+            ) : (
+              <div className="flex-1 p-6 text-gray-400 text-base">没有更多了</div>
+            )}
 
-              {nextArticle ? (
-                <a
-                  href={`/article/${nextArticle.slug}${fromQuery}`}
-                  className="group flex-1 flex items-start gap-5 p-6 rounded-2xl border border-gray-100 hover:border-blue-200 hover:bg-blue-50/80 transition-all shadow-sm text-right"
-                >
-                  <div className="flex-1">
-                    <span className="text-blue-600 text-sm font-medium tracking-widest">下一条</span>
-                    <p className="mt-2 text-lg font-medium text-gray-800 group-hover:text-blue-700 line-clamp-2 leading-snug">
-                      {nextArticle.title}
-                    </p>
-                  </div>
-                  <div className="text-4xl text-blue-500 font-light leading-none mt-0.5">→</div>
-                </a>
-              ) : (
-                <div className="flex-1 p-6 text-gray-400 text-base text-right">没有更多了</div>
-              )}
-            </div>
+            {next ? (
+              <Link
+                href={`/article/${next.slug}${fromQuery}`}
+                className="group flex-1 flex items-start gap-5 p-6 rounded-2xl border border-gray-100 hover:border-blue-200 hover:bg-blue-50/80 transition-all shadow-sm text-right"
+              >
+                <div className="flex-1">
+                  <span className="text-blue-600 text-sm font-medium tracking-widest">下一条</span>
+                  <p className="mt-2 text-lg font-medium text-gray-800 group-hover:text-blue-700 line-clamp-2 leading-snug">
+                    {next.title}
+                  </p>
+                </div>
+                <div className="text-4xl text-blue-500 font-light leading-none mt-0.5">→</div>
+              </Link>
+            ) : (
+              <div className="flex-1 p-6 text-gray-400 text-base text-right">没有更多了</div>
+            )}
           </div>
         </div>
+      </div>
 
-        <Footer />
-      </>
-    );
-  } catch (error) {
-    console.error('详情页错误:', error);
-    notFound();
-  }
+      <Footer />
+    </>
+  );
 }

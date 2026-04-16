@@ -161,43 +161,69 @@ export default function ArticlesPage() {
   };
 
   const saveArticle = async (e: React.FormEvent) => {
-    e.preventDefault();
+  e.preventDefault();
 
-    if (!form.primaryCategoryId) {
-      alert('请选择一级分类');
-      return;
+  if (!form.title.trim()) {
+    alert('标题不能为空');
+    return;
+  }
+
+  if (!form.primaryCategoryId) {
+    alert('请选择一级分类');
+    return;
+  }
+
+  try {
+    // ==================== 优化后的 slug 生成（严格符合 Strapi 正则） ====================
+    const generateSlug = (title: string): string => {
+      let slug = title
+        .trim()
+        .toLowerCase()
+        .replace(/[\s\u3000]+/g, '-')                    // 空格 → -
+        .replace(/[^a-z0-9_-]/g, '')                     // 严格移除所有不符合正则的字符（包括中文）
+        .replace(/-+/g, '-')                             // 连续 - 合并
+        .replace(/^-|-$/g, '');                          // 去掉首尾 -
+
+      // 如果全是中文导致 slug 为空，自动生成一个合法后备 slug
+      if (!slug) {
+        slug = `article-${Date.now()}`;
+      }
+      return slug;
+    };
+
+    let coverId = form.coverId;
+    if (coverFile) {
+      const uploaded = (await uploadFile(coverFile)) as UploadedFile[];
+      if (uploaded?.[0]?.id) coverId = String(uploaded[0].id);
     }
 
-    try {
-      let coverId = form.coverId;
-      if (coverFile) {
-        const uploaded = (await uploadFile(coverFile)) as UploadedFile[];
-        if (uploaded?.[0]?.id) coverId = String(uploaded[0].id);
-      }
+    const payload: Record<string, unknown> = {
+      title: form.title,
+      slug: generateSlug(form.title),           // ← 关键修复：强制生成合法 slug
+      summary: form.summary,
+      content: form.content,
+      review_status: 'draft',
+      primary_category: Number(form.primaryCategoryId),
+      secondary_category: form.secondaryCategoryId ? Number(form.secondaryCategoryId) : null,
+      cover: coverId ? Number(coverId) : null,
+    };
 
-      const payload: Record<string, unknown> = {
-        title: form.title,
-        summary: form.summary,
-        content: form.content,
-        review_status: 'draft',
-        primary_category: Number(form.primaryCategoryId),
-        secondary_category: form.secondaryCategoryId ? Number(form.secondaryCategoryId) : null,
-        cover: coverId ? Number(coverId) : null,
-      };
-
-      if (editingKey) {
-        await api.updateArticle(editingKey, payload);
-      } else {
-        await api.createArticle(payload);
-      }
-
-      closeModal();
-      await fetchArticles();
-    } catch (error) {
-      console.error('Save error:', error);
-      alert('保存失败：' + (error instanceof Error ? error.message : '未知错误'));
+    if (editingKey) {
+      await api.updateArticle(editingKey, payload);
+    } else {
+      await api.createArticle(payload);
     }
-  };
+
+    closeModal();
+    await fetchArticles();
+    alert('保存成功！');
+  } catch (error) {
+    console.error('Save error:', error);
+    alert('保存失败：' + (error instanceof Error ? error.message : '未知错误'));
+  }
+};
+
+
 
   const submitForReview = async (article: Article) => {
     try {

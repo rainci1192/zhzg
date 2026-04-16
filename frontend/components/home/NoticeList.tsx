@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { getHomeNotices } from '@/lib/api';
+import HomeSectionSkeleton from '@/components/home/HomeSectionSkeleton';
 
 interface ArticleItem {
   id: number;
@@ -26,9 +27,11 @@ export default function NoticeList() {
         if (!mounted) return;
         const data = Array.isArray(json?.data) ? json.data : [];
         setList(data);
-      } catch (err: any) {
+      } catch (err: unknown) {
+        if (!mounted) return;
         console.error('getHomeNotices error:', err);
-        setError(err.message || '加载失败');
+        const msg = err instanceof Error ? err.message : '加载失败';
+        setError(msg);
       } finally {
         if (mounted) setLoading(false);
       }
@@ -50,7 +53,11 @@ export default function NoticeList() {
   };
 
   if (loading) {
-    return <div className="px-12 py-8">加载中...</div>;
+    return (
+      <div className="px-12 py-8">
+        <HomeSectionSkeleton mode="notice" />
+      </div>
+    );
   }
 
   if (error) {

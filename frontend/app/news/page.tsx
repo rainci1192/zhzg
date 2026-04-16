@@ -1,32 +1,25 @@
+import type { Metadata } from 'next';
+import { buildPagedMetadata } from '@/lib/seo/metadata';
+import { getNewsPageList, type ListArticleItem } from '@/lib/api';
+import { getPageNumbers } from '@/lib/pagination';
+import { PAGE_SIZE } from '@/lib/constants';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import Breadcrumb from '@/components/layout/Breadcrumb';
 import Link from 'next/link';
-import pool from '@/lib/db';
 
-const PAGE_SIZE = 6;
-
-type NewsItem = {
-  id: number;
-  title: string;
-  slug: string;
-  summary: string | null;
-  publish_time: string | null;
-  category_slug: string;
-};
-
-function getPageNumbers(current: number, total: number): (number | '...')[] {
-  if (total <= 7) {
-    return Array.from({ length: total }, (_, i) => i + 1);
-  }
-  const pages: (number | '...')[] = [1];
-  if (current > 4) pages.push('...');
-  const start = Math.max(2, current - 1);
-  const end = Math.min(total - 1, current + 1);
-  for (let i = start; i <= end; i++) pages.push(i);
-  if (current < total - 3) pages.push('...');
-  pages.push(total);
-  return pages;
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>;
+}): Promise<Metadata> {
+  const sp = await searchParams;
+  return buildPagedMetadata({
+    title: '新闻动态 - 国家卓越工程师学院',
+    description: '国家卓越工程师学院新闻动态栏目，发布学院新闻、活动与重要资讯。',
+    basePath: '/news',
+    page: sp?.page,
+  });
 }
 
 export default async function NewsPage({
@@ -42,36 +35,12 @@ export default async function NewsPage({
     { name: '新闻动态', href: '/news' },
   ];
 
-  // 总数（新闻动态 + 科研动态）
-  const countRes = await pool.query(`
-    SELECT COUNT(*)::int AS total
-    FROM articles a
-    JOIN categories c ON c.id = a.category_id
-    WHERE a.status = 'published'
-      AND c.slug IN ('news', 'research-news')
-  `);
+  const resp = await getNewsPageList(currentPage, PAGE_SIZE.NEWS);
+  const newsItems: ListArticleItem[] = resp.data || [];
 
-  const total = countRes.rows[0]?.total || 0;
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const total = resp.meta?.pagination?.total || 0;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE.NEWS));
   const safePage = Math.min(currentPage, totalPages);
-  const safeOffset = (safePage - 1) * PAGE_SIZE;
-
-  // 当前页数据
-  const listRes = await pool.query(
-    `
-    SELECT
-      a.id, a.title, a.slug, a.summary, a.publish_time, c.slug AS category_slug
-    FROM articles a
-    JOIN categories c ON c.id = a.category_id
-    WHERE a.status = 'published'
-      AND c.slug IN ('news', 'research-news')
-    ORDER BY a.is_top DESC, a.publish_time DESC NULLS LAST, a.id DESC
-    LIMIT $1 OFFSET $2
-    `,
-    [PAGE_SIZE, safeOffset]
-  );
-
-  const newsItems: NewsItem[] = listRes.rows;
   const pageNumbers = getPageNumbers(safePage, totalPages);
 
   return (
@@ -119,7 +88,6 @@ export default async function NewsPage({
             </div>
           )}
 
-          {/* 完整分页：上一页 + 中间页码 + 下一页 */}
           <div className="flex justify-center items-center gap-2 mt-8 flex-wrap">
             {safePage > 1 ? (
               <Link
@@ -129,24 +97,18 @@ export default async function NewsPage({
                 上一页
               </Link>
             ) : (
-              <span className="px-4 py-2 bg-gray-100 text-gray-400 rounded cursor-not-allowed">
-                上一页
-              </span>
+              <span className="px-4 py-2 bg-gray-100 text-gray-400 rounded cursor-not-allowed">上一页</span>
             )}
 
             {pageNumbers.map((p, idx) =>
               p === '...' ? (
-                <span key={`ellipsis-${idx}`} className="px-2 py-2 text-gray-400">
-                  ...
-                </span>
+                <span key={`ellipsis-${idx}`} className="px-2 py-2 text-gray-400">...</span>
               ) : (
                 <Link
                   key={p}
                   href={`/news?page=${p}`}
                   className={`px-4 py-2 rounded transition-colors ${
-                    p === safePage
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                    p === safePage ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
                   }`}
                 >
                   {p}
@@ -162,9 +124,7 @@ export default async function NewsPage({
                 下一页
               </Link>
             ) : (
-              <span className="px-4 py-2 bg-gray-100 text-gray-400 rounded cursor-not-allowed">
-                下一页
-              </span>
+              <span className="px-4 py-2 bg-gray-100 text-gray-400 rounded cursor-not-allowed">下一页</span>
             )}
           </div>
         </div>

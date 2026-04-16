@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { getHomeNews } from '@/lib/api';
+import HomeSectionSkeleton from '@/components/home/HomeSectionSkeleton';
 
 interface MediaItem {
   url?: string;
@@ -40,7 +41,7 @@ export default function NewsList() {
       try {
         const json = await getHomeNews();
         if (!mounted) return;
-        setNewsData((json?.data || []) as NewsItem[]);
+        setNewsData(Array.isArray(json?.data) ? (json.data as NewsItem[]) : []);
       } catch (e) {
         console.error('getHomeNews error:', e);
       } finally {
@@ -93,7 +94,11 @@ export default function NewsList() {
     return toAbsoluteUrl(raw);
   };
 
-  // 标题区永远显示
+  // 当前轮播项（确保 currentSlide 有效）
+  const slideCount = Math.min(newsData.length, 5);
+  const safeSlideIndex = slideCount > 0 ? currentSlide % slideCount : 0;
+  const activeItem = newsData[safeSlideIndex] || newsData[0];
+
   return (
     <div
       ref={containerRef}
@@ -129,45 +134,32 @@ export default function NewsList() {
 
       {/* 加载状态 */}
       {loading ? (
-        <div className="animate-pulse flex gap-8">
-          <div className="w-2/5 flex-shrink-0 aspect-[4/3] bg-gray-200 rounded"></div>
-          <div className="flex-1 space-y-6">
-            {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="flex gap-4 py-4 border-b border-gray-100">
-                <div className="w-16 h-10 bg-gray-200 rounded"></div>
-                <div className="flex-1 space-y-2">
-                  <div className="h-5 bg-gray-200 rounded w-3/4"></div>
-                  <div className="h-4 bg-gray-100 rounded w-full"></div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+        <HomeSectionSkeleton mode="news" />
       ) : newsData.length === 0 ? (
-        /* 空状态 */
         <div className="text-gray-500 text-center py-12">暂无新闻数据</div>
       ) : (
-        /* 正常内容：轮播 + 右侧列表 */
         <div className="flex gap-8 items-stretch">
           {/* 左侧轮播卡片 */}
           <div className="w-1/3 flex-shrink-0">
-            <Link href={`/article/${newsData[0].slug}`} className="block group h-full flex flex-col">
+            <Link href={`/article/${activeItem.slug}?from=news`} className="block group h-full flex flex-col">
               <div className="relative w-full aspect-[3/2] overflow-hidden bg-gray-200">
-                {getImage(newsData[0]) ? (
+                {getImage(activeItem) ? (
                   <Image
-                    src={getImage(newsData[0])!}
-                    alt={newsData[0].title}
+                    src={getImage(activeItem)!}
+                    alt={activeItem.title}
                     fill
                     className="object-cover transition-transform duration-500 group-hover:scale-105"
                     sizes="40vw"
+                    priority
                   />
                 ) : (
                   <div className="absolute inset-0 bg-gradient-to-br from-blue-600 to-blue-400 flex items-center justify-center">
                     <span className="text-white text-6xl font-bold">
-                      {formatDate(newsData[0].publish_time).day}
+                      {formatDate(activeItem.publish_time).day}
                     </span>
                   </div>
                 )}
+
                 <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-2 z-10">
                   {newsData.slice(0, 5).map((_, i) => (
                     <button
@@ -177,7 +169,7 @@ export default function NewsList() {
                         setCurrentSlide(i);
                       }}
                       className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${
-                        i === currentSlide ? 'bg-blue-500 scale-125' : 'bg-white/70'
+                        i === safeSlideIndex ? 'bg-blue-500 scale-125' : 'bg-white/70'
                       }`}
                     />
                   ))}
@@ -188,18 +180,18 @@ export default function NewsList() {
                 <div className="flex items-start gap-3">
                   <div className="flex-shrink-0 text-center">
                     <div className="text-3xl font-bold leading-none">
-                      {formatDate(newsData[0].publish_time).day}
+                      {formatDate(activeItem.publish_time).day}
                     </div>
                     <div className="text-xs opacity-80 mt-1">
-                      {formatDate(newsData[0].publish_time).ym}
+                      {formatDate(activeItem.publish_time).ym}
                     </div>
                   </div>
                   <div className="flex-1 min-w-0">
                     <h3 className="font-bold text-base leading-tight line-clamp-1 group-hover:underline">
-                      {newsData[0].title}
+                      {activeItem.title}
                     </h3>
                     <p className="text-xs opacity-80 mt-1 line-clamp-2 leading-relaxed">
-                      {newsData[0].summary || ''}
+                      {activeItem.summary || ''}
                     </p>
                   </div>
                 </div>
@@ -215,11 +207,11 @@ export default function NewsList() {
               return (
                 <Link
                   key={news.id}
-                  href={`/article/${news.slug}`}
+                  href={`/article/${news.slug}?from=news`}
                   className="group block bg-white rounded-lg shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden"
                 >
                   <div className="flex items-stretch">
-                    {/* 炫丽日期卡片 */}
+                    {/* 日期卡片 */}
                     <div className="relative w-20 flex-shrink-0 bg-gradient-to-br from-blue-500 to-blue-600 group-hover:from-blue-600 group-hover:to-blue-700 transition-all duration-500">
                       <div className="h-full flex flex-col items-center justify-center p-3 relative overflow-hidden">
                         <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>

@@ -16,5 +16,11 @@ const config: Config = {
   },
   plugins: [],
 };
+
+module.exports = {
+  content: ["./app/**/*.{js,ts,jsx,tsx}", "./components/**/*.{js,ts,jsx,tsx}"],
+  plugins: [require('@tailwindcss/typography')],
+}
+
 export default config;
 
