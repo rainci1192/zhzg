@@ -1,6 +1,58 @@
 import { notFound } from 'next/navigation';
-import pool from '@/lib/db';
+import Image from 'next/image';
 import AboutSingleLayout from '@/components/about/AboutSingleLayout';
+
+export const dynamic = 'force-dynamic';
+
+const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:1337';
+
+interface PageData {
+  id: number;
+  slug: string;
+  title: string;
+  subtitle?: string;
+  content?: string;
+  publish_status: 'draft' | 'published';
+  cover?: { url?: string } | null;
+}
+
+interface PagesResp {
+  data?: PageData[];
+}
+
+async function getPageBySlug(slug: string): Promise<PageData | null> {
+  const qs = new URLSearchParams({
+    'filters[slug][$eq]': slug,
+    'filters[publish_status][$eq]': 'published',
+    'populate[0]': 'cover',
+  }).toString();
+
+  try {
+    const res = await fetch(`${API}/api/pages?${qs}`, {
+      next: { revalidate: 30 },
+      headers: { Accept: 'application/json' },
+    });
+
+    if (!res.ok) return null;
+
+    const json = (await res.json()) as PagesResp;
+    const item = json?.data?.[0];
+    if (!item) return null;
+
+    return {
+      id: item.id,
+      slug: item.slug || '',
+      title: item.title || '',
+      subtitle: item.subtitle || '',
+      content: item.content || '',
+      publish_status: item.publish_status,
+      cover: item.cover || null,
+    };
+  } catch (error) {
+    console.error('getPageBySlug error:', error);
+    return null;
+  }
+}
 
 export default async function AboutIntro() {
   const breadcrumbItems = [
@@ -9,53 +61,35 @@ export default async function AboutIntro() {
     { name: '学院简介', href: '/about/intro' },
   ];
 
-  // 按栏目 slug=about-intro 查询最新已发布文章
-  const catRes = await pool.query(
-    `SELECT id FROM categories WHERE slug = $1 LIMIT 1`,
-    ['about-intro']
-  );
-  if (catRes.rows.length === 0) notFound();
+  const page = await getPageBySlug('about-intro');
+  if (!page) notFound();
 
-  const categoryId = catRes.rows[0].id;
-
-  const articleRes = await pool.query(
-    `
-    SELECT id, title, subtitle, content_html, cover_image_url, images
-    FROM articles
-    WHERE category_id = $1 AND status = 'published'
-    ORDER BY publish_time DESC NULLS LAST, id DESC
-    LIMIT 1
-    `,
-    [categoryId]
-  );
-
-  if (articleRes.rows.length === 0) notFound();
-
-  const article = articleRes.rows[0];
-  const coverImage =
-    (article.images && article.images.length > 0 ? article.images[0] : article.cover_image_url) || null;
+  const coverImage = page.cover?.url ? `${API}${page.cover.url}` : null;
 
   return (
     <AboutSingleLayout
       pageTitle="学院简介"
-      sectionTitle={article.title || '学院简介'}
+      sectionTitle={page.title || '学院简介'}
       breadcrumbItems={breadcrumbItems}
     >
-      {article.subtitle && (
-        <p className="text-xl text-gray-600 mb-6">{article.subtitle}</p>
+      {page.subtitle && (
+        <p className="text-xl text-gray-600 mb-6">{page.subtitle}</p>
       )}
 
       <div
-        className="prose prose-gray max-w-none text-[21px] leading-10 md:text-[22px] md:leading-[2.2]"
-        dangerouslySetInnerHTML={{ __html: article.content_html || '' }}
+        className="article-content max-w-none"
+        dangerouslySetInnerHTML={{ __html: page.content || '' }}
       />
 
       {coverImage && (
-        <div className="mt-10">
-          <img
+        <div className="mt-10 relative w-full rounded-lg overflow-hidden shadow-md">
+          <Image
             src={coverImage}
-            alt={article.title || '学院简介图片'}
-            className="w-full rounded-lg shadow-md"
+            alt={page.title || '学院简介图片'}
+            width={1200}
+            height={600}
+            className="w-full h-auto"
+            priority
           />
         </div>
       )}

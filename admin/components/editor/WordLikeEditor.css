@@ -1,0 +1,19 @@
+/* 修复 CKEditor 5 编辑区域的空格显示问题 */
+.ck.ck-editor__editable {
+  white-space: pre-wrap !important;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+/* 针对编辑区域内的段落 */
+.ck.ck-editor__editable p {
+  white-space: pre-wrap !important;
+  
+  /* ✅ 新增：自动为每个段落首行缩进2个汉字 */
+  text-indent: 2em;
+}
+
+/* 针对编辑区域内的所有文本节点 */
+.ck.ck-editor__editable * {
+  white-space: inherit;
+}

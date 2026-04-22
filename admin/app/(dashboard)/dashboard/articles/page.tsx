@@ -1,8 +1,8 @@
- 
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
+import Image from 'next/image'; // ✅ 新增：导入 Next.js Image 组件
 import { api, uploadFile } from '@/lib/api';
 import { Plus, Edit, Trash2, Eye, Send, CheckCircle } from 'lucide-react';
 
@@ -110,18 +110,18 @@ export default function ArticlesPage() {
 
   // 二级：parentCategory.id = 选中的一级 id
   const secondaryOptions = useMemo(() => {
-  const pid = Number(form.primaryCategoryId);
-  if (!pid) return [];
+    const pid = Number(form.primaryCategoryId);
+    if (!pid) return [];
 
-  return categories.filter((c) => {
-    const parentId =
-      c.parentCategory?.id ??
-      // 兼容历史字段
-      (c as unknown as { parent?: { id?: number } }).parent?.id ??
-      null;
+    return categories.filter((c) => {
+      const parentId =
+        c.parentCategory?.id ??
+        // 兼容历史字段
+        (c as unknown as { parent?: { id?: number } }).parent?.id ??
+        null;
 
-    return parentId === pid;
-  });
+      return parentId === pid;
+    });
   }, [categories, form.primaryCategoryId]);
 
   const openModal = (article?: Article) => {
@@ -161,69 +161,67 @@ export default function ArticlesPage() {
   };
 
   const saveArticle = async (e: React.FormEvent) => {
-  e.preventDefault();
+    e.preventDefault();
 
-  if (!form.title.trim()) {
-    alert('标题不能为空');
-    return;
-  }
+    if (!form.title.trim()) {
+      alert('标题不能为空');
+      return;
+    }
 
-  if (!form.primaryCategoryId) {
-    alert('请选择一级分类');
-    return;
-  }
+    if (!form.primaryCategoryId) {
+      alert('请选择一级分类');
+      return;
+    }
 
-  try {
-    // ==================== 优化后的 slug 生成（严格符合 Strapi 正则） ====================
-    const generateSlug = (title: string): string => {
-      let slug = title
-        .trim()
-        .toLowerCase()
-        .replace(/[\s\u3000]+/g, '-')                    // 空格 → -
-        .replace(/[^a-z0-9_-]/g, '')                     // 严格移除所有不符合正则的字符（包括中文）
-        .replace(/-+/g, '-')                             // 连续 - 合并
-        .replace(/^-|-$/g, '');                          // 去掉首尾 -
+    try {
+      // ==================== 优化后的 slug 生成（严格符合 Strapi 正则） ====================
+      const generateSlug = (title: string): string => {
+        let slug = title
+          .trim()
+          .toLowerCase()
+          .replace(/[\s\u3000]+/g, '-')                    // 空格 → -
+          .replace(/[^a-z0-9_-]/g, '')                     // 严格移除所有不符合正则的字符（包括中文）
+          .replace(/-+/g, '-')                             // 连续 - 合并
+          .replace(/^-|-$/g, '');                          // 去掉首尾 -
 
-      // 如果全是中文导致 slug 为空，自动生成一个合法后备 slug
-      if (!slug) {
-        slug = `article-${Date.now()}`;
+        // 如果全是中文导致 slug 为空，自动生成一个合法后备 slug
+        if (!slug) {
+          slug = `article-${Date.now()}`;
+        }
+        return slug;
+      };
+
+      let coverId = form.coverId;
+      if (coverFile) {
+        const uploaded = (await uploadFile(coverFile)) as UploadedFile[];
+        if (uploaded?.[0]?.id) coverId = String(uploaded[0].id);
       }
-      return slug;
-    };
 
-    let coverId = form.coverId;
-    if (coverFile) {
-      const uploaded = (await uploadFile(coverFile)) as UploadedFile[];
-      if (uploaded?.[0]?.id) coverId = String(uploaded[0].id);
+      const payload: Record<string, unknown> = {
+        title: form.title,
+        slug: generateSlug(form.title),           // ← 关键修复：强制生成合法 slug
+        summary: form.summary,
+        content: form.content,
+        review_status: 'draft',
+        primary_category: Number(form.primaryCategoryId),
+        secondary_category: form.secondaryCategoryId ? Number(form.secondaryCategoryId) : null,
+        cover: coverId ? Number(coverId) : null,
+      };
+
+      if (editingKey) {
+        await api.updateArticle(editingKey, payload);
+      } else {
+        await api.createArticle(payload);
+      }
+
+      closeModal();
+      await fetchArticles();
+      alert('保存成功！');
+    } catch (error) {
+      console.error('Save error:', error);
+      alert('保存失败：' + (error instanceof Error ? error.message : '未知错误'));
     }
-
-    const payload: Record<string, unknown> = {
-      title: form.title,
-      slug: generateSlug(form.title),           // ← 关键修复：强制生成合法 slug
-      summary: form.summary,
-      content: form.content,
-      review_status: 'draft',
-      primary_category: Number(form.primaryCategoryId),
-      secondary_category: form.secondaryCategoryId ? Number(form.secondaryCategoryId) : null,
-      cover: coverId ? Number(coverId) : null,
-    };
-
-    if (editingKey) {
-      await api.updateArticle(editingKey, payload);
-    } else {
-      await api.createArticle(payload);
-    }
-
-    closeModal();
-    await fetchArticles();
-    alert('保存成功！');
-  } catch (error) {
-    console.error('Save error:', error);
-    alert('保存失败：' + (error instanceof Error ? error.message : '未知错误'));
-  }
-};
-
-
+  };
 
   const submitForReview = async (article: Article) => {
     try {
@@ -398,7 +396,17 @@ export default function ArticlesPage() {
 
               <div>
                 <label className="block mb-2 font-medium">封面图</label>
-                {form.coverPreview && <img src={form.coverPreview} className="w-40 h-24 object-cover rounded mb-2" alt="cover" />}
+                {/* ✅ 核心修改：将 <img> 替换为 Next.js <Image /> 组件 */}
+                {form.coverPreview && (
+                  <Image 
+                    src={form.coverPreview} 
+                    width={160} 
+                    height={96} 
+                    className="w-40 h-24 object-cover rounded mb-2" 
+                    alt="cover"
+                    unoptimized
+                  />
+                )}
                 <input type="file" accept="image/*" onChange={(e) => setCoverFile(e.target.files?.[0] || null)} />
               </div>
 

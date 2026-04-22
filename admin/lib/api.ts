@@ -1,4 +1,3 @@
-
 const STRAPI_URL = process.env.NEXT_PUBLIC_STRAPI_URL || 'http://localhost:1337';
 
 function getAuthToken(): string | null {
@@ -47,7 +46,6 @@ async function strapiRequest<T>(endpoint: string, options: RequestInit = {}): Pr
 
 // 将 connect/disconnect 格式的关联字段转换为 Strapi v5 接受的 ID 或 null
  
- 
 interface RelationConnectItem {
   id: number;
 }
@@ -84,8 +82,6 @@ function normalizeRelations(data: unknown): Record<string, unknown> {
 
   return result;
 }
-
-
 
 // 登录：users-permissions
 export interface LoginResponse {
@@ -163,8 +159,8 @@ export const api = {
   deleteArticle: (id: string) =>
     strapiRequest<unknown>(`/api/articles/${id}`, { method: 'DELETE' }),
 
-  // banners
-  getBanners: (q = '?sort=sort_order:asc') => strapiRequest<unknown>(`/api/banners${q}`),
+  // banners (✅ 此处加入了 &populate=* 以便请求图片媒体数据)
+  getBanners: (q = '?sort=sort_order:asc&populate=*') => strapiRequest<unknown>(`/api/banners${q}`),
   createBanner: (data: unknown) =>
     strapiRequest<unknown>('/api/banners', { method: 'POST', body: JSON.stringify({ data }) }),
   updateBanner: (id: string, data: unknown) =>

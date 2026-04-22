@@ -258,11 +258,13 @@ export default async function ArticlePage({
       </div>
 
       <div className="max-w-5xl mx-auto px-6 py-10">
-        <h1 className="text-3xl md:text-4xl font-bold mb-4 text-gray-900 leading-tight">
+        <h1 className="text-3xl md:text-4xl font-bold mb-4 text-gray-900 leading-tight text-center">
           {article.title}
         </h1>
 
-        <div className="flex flex-wrap gap-x-6 gap-y-2 text-base text-gray-500 mb-8 border-b pb-6">
+
+        <div className="flex flex-wrap gap-x-6 gap-y-2 text-base text-gray-500 mb-8 border-b pb-6 justify-center">
+
           <span>
             {article.publish_time
               ? new Date(article.publish_time).toLocaleDateString('zh-CN')
@@ -275,15 +277,9 @@ export default async function ArticlePage({
           )}
         </div>
 
+        {/* ✅ 核心修改：简化 className，使用 article-content 类 */}
         <div
-          className="prose prose-gray max-w-none text-xl leading-9 md:text-[22px] md:leading-10
-                     prose-table:border prose-table:border-gray-400 prose-table:border-collapse
-                     prose-table:w-full prose-table:table-auto
-                     prose-th:border prose-th:border-gray-400 prose-th:bg-gray-100
-                     prose-th:font-semibold prose-th:p-4 prose-th:text-left prose-th:align-middle
-                     prose-td:border prose-td:border-gray-400 prose-td:p-4 prose-td:text-left prose-td:align-middle
-                     prose-headings:font-bold prose-headings:text-gray-900
-                     prose-strong:font-semibold"
+          className="article-content prose max-w-none"
           dangerouslySetInnerHTML={{ __html: article.content || '<p>暂无内容</p>' }}
         />
 

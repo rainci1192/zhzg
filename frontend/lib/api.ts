@@ -2,7 +2,7 @@ const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:1337";
 
 async function request<T>(path: string): Promise<T> {
   const res = await fetch(`${API}${path}`, {
-    cache: "no-store",
+    cache: "no-store", // 这里默认不缓存，保证每次能拿到最新数据
     headers: { Accept: "application/json" },
   });
 
@@ -12,6 +12,8 @@ async function request<T>(path: string): Promise<T> {
 
   return res.json() as Promise<T>;
 }
+
+// ================= 类型定义 =================
 
 export interface ArticleItem {
   id: number;
@@ -54,6 +56,37 @@ export interface ListArticleItem {
   publish_time?: string | null;
   category_slug?: string;
 }
+
+// ✅ 新增：Banner 轮播图的数据类型
+export interface BannerItem {
+  id: number;
+  documentId?: string;
+  title?: string;
+  link?: string | null;
+  image?: {
+    url: string;
+  };
+}
+
+// ================= API 请求方法 =================
+
+/** ✅ 新增：获取「已启用」的轮播图列表 */
+export const getActiveBanners = async (): Promise<BannerItem[]> => {
+  const query = new URLSearchParams({
+    "filters[is_active][$eq]": "true", // 只查询被激活的 Banner
+    populate: "*",                     // 填充关联的图片数据
+    sort: "sort_order:asc",            // 按照排序字段升序排列
+  }).toString();
+
+  try {
+    // 复用你的 request 封装
+    const res = await request<any>(`/api/banners?${query}`);
+    return res.data || [];
+  } catch (error) {
+    console.error('❌ 获取 Banners 失败:', error);
+    return []; // 发生错误时返回空数组，防止前端崩溃
+  }
+};
 
 /** 获取「新闻动态」（一级分类 name = 学院新闻） */
 export const getHomeNews = async (): Promise<ListResp<ArticleItem>> => {
@@ -257,7 +290,6 @@ export const getSecondaryCategoryPageList = async (
     filters,
   });
 };
-
 
 /**
  * 合作动态列表页（一级分类=学院新闻 且 二级分类=合作动态）

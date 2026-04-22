@@ -3,18 +3,24 @@ import Footer from '@/components/layout/Footer';
 import Banner from '@/components/home/Banner';
 import NewsList from '@/components/home/NewsList';
 import NoticeList from '@/components/home/NoticeList';
+// 引入我们在上一步编写的 API 方法
+import { getActiveBanners } from '@/lib/api'; 
 
 // 保证首页每次请求都可拿到最新 CMS 数据（开发阶段建议开启）
 export const dynamic = 'force-dynamic';
 
-export default function Home() {
+// ✅ 将组件改为 async 函数，以便在服务端请求数据
+export default async function Home() {
+  // ✅ 在服务端获取已启用的轮播图数据
+  const banners = await getActiveBanners();
+
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
 
       <main className="flex-1">
-        {/* 轮播图单独占位，不加背景，不加外边距，避免与导航间出现空隙 */}
-        <Banner />
+        {/* ✅ 将获取到的 banners 数据作为属性传递给 Banner 组件 */}
+        <Banner banners={banners} />
 
         {/* 背景图从这里开始（轮播图下方） */}
         <section

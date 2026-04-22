@@ -98,13 +98,33 @@ export default function Header() {
     };
   }, [searchOpen]);
 
+  // ✅ 修复滚动闪动问题
   useEffect(() => {
+    let ticking = false;
+    const threshold = 80; // 提高阈值，避免在导航条高度变化时触发
+    const hysteresis = 20; // 滞后值，防止在阈值附近反复切换
+
     const handleScroll = () => {
-      setScrolled(window.scrollY > 60);
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          const scrollY = window.scrollY;
+
+          // 添加滞后逻辑：向下滚动超过阈值+滞后值才收缩，向上滚动低于阈值-滞后值才展开
+          if (!scrolled && scrollY > threshold + hysteresis) {
+            setScrolled(true);
+          } else if (scrolled && scrollY < threshold - hysteresis) {
+            setScrolled(false);
+          }
+
+          ticking = false;
+        });
+        ticking = true;
+      }
     };
+
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
+  }, [scrolled]); // ✅ 添加 scrolled 依赖
 
   return (
     <header className={`bg-[#003d82] shadow-md sticky top-0 z-50 transition-all duration-300`}>
@@ -215,4 +235,3 @@ export default function Header() {
     </header>
   );
 }
-

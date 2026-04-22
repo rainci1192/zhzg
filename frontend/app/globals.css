@@ -19,3 +19,182 @@ a {
   color: inherit;
 }
 
+/* ========================================
+   政府网站文章内容样式规范
+   ======================================== */
+
+/* 文章主体容器 */
+.article-content,
+.prose {
+  /* 字体：优先使用仿宋，回退到宋体 */
+  font-family: "FangSong", "SimSun", serif !important;
+  
+  /* 字号：小二号（18px），政府网站标准 */
+  font-size: 18px !important;
+  
+  /* 行高：2倍行距，提升可读性 */
+  line-height: 2 !important;
+  
+  /* 文字颜色 */
+  color: #333 !important;
+}
+
+/* 段落样式 */
+.article-content p,
+.prose p {
+  /* 首行缩进2个汉字（政府公文标准） */
+  text-indent: 2em !important;
+  
+  /* 段落间距 */
+  margin-bottom: 1em !important;
+  
+  /* 保留编辑器中输入的空格 */
+  white-space: pre-wrap !important;
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+}
+
+/* 标题样式（标题不缩进） */
+.article-content h1,
+.prose h1 {
+  font-size: 26px !important;
+  font-weight: bold !important;
+  text-indent: 0 !important;
+  margin: 1.5em 0 1em !important;
+  font-family: "SimHei", "Microsoft YaHei", sans-serif !important;
+}
+
+.article-content h2,
+.prose h2 {
+  font-size: 22px !important;
+  font-weight: bold !important;
+  text-indent: 0 !important;
+  margin: 1.5em 0 1em !important;
+  font-family: "SimHei", "Microsoft YaHei", sans-serif !important;
+}
+
+.article-content h3,
+.prose h3 {
+  font-size: 20px !important;
+  font-weight: bold !important;
+  text-indent: 0 !important;
+  margin: 1.5em 0 1em !important;
+  font-family: "SimHei", "Microsoft YaHei", sans-serif !important;
+}
+
+/* 列表样式 */
+.article-content ul,
+.article-content ol,
+.prose ul,
+.prose ol {
+  margin: 1em 0 !important;
+  padding-left: 2em !important;
+}
+
+.article-content li,
+.prose li {
+  text-indent: 0 !important;
+  margin-bottom: 0.5em !important;
+}
+
+/* 表格样式 */
+.article-content table,
+.prose table {
+  width: 100% !important;
+  border-collapse: collapse !important;
+  margin: 1.5em 0 !important;
+  font-size: 16px !important;
+}
+
+.article-content table th,
+.article-content table td,
+.prose table th,
+.prose table td {
+  border: 1px solid #333 !important;
+  padding: 8px 12px !important;
+  text-align: left !important;
+  text-indent: 0 !important;
+  vertical-align: middle !important;
+}
+
+.article-content table th,
+.prose table th {
+  background-color: #f5f5f5 !important;
+  font-weight: bold !important;
+  text-align: center !important;
+}
+
+/* 图片样式 */
+.article-content img,
+.prose img {
+  max-width: 100% !important;
+  height: auto !important;
+  display: block !important;
+  margin: 1.5em auto !important;
+}
+
+/* 引用块样式 */
+.article-content blockquote,
+.prose blockquote {
+  border-left: 4px solid #999 !important;
+  padding-left: 1em !important;
+  margin: 1.5em 0 !important;
+  color: #666 !important;
+  font-style: italic !important;
+  text-indent: 0 !important;
+}
+
+/* 链接样式 */
+.article-content a,
+.prose a {
+  color: #0066cc !important;
+  text-decoration: underline !important;
+}
+
+.article-content a:hover,
+.prose a:hover {
+  color: #0052a3 !important;
+}
+
+/* 加粗文本 */
+.article-content strong,
+.prose strong {
+  font-weight: bold !important;
+  font-family: "SimHei", "Microsoft YaHei", sans-serif !important;
+}
+
+/* 斜体文本 */
+.article-content em,
+.prose em {
+  font-style: italic !important;
+}
+
+/* 水平分割线 */
+.article-content hr,
+.prose hr {
+  border: none !important;
+  border-top: 1px solid #ddd !important;
+  margin: 2em 0 !important;
+}
+
+/* 代码块（如果有） */
+.article-content pre,
+.prose pre {
+  background-color: #f5f5f5 !important;
+  padding: 1em !important;
+  border-radius: 4px !important;
+  overflow-x: auto !important;
+  font-family: "Courier New", monospace !important;
+  font-size: 14px !important;
+  line-height: 1.5 !important;
+  text-indent: 0 !important;
+}
+
+.article-content code,
+.prose code {
+  font-family: "Courier New", monospace !important;
+  background-color: #f5f5f5 !important;
+  padding: 2px 6px !important;
+  border-radius: 3px !important;
+  font-size: 0.9em !important;
+}

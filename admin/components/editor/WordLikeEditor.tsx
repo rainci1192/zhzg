@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
+
 import {
   ClassicEditor,
   Essentials,
@@ -32,6 +33,8 @@ import {
   PasteFromOffice,
 } from 'ckeditor5';
 import 'ckeditor5/ckeditor5.css';
+import './WordLikeEditor.css'; // ✅ 新增：引入自定义样式
+
 
 interface Props {
   value: string;

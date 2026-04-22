@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { api } from '@/lib/api';
 import { Plus, Edit, Trash2, Image as ImageIcon } from 'lucide-react';
+import Image from 'next/image';
 
 interface Banner {
   id: string;
@@ -17,12 +18,19 @@ interface Banner {
   } | null;
 }
 
+interface BannerPayload {
+  title: string;
+  link: string;
+  sort_order: number;
+  is_active: boolean;
+  image?: number;
+}
+
 export default function BannersPage() {
   const [banners, setBanners] = useState<Banner[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // 新增/编辑弹窗状态
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingBanner, setEditingBanner] = useState<Banner | null>(null);
   const [formData, setFormData] = useState({
@@ -32,6 +40,10 @@ export default function BannersPage() {
     is_active: true,
     image: null as File | null,
   });
+  const [uploading, setUploading] = useState(false);
+
+  // 提取全局 Strapi URL，方便在组件内复用
+  const strapiUrl = process.env.NEXT_PUBLIC_STRAPI_URL || 'http://localhost:1337';
 
   const fetchBanners = async () => {
     try {
@@ -69,7 +81,7 @@ export default function BannersPage() {
         link: banner.link || '',
         sort_order: banner.sort_order,
         is_active: banner.is_active,
-        image: null,
+        image: null, // 打开时默认没有选择新图片
       });
     } else {
       setEditingBanner(null);
@@ -85,28 +97,74 @@ export default function BannersPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setUploading(true);
+
     try {
-      const payload = {
+      let imageId: number | null = null;
+
+      if (formData.image) {
+        const uploadFormData = new FormData();
+        uploadFormData.append('files', formData.image);
+        
+        const token = localStorage.getItem('strapi_jwt');
+        
+        if (!token) {
+          throw new Error('未找到登录凭证，请重新登录');
+        }
+        
+        console.log('📤 正在上传图片到:', `${strapiUrl}/api/upload`);
+        
+        const uploadRes = await fetch(`${strapiUrl}/api/upload`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+          body: uploadFormData,
+        });
+
+        if (!uploadRes.ok) {
+          const errorText = await uploadRes.text();
+          console.error('❌ 上传失败响应:', errorText);
+          throw new Error(`图片上传失败: ${uploadRes.status} ${uploadRes.statusText}`);
+        }
+
+        const uploadedFiles = await uploadRes.json();
+        console.log('✅ 上传成功:', uploadedFiles);
+        
+        if (uploadedFiles && uploadedFiles[0]) {
+          imageId = uploadedFiles[0].id;
+        }
+      }
+
+      const payload: BannerPayload = {
         title: formData.title,
         link: formData.link,
         sort_order: formData.sort_order,
         is_active: formData.is_active,
       };
 
+      if (imageId !== null) {
+        payload.image = imageId;
+      }
+
+      console.log('📦 提交的 payload:', payload);
+
       if (editingBanner) {
-        // 编辑
         await api.updateBanner(editingBanner.documentId, payload);
         alert('Banner 更新成功');
       } else {
-        // 新增（图片暂时用 FormData 简化，后续可扩展）
         await api.createBanner(payload);
         alert('Banner 创建成功');
       }
+
       closeModal();
       fetchBanners();
     } catch (err: unknown) {
-      alert('操作失败，请检查控制台');
-      console.error(err);
+      const message = err instanceof Error ? err.message : '操作失败';
+      alert(message);
+      console.error('❌ 提交失败:', err);
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -124,7 +182,6 @@ export default function BannersPage() {
 
   return (
     <div className="space-y-6">
-      {/* 标题 + 操作按钮 */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-2">
@@ -148,7 +205,6 @@ export default function BannersPage() {
         </div>
       )}
 
-      {/* 列表 */}
       {loading ? (
         <div className="text-center py-12 text-gray-400">加载中...</div>
       ) : (
@@ -165,51 +221,64 @@ export default function BannersPage() {
               </tr>
             </thead>
             <tbody className="divide-y">
-              {banners.map((banner) => (
-                <tr key={banner.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-6 py-4">
-                    {banner.image?.url ? (
-                      <img
-                        src={banner.image.url}
-                        alt={banner.title}
-                        className="w-16 h-16 object-cover rounded-xl border"
-                      />
-                    ) : (
-                      <div className="w-16 h-16 bg-gray-100 rounded-xl flex items-center justify-center text-gray-400 text-xs">无图</div>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 font-medium text-gray-900">{banner.title}</td>
-                  <td className="px-6 py-4 text-sm text-gray-500 break-all">{banner.link || '—'}</td>
-                  <td className="px-6 py-4 text-sm text-gray-500">{banner.sort_order}</td>
-                  <td className="px-6 py-4">
-                    <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${banner.is_active ? 'bg-emerald-100 text-emerald-600' : 'bg-gray-100 text-gray-600'}`}>
-                      {banner.is_active ? '显示' : '隐藏'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-center">
-                    <div className="flex items-center justify-center gap-3">
-                      <button
-                        onClick={() => openModal(banner)}
-                        className="text-blue-600 hover:text-blue-700"
+              {banners.map((banner) => {
+                return (
+                  <tr key={banner.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-6 py-4">
+                      {banner.image?.url ? (
+                        <div className="relative w-16 h-16">
+                          <Image
+                            src={`${strapiUrl}${banner.image.url}`}
+                            alt={banner.title}
+                            fill
+                            className="object-cover rounded-xl border"
+                            sizes="64px"
+                          />
+                        </div>
+                      ) : (
+                        <div className="w-16 h-16 bg-gray-100 rounded-xl flex items-center justify-center text-gray-400 text-xs">
+                          无图
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 font-medium text-gray-900">{banner.title}</td>
+                    <td className="px-6 py-4 text-sm text-gray-500 break-all">{banner.link || '—'}</td>
+                    <td className="px-6 py-4 text-sm text-gray-500">{banner.sort_order}</td>
+                    <td className="px-6 py-4">
+                      <span
+                        className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${
+                          banner.is_active
+                            ? 'bg-emerald-100 text-emerald-600'
+                            : 'bg-gray-100 text-gray-600'
+                        }`}
                       >
-                        <Edit className="w-5 h-5" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(banner.documentId)}
-                        className="text-red-500 hover:text-red-600"
-                      >
-                        <Trash2 className="w-5 h-5" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                        {banner.is_active ? '显示' : '隐藏'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <div className="flex items-center justify-center gap-3">
+                        <button
+                          onClick={() => openModal(banner)}
+                          className="text-blue-600 hover:text-blue-700"
+                        >
+                          <Edit className="w-5 h-5" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(banner.documentId)}
+                          className="text-red-500 hover:text-red-600"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
       )}
 
-      {/* 新增/编辑弹窗 */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg mx-4">
@@ -248,7 +317,9 @@ export default function BannersPage() {
                   <input
                     type="number"
                     value={formData.sort_order}
-                    onChange={(e) => setFormData({ ...formData, sort_order: parseInt(e.target.value) || 0 })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, sort_order: parseInt(e.target.value) || 0 })
+                    }
                     className="w-full px-5 py-4 border border-gray-200 rounded-2xl focus:outline-none focus:border-blue-500"
                   />
                 </div>
@@ -266,15 +337,40 @@ export default function BannersPage() {
                 </div>
               </div>
 
-              {/* 图片上传（简化版，实际生产可换为 Drag & Drop） */}
+              {/* ✅ 修改后的图片上传区域，加入了原图预览功能 */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">图片（可选）</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  图片（可选）
+                </label>
+
+                {/* 如果处于编辑模式，且本身带有图片，且当前没有选择新图片，则显示当前服务器原图 */}
+                {editingBanner?.image?.url && !formData.image && (
+                  <div className="mb-4 p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                    <p className="text-xs text-gray-500 mb-2">当前正在使用的图片：</p>
+                    <div className="relative w-32 h-32">
+                      <Image
+                        src={`${strapiUrl}${editingBanner.image.url}`}
+                        alt="Current Banner"
+                        fill
+                        className="object-cover rounded-xl border border-gray-200 shadow-sm"
+                        sizes="128px"
+                      />
+                    </div>
+                  </div>
+                )}
+
                 <input
                   type="file"
                   accept="image/*"
                   onChange={(e) => setFormData({ ...formData, image: e.target.files?.[0] || null })}
                   className="w-full text-sm text-gray-500 file:mr-4 file:py-3 file:px-6 file:rounded-2xl file:border-0 file:bg-blue-50 file:text-blue-700"
                 />
+                
+                {formData.image && (
+                  <p className="mt-2 text-sm text-blue-600 font-medium">
+                    ✅ 已选择新图片: {formData.image.name}
+                  </p>
+                )}
               </div>
 
               <div className="flex justify-end gap-4 pt-4">
@@ -282,14 +378,16 @@ export default function BannersPage() {
                   type="button"
                   onClick={closeModal}
                   className="px-8 py-4 text-gray-500 hover:text-gray-700 font-medium"
+                  disabled={uploading}
                 >
                   取消
                 </button>
                 <button
                   type="submit"
-                  className="px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-2xl"
+                  className="px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-2xl disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={uploading}
                 >
-                  {editingBanner ? '保存修改' : '创建 Banner'}
+                  {uploading ? '上传中...' : editingBanner ? '保存修改' : '创建 Banner'}
                 </button>
               </div>
             </form>

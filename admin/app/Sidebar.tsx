@@ -6,7 +6,6 @@ import {
   LayoutDashboard, 
   FolderTree, 
   FileText, 
-  File, 
   Download, 
   Image, 
   Link as LinkIcon, 
@@ -22,7 +21,8 @@ const menuItems = [
   { name: '栏目管理', href: '/dashboard/categories', icon: FolderTree },
   { name: '文章管理', href: '/dashboard/articles', icon: FileText },
   
-  { name: '单页管理', href: '/dashboard/pages', icon: File },
+  
+  { name: '页面管理', href: '/dashboard/pages',  icon: FileText },
   { name: '资料下载', href: '/dashboard/attachments', icon: Download },
   { name: 'Banner 管理', href: '/dashboard/banners', icon: Image },
   { name: '友情链接', href: '/dashboard/links', icon: LinkIcon },
@@ -31,6 +31,8 @@ const menuItems = [
   { name: '审核中心', href: '/dashboard/review', icon: CheckCircle },
   { name: '操作日志', href: '/dashboard/logs', icon: Activity },
   { name: '备份管理', href: '/dashboard/backup', icon: Database },
+ 
+
 ];
 
 export default function Sidebar() {

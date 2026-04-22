@@ -8,23 +8,9 @@
   }
 }
 
-@layer utilities {
-  .line-clamp-1 {
-    display: -webkit-box;
-    -webkit-line-clamp: 1;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-  }
+/* ✅ 删除了 @layer utilities 中的 line-clamp 定义，因为 Tailwind 已经内置了 */
 
-  .line-clamp-2 {
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-  }
-}
-
-/* CKEditor 样式 */
+/* CKEditor 编辑器样式 */
 .ck-editor__editable_inline {
   min-height: 380px;
 }
@@ -37,4 +23,59 @@
 /* 临时兜底：若出现双 toolbar，仅显示第一条 */
 .ck-editor__top .ck-toolbar:nth-of-type(n + 2) {
   display: none !important;
+}
+
+/* 后台预览区域的文章内容样式（如果有预览功能） */
+.article-preview {
+  font-family: "FangSong", "SimSun", serif;
+  font-size: 18px;
+  line-height: 2;
+  color: #333;
+}
+
+.article-preview p {
+  text-indent: 2em;
+  margin-bottom: 1em;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.article-preview h1,
+.article-preview h2,
+.article-preview h3 {
+  text-indent: 0;
+  font-weight: bold;
+  margin: 1.5em 0 1em;
+}
+
+.article-preview ul,
+.article-preview ol {
+  margin: 1em 0;
+  padding-left: 2em;
+}
+
+.article-preview li {
+  text-indent: 0;
+  margin-bottom: 0.5em;
+}
+
+.article-preview table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.5em 0;
+}
+
+.article-preview table th,
+.article-preview table td {
+  border: 1px solid #ddd;
+  padding: 8px 12px;
+  text-align: left;
+  text-indent: 0;
+}
+
+.article-preview img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 1.5em auto;
 }
