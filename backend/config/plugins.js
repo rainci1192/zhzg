@@ -1,1 +1,8 @@
-module.exports = () => ({});
+module.exports = () => ({
+  upload: {
+    config: {
+      breakpoints: {},
+      sizeOptimization: false,
+    },
+  },
+});

@@ -1,11 +1,114 @@
-import pool from '@/lib/db';
 import AboutSingleLayout from '@/components/about/AboutSingleLayout';
+import Link from 'next/link';
+
+type CouncilArticle = {
+  title: string;
+  content_html: string;
+};
 
 type CouncilMember = {
   id: number;
   name: string;
   logo_url: string;
+  website: string | null;
+  intro: string | null;
 };
+
+type StrapiEntity = {
+  id?: number;
+  attributes?: Record<string, unknown>;
+  [key: string]: unknown;
+};
+
+type StrapiListResponse = {
+  data?: StrapiEntity[];
+};
+
+const STRAPI_BASE_URL =
+  process.env.NEXT_PUBLIC_STRAPI_URL ||
+  process.env.STRAPI_URL ||
+  'http://localhost:1337';
+
+const STRAPI_API_TOKEN =
+  process.env.STRAPI_API_TOKEN ||
+  process.env.NEXT_PUBLIC_STRAPI_API_TOKEN ||
+  '';
+
+function unwrap(entity: StrapiEntity): Record<string, unknown> & { id?: number } {
+  if (!entity) return {};
+  const raw = (entity.attributes ?? entity) as Record<string, unknown>;
+  return { ...raw, id: entity.id ?? (raw?.id as number | undefined) };
+}
+
+function toAbsoluteUrl(url: string): string {
+  if (!url) return '';
+  if (url.startsWith('http://') || url.startsWith('https://')) return url;
+  return `${STRAPI_BASE_URL}${url}`;
+}
+
+async function fetchFromStrapi<T = unknown>(pathWithQuery: string): Promise<T | null> {
+  try {
+    const res = await fetch(`${STRAPI_BASE_URL}${pathWithQuery}`, {
+      headers: {
+        'Content-Type': 'application/json',
+        ...(STRAPI_API_TOKEN ? { Authorization: `Bearer ${STRAPI_API_TOKEN}` } : {}),
+      },
+      next: { revalidate: 300 },
+    });
+    if (!res.ok) {
+      console.error(`[Council] Strapi ${res.status}`);
+      return null;
+    }
+    return (await res.json()) as T;
+  } catch (error) {
+    console.error('[Council] Strapi error:', error);
+    return null;
+  }
+}
+
+async function getCouncilArticle(): Promise<CouncilArticle> {
+  const params = new URLSearchParams({
+    'filters[slug][$eq]': 'about-council-content',
+    'pagination[pageSize]': '1',
+  });
+  const json = await fetchFromStrapi<StrapiListResponse>(`/api/articles?${params}`);
+  const item = unwrap(json?.data?.[0] ?? {});
+  return {
+    title: (item?.title as string) || '理事会',
+    content_html:
+      (item?.content_html as string) ||
+      (item?.content as string) ||
+      '<p>暂无理事会介绍内容，请在后台补充。</p>',
+  };
+}
+
+async function getCouncilMembers(): Promise<CouncilMember[]> {
+  const params = new URLSearchParams({
+    'filters[is_active][$eq]': 'true',
+    'filters[is_council][$eq]': 'true',
+    'sort[0]': 'sort_order:asc',
+    'sort[1]': 'id:asc',
+    'populate[logo][fields][0]': 'url',
+    'pagination[pageSize]': '200',
+  });
+  const json = await fetchFromStrapi<StrapiListResponse>(`/api/council-members?${params}`);
+  return (json?.data ?? []).map((entity) => {
+    const item = unwrap(entity);
+    const logo = item?.logo as Record<string, unknown> | undefined;
+    const rawLogoUrl: string =
+      (logo?.url as string) ||
+      ((logo?.data as Record<string, unknown>)?.attributes as Record<string, unknown>)?.url as string ||
+      ((logo?.data as Record<string, unknown>)?.url as string) ||
+      '';
+    return {
+      id: (item?.id as number) || (entity?.id as number) || 0,
+      name: (item?.name as string) || '未命名单位',
+      logo_url: toAbsoluteUrl(rawLogoUrl),
+      website: (item?.website as string) || null,
+      intro: (item?.intro as string) || null,
+    };
+  });
+}
 
 export default async function AboutCouncil() {
   const breadcrumbItems = [
@@ -14,33 +117,10 @@ export default async function AboutCouncil() {
     { name: '理事会', href: '/about/council' },
   ];
 
-  // 理事会正文（slug 可按你实际调整）
-  const articleRes = await pool.query(
-    `
-    SELECT id, title, content_html
-    FROM articles
-    WHERE slug = $1 AND status = 'published'
-    LIMIT 1
-    `,
-    ['about-council-content']
-  );
-
-  const article = articleRes.rows[0] || {
-    title: '理事会',
-    content_html: '<p>暂无理事会介绍内容，请在后台补充。</p>',
-  };
-
-  // 理事会成员单位
-  const membersRes = await pool.query(
-    `
-    SELECT id, name, logo_url
-    FROM council_members
-    WHERE is_active = true
-    ORDER BY sort_order ASC, id ASC
-    `
-  );
-
-  const councilMembers: CouncilMember[] = membersRes.rows;
+  const [article, councilMembers] = await Promise.all([
+    getCouncilArticle(),
+    getCouncilMembers(),
+  ]);
 
   return (
     <AboutSingleLayout
@@ -48,30 +128,59 @@ export default async function AboutCouncil() {
       sectionTitle={article.title || '理事会'}
       breadcrumbItems={breadcrumbItems}
     >
+      {/* 理事会说明 */}
       <div
         className="prose prose-gray max-w-none text-[21px] leading-10 md:text-[22px] md:leading-[2.2]"
         dangerouslySetInnerHTML={{ __html: article.content_html || '' }}
       />
 
+      {/* 理事会成员单位 */}
       <h3 className="text-3xl font-bold text-blue-800 mt-10 mb-6">理事会成员单位</h3>
 
       {councilMembers.length === 0 ? (
         <div className="text-gray-500">暂无理事会成员单位数据</div>
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-          {councilMembers.map((member) => (
-            <div
-              key={member.id}
-              className="bg-white rounded-lg p-4 border border-gray-200 hover:shadow-lg transition-all duration-300"
-            >
-              <img
-                src={member.logo_url}
-                alt={member.name}
-                className="w-full h-24 object-contain mb-3"
-              />
-              <p className="text-gray-700 text-sm text-center leading-6">{member.name}</p>
-            </div>
-          ))}
+          {councilMembers.map((member) => {
+            const href = member.website
+              ? member.website
+              : member.intro
+                ? `/cooperation/partner/${member.id}`
+                : null;
+            const isExternal = !!member.website;
+
+            const card = (
+              <div className="bg-white rounded-lg p-4 border border-gray-200 hover:shadow-lg transition-all duration-300 h-full">
+                {member.logo_url ? (
+                  <img
+                    src={member.logo_url}
+                    alt={member.name}
+                    className="w-full h-24 object-contain mb-3"
+                  />
+                ) : (
+                  <div className="w-full h-24 mb-3 bg-gray-100 rounded flex items-center justify-center text-gray-400 text-sm">
+                    暂无Logo
+                  </div>
+                )}
+                <p className="text-gray-700 text-sm text-center leading-6">{member.name}</p>
+              </div>
+            );
+
+            if (!href) return <div key={member.id}>{card}</div>;
+
+            return (
+              <Link
+                key={member.id}
+                href={href}
+                target={isExternal ? '_blank' : '_self'}
+                rel={isExternal ? 'noopener noreferrer' : undefined}
+                className="block"
+                title={isExternal ? `访问 ${member.name} 官网` : `查看 ${member.name} 简介`}
+              >
+                {card}
+              </Link>
+            );
+          })}
         </div>
       )}
     </AboutSingleLayout>

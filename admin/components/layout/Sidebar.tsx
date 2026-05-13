@@ -33,6 +33,11 @@ const menuItems = [
     icon: FileText 
   },
   { 
+    title: '合作单位', 
+    href: '/dashboard/partners', 
+    icon: FileText 
+  },
+  { 
     title: '单页管理', 
     href: '/dashboard/pages', 
     icon: File 

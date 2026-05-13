@@ -20,8 +20,7 @@ const menuItems = [
   { name: '仪表盘', href: '/dashboard', icon: LayoutDashboard },
   { name: '栏目管理', href: '/dashboard/categories', icon: FolderTree },
   { name: '文章管理', href: '/dashboard/articles', icon: FileText },
-  
-  
+  { name: '合作单位', href: '/dashboard/partners', icon: FileText},
   { name: '页面管理', href: '/dashboard/pages',  icon: FileText },
   { name: '资料下载', href: '/dashboard/attachments', icon: Download },
   { name: 'Banner 管理', href: '/dashboard/banners', icon: Image },
