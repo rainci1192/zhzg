@@ -1,4 +1,4 @@
-import pool from '@/lib/db';
+import { getContentAll } from '@/lib/strapi-content';
 import AboutSingleLayout from '@/components/about/AboutSingleLayout';
 
 
@@ -15,16 +15,7 @@ export default async function AboutOrganization() {
     { name: '机构设置', href: '/about/organization' },
   ];
 
-  const result = await pool.query(
-    `
-    SELECT id, name, description
-    FROM departments
-    WHERE is_active = true
-    ORDER BY sort_order ASC, id ASC
-    `
-  );
-
-  const departments: Department[] = result.rows;
+  const departments = await getContentAll<Department>('departments');
 
   return (
     <AboutSingleLayout

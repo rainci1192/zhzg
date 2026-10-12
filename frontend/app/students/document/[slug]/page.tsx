@@ -3,12 +3,14 @@ import { notFound } from 'next/navigation';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import Breadcrumb from '@/components/layout/Breadcrumb';
-import pool from '@/lib/db';
+import { getContentDetail, mediaUrl, mediaSize, type StrapiMedia } from '@/lib/strapi-content';
 
-type Attachment = {
-  name: string;
-  url: string;
-  size: string;
+type StudentDocument = {
+  id: number;
+  title: string;
+  content: string | null;
+  publish_time: string | null;
+  attachments: StrapiMedia[] | null;
 };
 
 export default async function StudentDocumentDetail({
@@ -18,20 +20,9 @@ export default async function StudentDocumentDetail({
 }) {
   const { slug } = await params;
 
-  const result = await pool.query(
-    `
-    SELECT *
-    FROM student_documents
-    WHERE slug = $1 AND is_active = true
-    LIMIT 1
-    `,
-    [slug]
-  );
-
-  if (result.rows.length === 0) notFound();
-
-  const document = result.rows[0];
-  const attachments: Attachment[] = document.attachments || [];
+  const document = await getContentDetail<StudentDocument>('student-documents', slug);
+  if (!document) notFound();
+  const attachments = (document.attachments || []).filter((item) => mediaUrl(item));
 
   const breadcrumbItems = [
     { name: '首页', href: '/' },
@@ -76,7 +67,7 @@ export default async function StudentDocumentDetail({
                 {attachments.map((att, idx) => (
                   <a
                     key={idx}
-                    href={att.url}
+                    href={mediaUrl(att)!}
                     download
                     className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg hover:bg-blue-50 hover:shadow-md transition-all group"
                   >
@@ -97,7 +88,7 @@ export default async function StudentDocumentDetail({
                       <div className="font-semibold text-gray-800 group-hover:text-blue-600 transition-colors">
                         {att.name}
                       </div>
-                      <div className="text-sm text-gray-500">{att.size}</div>
+                      <div className="text-sm text-gray-500">{mediaSize(att)}</div>
                     </div>
                     <svg
                       className="w-5 h-5 text-gray-400 group-hover:text-blue-600 transition-colors"

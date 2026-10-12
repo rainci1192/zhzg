@@ -1,0 +1,42 @@
+{
+  "kind": "collectionType",
+  "collectionName": "role_permissions",
+  "info": {
+    "singularName": "role-permission",
+    "pluralName": "role-permissions",
+    "displayName": "Role Permission"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "backend_role": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::backend-role.backend-role",
+      "inversedBy": "role_permissions"
+    },
+    "permission_module": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::permission-module.permission-module",
+      "inversedBy": "role_permissions"
+    },
+    "allowed_actions": {
+      "type": "relation",
+      "relation": "manyToMany",
+      "target": "api::permission-action.permission-action",
+      "inversedBy": "role_permissions"
+    },
+    "data_scope": {
+      "type": "enumeration",
+      "enum": [
+        "all",
+        "own",
+        "department",
+        "custom"
+      ]
+    }
+  }
+}

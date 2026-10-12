@@ -3,7 +3,14 @@ import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import Sidebar from '@/components/layout/Sidebar';
 import Breadcrumb from '@/components/layout/Breadcrumb';
-import pool from '@/lib/db';
+import { getContentDetail, mediaUrl, type StrapiMedia } from '@/lib/strapi-content';
+
+type Institution = {
+  id: number;
+  name: string;
+  summary: string | null;
+  cover_image: StrapiMedia | null;
+};
 
 export default async function InstitutionDetail({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -14,19 +21,8 @@ export default async function InstitutionDetail({ params }: { params: Promise<{ 
     { name: '成果转化', href: '/research/transfer' },
   ];
 
-  const result = await pool.query(
-    `
-    SELECT id, name, summary, content_html, cover_image_url
-    FROM research_institutions
-    WHERE slug = $1 AND is_active = true
-    LIMIT 1
-    `,
-    [slug]
-  );
-
-  if (result.rows.length === 0) notFound();
-
-  const inst = result.rows[0];
+  const inst = await getContentDetail<Institution>('research-institutions', slug);
+  if (!inst) notFound();
 
   const breadcrumbItems = [
     { name: '首页', href: '/' },
@@ -56,19 +52,15 @@ export default async function InstitutionDetail({ params }: { params: Promise<{ 
                 {inst.name}
               </h2>
 
-              {inst.summary && (
-                <p className="text-lg text-gray-600 mb-6">{inst.summary}</p>
-              )}
-
               <div
                 className="prose prose-gray max-w-none text-[20px] leading-9 md:text-[21px] md:leading-10"
-                dangerouslySetInnerHTML={{ __html: inst.content_html || '<p>暂无详细介绍。</p>' }}
+                dangerouslySetInnerHTML={{ __html: inst.summary || '<p>暂无详细介绍。</p>' }}
               />
 
-              {inst.cover_image_url && (
+              {mediaUrl(inst.cover_image) && (
                 <div className="mt-10">
                   <img
-                    src={inst.cover_image_url}
+                    src={mediaUrl(inst.cover_image)!}
                     alt={inst.name}
                     className="w-full rounded-lg shadow-md object-cover"
                   />

@@ -2,9 +2,10 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
-import Image from 'next/image'; // ✅ 新增：导入 Next.js Image 组件
+import Image from 'next/image';
 import { api, uploadFile } from '@/lib/api';
-import { Plus, Edit, Trash2, Eye, Send, CheckCircle } from 'lucide-react';
+import { Plus, Edit, Trash2, Eye, Send, CheckCircle, XCircle, Clock, MessageSquare } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 
 const WordLikeEditor = dynamic(() => import('@/components/editor/WordLikeEditor'), { ssr: false });
 
@@ -32,11 +33,14 @@ interface Article {
   slug: string;
   summary?: string;
   content?: string;
-  review_status: 'draft' | 'pending' | 'approved' | 'published' | 'rejected';
+  review_status: 'draft' | 'pending_admin' | 'rejected_admin' | 'pending_leader' | 'rejected_leader' | 'approved' | 'published';
   publish_time?: string;
   primary_category?: { id: number; name: string } | null;
   secondary_category?: { id: number; name: string } | null;
   cover?: CoverMedia | null;
+  rejection_reason?: string;
+  admin_review_comment?: string;
+  leader_review_comment?: string;
 }
 
 interface ArticlesResp {
@@ -53,12 +57,22 @@ interface UploadedFile {
 }
 
 export default function ArticlesPage() {
+  const { user } = useAuth();
+  const userRole = (user?.role && typeof user.role === 'object' && 'name' in user.role 
+    ? (user.role as { name: string }).name 
+    : '') as string;
+
   const [articles, setArticles] = useState<Article[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingKey, setEditingKey] = useState<string | null>(null);
+
+  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
+  const [reviewingArticle, setReviewingArticle] = useState<Article | null>(null);
+  const [reviewComment, setReviewComment] = useState('');
+  const [reviewAction, setReviewAction] = useState<'approve' | 'reject'>('approve');
 
   const [form, setForm] = useState({
     title: '',
@@ -102,13 +116,11 @@ export default function ArticlesPage() {
     })();
   }, []);
 
-  // 一级：无 parentCategory 的分类（或 level=1）
   const primaryOptions = useMemo(
     () => categories.filter((c) => !c.parentCategory || c.level === 1),
     [categories]
   );
 
-  // 二级：parentCategory.id = 选中的一级 id
   const secondaryOptions = useMemo(() => {
     const pid = Number(form.primaryCategoryId);
     if (!pid) return [];
@@ -116,7 +128,6 @@ export default function ArticlesPage() {
     return categories.filter((c) => {
       const parentId =
         c.parentCategory?.id ??
-        // 兼容历史字段
         (c as unknown as { parent?: { id?: number } }).parent?.id ??
         null;
 
@@ -174,17 +185,15 @@ export default function ArticlesPage() {
     }
 
     try {
-      // ==================== 优化后的 slug 生成（严格符合 Strapi 正则） ====================
       const generateSlug = (title: string): string => {
         let slug = title
           .trim()
           .toLowerCase()
-          .replace(/[\s\u3000]+/g, '-')                    // 空格 → -
-          .replace(/[^a-z0-9_-]/g, '')                     // 严格移除所有不符合正则的字符（包括中文）
-          .replace(/-+/g, '-')                             // 连续 - 合并
-          .replace(/^-|-$/g, '');                          // 去掉首尾 -
+          .replace(/[\s\u3000]+/g, '-')
+          .replace(/[^a-z0-9_-]/g, '')
+          .replace(/-+/g, '-')
+          .replace(/^-|-$/g, '');
 
-        // 如果全是中文导致 slug 为空，自动生成一个合法后备 slug
         if (!slug) {
           slug = `article-${Date.now()}`;
         }
@@ -199,7 +208,7 @@ export default function ArticlesPage() {
 
       const payload: Record<string, unknown> = {
         title: form.title,
-        slug: generateSlug(form.title),           // ← 关键修复：强制生成合法 slug
+        slug: generateSlug(form.title),
         summary: form.summary,
         content: form.content,
         review_status: 'draft',
@@ -216,36 +225,124 @@ export default function ArticlesPage() {
 
       closeModal();
       await fetchArticles();
-      alert('保存成功！');
+      alert('保存成功!');
     } catch (error) {
       console.error('Save error:', error);
-      alert('保存失败：' + (error instanceof Error ? error.message : '未知错误'));
+      alert('保存失败:' + (error instanceof Error ? error.message : '未知错误'));
     }
   };
 
+  // 编辑提交审核
   const submitForReview = async (article: Article) => {
+    if (!confirm('确定提交审核吗?')) return;
     try {
-      await api.updateArticle(getKey(article), { review_status: 'pending' });
+      await api.updateArticle(getKey(article), { 
+        review_status: 'pending_admin',
+        rejection_reason: null,
+        admin_review_comment: null,
+        leader_review_comment: null,
+      });
       await fetchArticles();
+      alert('已提交管理员审核');
     } catch {
       alert('提交审核失败');
     }
   };
 
+  // 打开审核弹窗
+  const openReviewModal = (article: Article, action: 'approve' | 'reject') => {
+    setReviewingArticle(article);
+    setReviewAction(action);
+    setReviewComment('');
+    setIsReviewModalOpen(true);
+  };
+
+  // 管理员审核
+  const handleAdminReview = async () => {
+    if (!reviewingArticle) return;
+
+    try {
+      const payload: Record<string, unknown> = {
+        admin_review_comment: reviewComment,
+        admin_review_date: new Date().toISOString(),
+      };
+
+      if (reviewAction === 'approve') {
+        payload.review_status = 'pending_leader';
+      } else {
+        payload.review_status = 'rejected_admin';
+        payload.rejection_reason = reviewComment;
+      }
+
+      await api.updateArticle(getKey(reviewingArticle), payload);
+      setIsReviewModalOpen(false);
+      await fetchArticles();
+      alert(reviewAction === 'approve' ? '已提交院领导审核' : '已退回编辑');
+    } catch {
+      alert('操作失败');
+    }
+  };
+
+  // 院领导审核
+  const handleLeaderReview = async () => {
+    if (!reviewingArticle) return;
+
+    try {
+      const payload: Record<string, unknown> = {
+        leader_review_comment: reviewComment,
+        leader_review_date: new Date().toISOString(),
+      };
+
+      if (reviewAction === 'approve') {
+        payload.review_status = 'approved';
+      } else {
+        payload.review_status = 'rejected_leader';
+        payload.rejection_reason = reviewComment;
+      }
+
+      await api.updateArticle(getKey(reviewingArticle), payload);
+      setIsReviewModalOpen(false);
+      await fetchArticles();
+      alert(reviewAction === 'approve' ? '审核通过,待发布' : '已退回管理员');
+    } catch {
+      alert('操作失败');
+    }
+  };
+
+  // 管理员退回给编辑
+  const returnToEditor = async (article: Article) => {
+    const reason = prompt('请输入退回原因:');
+    if (!reason) return;
+
+    try {
+      await api.updateArticle(getKey(article), {
+        review_status: 'rejected_admin',
+        rejection_reason: reason,
+      });
+      await fetchArticles();
+      alert('已退回编辑');
+    } catch {
+      alert('操作失败');
+    }
+  };
+
+  // 管理员发布
   const publish = async (article: Article) => {
+    if (!confirm('确定发布吗?')) return;
     try {
       await api.updateArticle(getKey(article), {
         review_status: 'published',
         publish_time: new Date().toISOString(),
       });
       await fetchArticles();
+      alert('发布成功');
     } catch {
       alert('发布失败');
     }
   };
 
   const handleDelete = async (article: Article) => {
-    if (!confirm('确定删除这篇文章吗？')) return;
+    if (!confirm('确定删除这篇文章吗?')) return;
     try {
       await api.deleteArticle(getKey(article));
       await fetchArticles();
@@ -255,15 +352,110 @@ export default function ArticlesPage() {
   };
 
   const getStatusBadge = (status: Article['review_status']) => {
-    const map: Record<Article['review_status'], { label: string; color: string }> = {
-      draft: { label: '草稿', color: 'bg-gray-100 text-gray-600' },
-      pending: { label: '待审核', color: 'bg-amber-100 text-amber-600' },
-      approved: { label: '已通过', color: 'bg-blue-100 text-blue-600' },
-      published: { label: '已发布', color: 'bg-emerald-100 text-emerald-600' },
-      rejected: { label: '已驳回', color: 'bg-red-100 text-red-600' },
+    const map: Record<Article['review_status'], { label: string; color: string; icon: React.ReactNode }> = {
+      draft: { label: '草稿', color: 'bg-gray-100 text-gray-600', icon: <Edit className="w-3 h-3" /> },
+      pending_admin: { label: '待管理员审核', color: 'bg-amber-100 text-amber-600', icon: <Clock className="w-3 h-3" /> },
+      rejected_admin: { label: '管理员退回', color: 'bg-red-100 text-red-600', icon: <XCircle className="w-3 h-3" /> },
+      pending_leader: { label: '待院领导审核', color: 'bg-blue-100 text-blue-600', icon: <Clock className="w-3 h-3" /> },
+      rejected_leader: { label: '院领导退回', color: 'bg-orange-100 text-orange-600', icon: <XCircle className="w-3 h-3" /> },
+      approved: { label: '待发布', color: 'bg-purple-100 text-purple-600', icon: <CheckCircle className="w-3 h-3" /> },
+      published: { label: '已发布', color: 'bg-emerald-100 text-emerald-600', icon: <CheckCircle className="w-3 h-3" /> },
     };
     const info = map[status];
-    return <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${info.color}`}>{info.label}</span>;
+    return (
+      <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium ${info.color}`}>
+        {info.icon}
+        {info.label}
+      </span>
+    );
+  };
+
+  // 根据角色和状态显示操作按钮
+  const renderActions = (article: Article) => {
+    const isEditor = userRole === 'editor';
+    const isAdmin = userRole === 'admin' || userRole === 'super_admin';
+    const isLeader = userRole === 'leader';
+
+    return (
+      <div className="flex items-center justify-center gap-2">
+        {/* 预览 */}
+        <a href={`${FRONTEND_URL}/article/${article.slug}`} target="_blank" rel="noreferrer" className="text-indigo-600 hover:text-indigo-800" title="预览">
+          <Eye className="w-4 h-4" />
+        </a>
+
+        {/* 编辑 - 草稿和退回状态可编辑 */}
+        {(article.review_status === 'draft' || article.review_status === 'rejected_admin') && (
+          <button onClick={() => openModal(article)} className="text-blue-600 hover:text-blue-800" title="编辑">
+            <Edit className="w-4 h-4" />
+          </button>
+        )}
+
+        {/* 编辑提交审核 */}
+        {isEditor && (article.review_status === 'draft' || article.review_status === 'rejected_admin') && (
+          <button onClick={() => submitForReview(article)} className="text-amber-600 hover:text-amber-800" title="提交审核">
+            <Send className="w-4 h-4" />
+          </button>
+        )}
+
+        {/* 管理员审核 */}
+        {isAdmin && article.review_status === 'pending_admin' && (
+          <>
+            <button onClick={() => openReviewModal(article, 'approve')} className="text-green-600 hover:text-green-800" title="通过">
+              <CheckCircle className="w-4 h-4" />
+            </button>
+            <button onClick={() => openReviewModal(article, 'reject')} className="text-red-600 hover:text-red-800" title="退回">
+              <XCircle className="w-4 h-4" />
+            </button>
+          </>
+        )}
+
+        {/* 管理员退回给编辑 */}
+        {isAdmin && article.review_status === 'rejected_leader' && (
+          <button onClick={() => returnToEditor(article)} className="text-orange-600 hover:text-orange-800" title="退回编辑">
+            <XCircle className="w-4 h-4" />
+          </button>
+        )}
+
+        {/* 院领导审核 */}
+        {isLeader && article.review_status === 'pending_leader' && (
+          <>
+            <button onClick={() => openReviewModal(article, 'approve')} className="text-green-600 hover:text-green-800" title="通过">
+              <CheckCircle className="w-4 h-4" />
+            </button>
+            <button onClick={() => openReviewModal(article, 'reject')} className="text-red-600 hover:text-red-800" title="退回">
+              <XCircle className="w-4 h-4" />
+            </button>
+          </>
+        )}
+
+        {/* 管理员发布 */}
+        {isAdmin && article.review_status === 'approved' && (
+          <button onClick={() => publish(article)} className="text-purple-600 hover:text-purple-800" title="发布">
+            <CheckCircle className="w-4 h-4" />
+          </button>
+        )}
+
+        {/* 查看审核意见 */}
+        {(article.rejection_reason || article.admin_review_comment || article.leader_review_comment) && (
+          <button 
+            onClick={() => alert(
+              `审核意见:\n${article.rejection_reason || ''}\n${article.admin_review_comment || ''}\n${article.leader_review_comment || ''}`
+            )} 
+            className="text-gray-600 hover:text-gray-800" 
+            title="查看意见"
+          >
+            <MessageSquare className="w-4 h-4" />
+          </button>
+        )}
+
+        {/* 删除 - 草稿和退回状态可删除 */}
+        {(article.review_status === 'draft' || article.review_status === 'rejected_admin') && (
+          <button onClick={() => handleDelete(article)} className="text-red-500 hover:text-red-700" title="删除">
+            <Trash2 className="w-4 h-4" />
+          </button>
+        )}
+      </div>
+    );
   };
 
   return (
@@ -303,19 +495,7 @@ export default function ArticlesPage() {
                   <td className="px-6 py-4 text-sm">{article.primary_category?.name || '-'}</td>
                   <td className="px-6 py-4 text-sm">{article.secondary_category?.name || '不分类'}</td>
                   <td className="px-6 py-4">{getStatusBadge(article.review_status)}</td>
-                  <td className="px-6 py-4 text-center">
-                    <div className="flex items-center justify-center gap-3">
-                      <a href={`${FRONTEND_URL}/article/${article.slug}`} target="_blank" rel="noreferrer" className="text-indigo-600"><Eye className="w-5 h-5" /></a>
-                      <button onClick={() => openModal(article)} className="text-blue-600"><Edit className="w-5 h-5" /></button>
-                      {(article.review_status === 'draft' || article.review_status === 'rejected') && (
-                        <button onClick={() => submitForReview(article)} className="text-amber-600"><Send className="w-5 h-5" /></button>
-                      )}
-                      {article.review_status === 'approved' && (
-                        <button onClick={() => publish(article)} className="text-green-600"><CheckCircle className="w-5 h-5" /></button>
-                      )}
-                      <button onClick={() => handleDelete(article)} className="text-red-500"><Trash2 className="w-5 h-5" /></button>
-                    </div>
-                  </td>
+                  <td className="px-6 py-4">{renderActions(article)}</td>
                 </tr>
               ))}
               {articles.length === 0 && (
@@ -326,6 +506,7 @@ export default function ArticlesPage() {
         </div>
       )}
 
+      {/* 编辑文章弹窗 */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-5xl mx-4 p-8 max-h-[90vh] overflow-y-auto">
@@ -396,7 +577,6 @@ export default function ArticlesPage() {
 
               <div>
                 <label className="block mb-2 font-medium">封面图</label>
-                {/* ✅ 核心修改：将 <img> 替换为 Next.js <Image /> 组件 */}
                 {form.coverPreview && (
                   <Image 
                     src={form.coverPreview} 
@@ -415,6 +595,55 @@ export default function ArticlesPage() {
                 <button type="submit" className="px-6 py-3 bg-blue-600 text-white rounded">保存</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* 审核弹窗 */}
+      {isReviewModalOpen && reviewingArticle && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6">
+            <h3 className="text-xl font-bold mb-4">
+              {reviewAction === 'approve' ? '审核通过' : '审核退回'}
+            </h3>
+            
+            <div className="mb-4">
+              <p className="text-sm text-gray-600 mb-2">文章标题:</p>
+              <p className="font-medium">{reviewingArticle.title}</p>
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                审核意见 {reviewAction === 'reject' && <span className="text-red-500">*</span>}
+              </label>
+              <textarea
+                value={reviewComment}
+                onChange={(e) => setReviewComment(e.target.value)}
+                className="w-full px-4 py-3 border rounded-lg"
+                rows={4}
+                placeholder={reviewAction === 'approve' ? '可选填审核意见' : '请填写退回原因'}
+                required={reviewAction === 'reject'}
+              />
+            </div>
+
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setIsReviewModalOpen(false)}
+                className="px-4 py-2 border rounded-lg hover:bg-gray-50"
+              >
+                取消
+              </button>
+              <button
+                onClick={userRole === 'leader' ? handleLeaderReview : handleAdminReview}
+                className={`px-4 py-2 rounded-lg text-white ${
+                  reviewAction === 'approve'
+                    ? 'bg-green-600 hover:bg-green-700'
+                    : 'bg-red-600 hover:bg-red-700'
+                }`}
+              >
+                确认{reviewAction === 'approve' ? '通过' : '退回'}
+              </button>
+            </div>
           </div>
         </div>
       )}

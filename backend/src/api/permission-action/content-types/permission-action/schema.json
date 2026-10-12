@@ -1,0 +1,43 @@
+{
+  "kind": "collectionType",
+  "collectionName": "permission_actions",
+  "info": {
+    "singularName": "permission-action",
+    "pluralName": "permission-actions",
+    "displayName": "Permission Action"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "name": {
+      "type": "string",
+      "required": true,
+      "unique": true
+    },
+    "display_name": {
+      "type": "string",
+      "required": true
+    },
+    "description": {
+      "type": "string"
+    },
+    "color": {
+      "type": "string"
+    },
+    "icon": {
+      "type": "string"
+    },
+    "sort_order": {
+      "type": "integer",
+      "default": 0
+    },
+    "role_permissions": {
+  "type": "relation",
+  "relation": "manyToMany",
+  "target": "api::role-permission.role-permission",
+  "mappedBy": "allowed_actions"
+    }
+  }
+}

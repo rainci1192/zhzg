@@ -1,0 +1,54 @@
+{
+  "kind": "collectionType",
+  "collectionName": "permission_modules",
+  "info": {
+    "singularName": "permission-module",
+    "pluralName": "permission-modules",
+    "displayName": "Permission Module"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "name": {
+      "type": "string",
+      "required": true,
+      "unique": true
+    },
+    "display_name": {
+      "type": "string",
+      "required": true
+    },
+    "description": {
+      "type": "text"
+    },
+    "icon": {
+      "type": "string"
+    },
+    "category": {
+      "type": "enumeration",
+      "required": true,
+      "enum": [
+        "content",
+        "organization",
+        "website",
+        "system"
+      ]
+    },
+    "sort_order": {
+      "type": "integer",
+      "default": 0
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true
+    },
+    "role_permissions": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::role-permission.role-permission",
+      "mappedBy": "permission_module"
+    }
+  }
+}

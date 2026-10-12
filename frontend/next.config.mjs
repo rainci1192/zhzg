@@ -1,8 +1,6 @@
 /** @type {import('next').NextConfig} */
 
 const nextConfig = {
-  serverExternalPackages: ['pg', 'pg-connection-string'],
-
   webpack: (config, { isServer }) => {
     if (!isServer) {
       config.resolve.fallback = {

@@ -1,0 +1,73 @@
+{
+  "kind": "collectionType",
+  "collectionName": "supervisors",
+  "info": {
+    "singularName": "supervisor",
+    "pluralName": "supervisors",
+    "displayName": "Supervisor",
+    "description": "培养导师"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "name": {
+      "type": "string",
+      "maxLength": 100,
+      "required": true
+    },
+    "slug": {
+      "type": "uid",
+      "targetField": "name",
+      "required": true
+    },
+    "title": {
+      "type": "string",
+      "maxLength": 100,
+      "required": true
+    },
+    "category": {
+      "type": "enumeration",
+      "required": true,
+      "default": "internal",
+      "enum": [
+        "internal",
+        "enterprise"
+      ]
+    },
+    "college": {
+      "type": "string",
+      "maxLength": 100,
+      "required": true
+    },
+    "major": {
+      "type": "string",
+      "maxLength": 100,
+      "required": true
+    },
+    "personal_website": {
+      "type": "string",
+      "maxLength": 500
+    },
+    "photo": {
+      "type": "media",
+      "multiple": false,
+      "required": false,
+      "allowedTypes": [
+        "images"
+      ]
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true
+    },
+    "sort_order": {
+      "type": "integer",
+      "default": 0
+    },
+    "bio": {
+      "type": "richtext"
+    }
+  }
+}

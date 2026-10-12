@@ -1,4 +1,4 @@
-import pool from '@/lib/db';
+import { getContentAll } from '@/lib/strapi-content';
 import AboutSingleLayout from '@/components/about/AboutSingleLayout';
 
 type Leader = {
@@ -15,16 +15,7 @@ export default async function AboutLeaders() {
     { name: '现任领导', href: '/about/leaders' },
   ];
 
-  const result = await pool.query(
-    `
-    SELECT id, title, name, intro
-    FROM leaders
-    WHERE is_active = true
-    ORDER BY sort_order ASC, id ASC
-    `
-  );
-
-  const leaders: Leader[] = result.rows;
+  const leaders = await getContentAll<Leader>('leaders');
 
   return (
     <AboutSingleLayout

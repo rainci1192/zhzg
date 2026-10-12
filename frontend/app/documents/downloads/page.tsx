@@ -3,16 +3,14 @@ import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import Sidebar from '@/components/layout/Sidebar';
 import Breadcrumb from '@/components/layout/Breadcrumb';
-import pool from '@/lib/db';
+import { getContentPage, mediaUrl, mediaSize, type StrapiMedia } from '@/lib/strapi-content';
 
 const PAGE_SIZE = 5;
 
 type DownloadFile = {
   id: number;
   title: string;
-  file_name: string;
-  file_url: string;
-  file_size: string | null;
+  file: StrapiMedia | null;
 };
 
 function getPageNumbers(current: number, total: number): (number | '...')[] {
@@ -46,27 +44,10 @@ export default async function DocumentsDownloads({
     { name: '资料下载', href: '/documents/downloads' },
   ];
 
-  const countRes = await pool.query(
-    `SELECT COUNT(*)::int AS total FROM download_files WHERE is_active = true`
-  );
-
-  const total = countRes.rows[0]?.total || 0;
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const safePage = Math.min(currentPage, totalPages);
-  const safeOffset = (safePage - 1) * PAGE_SIZE;
-
-  const listRes = await pool.query(
-    `
-    SELECT id, title, file_name, file_url, file_size
-    FROM download_files
-    WHERE is_active = true
-    ORDER BY sort_order, id ASC
-    LIMIT $1 OFFSET $2
-    `,
-    [PAGE_SIZE, safeOffset]
-  );
-
-  const files: DownloadFile[] = listRes.rows;
+  const result = await getContentPage<DownloadFile>('download-files', currentPage, PAGE_SIZE);
+  const { page: safePage, pageCount } = result.meta.pagination;
+  const totalPages = Math.max(1, pageCount);
+  const files = result.data;
   const pageNumbers = getPageNumbers(safePage, totalPages);
 
   return (
@@ -93,7 +74,7 @@ export default async function DocumentsDownloads({
                 <div className="text-gray-500">暂无下载资料</div>
               ) : (
                 <ul className="space-y-4">
-                  {files.map((file) => (
+                  {files.filter((file) => mediaUrl(file.file)).map((file) => (
                     <li
                       key={file.id}
                       className="group border-l-4 border-blue-600 pl-4 py-3 hover:bg-blue-50 transition-colors duration-300"
@@ -101,22 +82,22 @@ export default async function DocumentsDownloads({
                       <div className="flex items-center justify-between gap-4">
                         {/* 标题（点击下载） */}
                         <a
-                          href={file.file_url}
-                          download={file.file_name}
+                          href={mediaUrl(file.file)!}
+                          download={file.file?.name}
                           className="flex-1 min-w-0"
                         >
                           <span className="text-gray-800 font-medium group-hover:text-blue-600 transition-colors duration-300 line-clamp-1">
-                            {file.file_name}
+                            {file.title || file.file?.name}
                           </span>
-                          {file.file_size && (
-                            <span className="text-xs text-gray-400 ml-2">({file.file_size})</span>
+                          {file.file && (
+                            <span className="text-xs text-gray-400 ml-2">({mediaSize(file.file)})</span>
                           )}
                         </a>
 
                         {/* 下载按钮 */}
                         <a
-                          href={file.file_url}
-                          download={file.file_name}
+                          href={mediaUrl(file.file)!}
+                          download={file.file?.name}
                           className="flex-shrink-0 flex items-center gap-1.5 px-4 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-full opacity-0 group-hover:opacity-100 hover:bg-blue-700 active:scale-95 transition-all duration-300 translate-x-2 group-hover:translate-x-0"
                         >
                           <svg

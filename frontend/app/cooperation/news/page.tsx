@@ -35,7 +35,7 @@ export default async function CooperationNewsPage({
       sidebarTitle="校企合作"
       sidebarItems={[
         { name: '合作动态', href: '/cooperation/news' },
-        { name: '合作单位', href: '/cooperation/partners' },
+        { name: '合作单位', href: '/cooperation/partner' },
       ]}
       breadcrumbItems={[
         { name: '首页', href: '/' },

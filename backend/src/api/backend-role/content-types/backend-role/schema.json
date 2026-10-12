@@ -1,0 +1,50 @@
+{
+  "kind": "collectionType",
+  "collectionName": "backend_roles",
+  "info": {
+    "singularName": "backend-role",
+    "pluralName": "backend-roles",
+    "displayName": "Backend Role"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "name": {
+      "type": "string",
+      "required": true,
+      "unique": true
+    },
+    "display_name": {
+      "type": "string",
+      "required": true
+    },
+    "description": {
+      "type": "text"
+    },
+    "permissions": {
+      "type": "json",
+      "required": true
+    },
+    "color": {
+      "type": "string"
+    },
+    "is_system": {
+      "type": "boolean",
+      "default": false
+    },
+    "backend_admins": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::backend-admin.backend-admin",
+      "mappedBy": "backend_role"
+    },
+    "role_permissions": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::role-permission.role-permission",
+      "mappedBy": "backend_role"
+    }
+  }
+}

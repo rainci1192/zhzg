@@ -14,16 +14,10 @@ export default function PartnersPage() {
   const [activeTab, setActiveTab] = useState<'list' | 'intro'>('list');
 
   const loadPartners = useCallback(async () => {
-    setIsLoading(true);
-    setIsError(false);
-    try {
-      const data = await fetchPartners();
-      setPartners(data);
-    } catch {
-      setIsError(true);
-    } finally {
-      setIsLoading(false);
-    }
+    setIsLoading(true); setIsError(false);
+    try { setPartners(await fetchPartners()); }
+    catch { setIsError(true); }
+    finally { setIsLoading(false); }
   }, []);
 
   useEffect(() => { loadPartners(); }, [loadPartners]);
@@ -32,13 +26,11 @@ export default function PartnersPage() {
     if (!window.confirm(`确定删除「${partner.name}」？此操作不可恢复。`)) return;
     setDeletingId(partner.id);
     try {
-      await deletePartner(partner.id);
+      await deletePartner(partner.documentId);
       await loadPartners();
     } catch (e: unknown) {
       alert('删除失败：' + (e instanceof Error ? e.message : String(e)));
-    } finally {
-      setDeletingId(null);
-    }
+    } finally { setDeletingId(null); }
   }
 
   return (
@@ -120,7 +112,7 @@ export default function PartnersPage() {
                       <td className="px-4 py-3 text-center text-gray-400">{partner.sort_order}</td>
                       <td className="px-4 py-3 text-right">
                         <div className="flex items-center justify-end gap-2">
-                          <Link href={`/dashboard/partners/${partner.id}`} className="px-3 py-1 text-xs rounded-md bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors">编辑</Link>
+                          <Link href={`/dashboard/partners/${partner.documentId}`} className="px-3 py-1 text-xs rounded-md bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors">编辑</Link>
                           <button onClick={() => handleDelete(partner)} disabled={deletingId === partner.id} className="px-3 py-1 text-xs rounded-md bg-red-50 text-red-500 hover:bg-red-100 transition-colors disabled:opacity-50">
                             {deletingId === partner.id ? '删除中' : '删除'}
                           </button>

@@ -1,9 +1,10 @@
 import type { Metadata } from 'next';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
+import { getContentDetail } from '@/lib/strapi-content';
 
 export const dynamic = 'force-dynamic';
 
@@ -60,6 +61,7 @@ function ellipsis(text: string, max = 120) {
 async function getArticleFullBySlug(slug: string): Promise<FullArticle | null> {
   const qs = new URLSearchParams({
     'filters[slug][$eq]': slug,
+    'filters[review_status][$eq]': 'published',
     'populate[0]': 'cover',
     'populate[1]': 'primary_category',
     'populate[2]': 'secondary_category',
@@ -229,6 +231,12 @@ export default async function ArticlePage({
   const { slug } = await params;
   const sp = await searchParams;
 
+  // Keep links shared before the research-transfer migration working.
+  if (sp?.from === 'transfer') {
+    const transfer = await getContentDetail<{ slug: string }>('research-transfers', slug);
+    if (transfer) redirect(`/research/transfer/${encodeURIComponent(slug)}`);
+  }
+
   const article = await getArticleFullBySlug(slug);
   if (!article) notFound();
 
@@ -239,7 +247,9 @@ export default async function ArticlePage({
   const { prev, next } = getPrevNextByOrderedList(ordered, article.slug);
 
   const fromQuery = `?from=${effectiveFrom}`;
-  const coverImage = article.cover?.url ? `${API}${article.cover.url}` : null;
+  const coverImage = article.cover?.url
+    ? new URL(article.cover.url, API).toString()
+    : null;
 
   return (
     <>

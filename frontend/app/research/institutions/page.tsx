@@ -3,14 +3,14 @@ import Footer from '@/components/layout/Footer';
 import Sidebar from '@/components/layout/Sidebar';
 import Breadcrumb from '@/components/layout/Breadcrumb';
 import Link from 'next/link';
-import pool from '@/lib/db';
+import { getContentAll, mediaUrl, type StrapiMedia } from '@/lib/strapi-content';
 
 type Institution = {
   id: number;
   name: string;
   slug: string;
   summary: string | null;
-  cover_image_url: string | null;
+  cover_image: StrapiMedia | null;
 };
 
 export default async function ResearchInstitutions() {
@@ -26,16 +26,7 @@ export default async function ResearchInstitutions() {
     { name: '科研机构', href: '/research/institutions' },
   ];
 
-  const result = await pool.query(
-    `
-    SELECT id, name, slug, summary, cover_image_url
-    FROM research_institutions
-    WHERE is_active = true
-    ORDER BY sort_order ASC, id ASC
-    `
-  );
-
-  const institutions: Institution[] = result.rows;
+  const institutions = await getContentAll<Institution>('research-institutions');
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -72,9 +63,9 @@ export default async function ResearchInstitutions() {
                       "
                     >
                       <div className="relative h-48 overflow-hidden bg-gradient-to-br from-blue-100 to-blue-50">
-                        {inst.cover_image_url ? (
+                        {mediaUrl(inst.cover_image) ? (
                           <img
-                            src={inst.cover_image_url}
+                            src={mediaUrl(inst.cover_image)!}
                             alt={inst.name}
                             className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                           />
@@ -93,7 +84,7 @@ export default async function ResearchInstitutions() {
                           {inst.name}
                         </h3>
                         <p className="text-sm text-gray-600 line-clamp-2">
-                          {inst.summary || '暂无简介'}
+                          {inst.summary ? inst.summary.replace(/<[^>]*>/g, '').slice(0, 160) : '暂无简介'}
                         </p>
                       </div>
                     </Link>

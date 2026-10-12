@@ -33,12 +33,12 @@
     "website": {
       "type": "string"
     },
-    "intro": {
-      "type": "text"
-    },
     "is_council": {
       "type": "boolean",
       "default": true
+    },
+    "intro": {
+      "type": "richtext"
     }
   }
 }

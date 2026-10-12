@@ -2,13 +2,18 @@
 
 import Link from 'next/link';
 import { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 
 export default function Header() {
+  const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const [scrolled, setScrolled] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const menuPanelRef = useRef<HTMLElement>(null);
 
   const navItems = [
     { name: '学院首页', href: '/' },
@@ -98,18 +103,42 @@ export default function Header() {
     };
   }, [searchOpen]);
 
-  // ✅ 修复滚动闪动问题
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+
+    const handleClickOutside = (event: PointerEvent) => {
+      const target = event.target as Node;
+      if (!menuButtonRef.current?.contains(target) && !menuPanelRef.current?.contains(target)) {
+        setMobileMenuOpen(false);
+      }
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setMobileMenuOpen(false);
+        menuButtonRef.current?.focus();
+      }
+    };
+
+    document.addEventListener('pointerdown', handleClickOutside);
+    document.addEventListener('keydown', handleEscape);
+
+    return () => {
+      document.removeEventListener('pointerdown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [mobileMenuOpen]);
+
   useEffect(() => {
     let ticking = false;
-    const threshold = 80; // 提高阈值，避免在导航条高度变化时触发
-    const hysteresis = 20; // 滞后值，防止在阈值附近反复切换
+    const threshold = 80;
+    const hysteresis = 20;
 
     const handleScroll = () => {
       if (!ticking) {
         window.requestAnimationFrame(() => {
           const scrollY = window.scrollY;
 
-          // 添加滞后逻辑：向下滚动超过阈值+滞后值才收缩，向上滚动低于阈值-滞后值才展开
           if (!scrolled && scrollY > threshold + hysteresis) {
             setScrolled(true);
           } else if (scrolled && scrollY < threshold - hysteresis) {
@@ -124,21 +153,24 @@ export default function Header() {
 
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
-  }, [scrolled]); // ✅ 添加 scrolled 依赖
+  }, [scrolled]);
 
   return (
-    <header className={`bg-[#003d82] shadow-md sticky top-0 z-50 transition-all duration-300`}>
+    <header className="bg-[#003d82] shadow-md sticky top-0 z-50 transition-all duration-300">
       <div className="max-w-[1600px] mx-auto px-2">
         <div className={`flex items-center transition-all duration-300 ${scrolled ? 'h-16' : 'h-28'}`}>
-          <Link href="/" className="flex items-center flex-shrink-0 -ml-6 mr-4">
+          <Link
+            href="/"
+            className="flex items-center flex-shrink-0 w-[min(60vw,460px)] lg:w-[clamp(280px,27vw,460px)] 2xl:w-[460px] mr-3"
+          >
             <img
               src="/images/logo.png"
               alt="Logo"
-              className={`w-auto object-contain transition-all duration-300 ${scrolled ? 'h-12' : 'h-20'}`}
+              className={`w-full h-auto object-contain transition-all duration-300 ${scrolled ? 'max-h-12' : 'max-h-20'}`}
             />
           </Link>
 
-          <nav className="hidden lg:flex flex-1 justify-between items-center">
+          <nav className="hidden lg:flex flex-1 min-w-0 justify-between items-center">
             {navItems.map((item) => (
               <div
                 key={item.name}
@@ -148,7 +180,7 @@ export default function Header() {
               >
                 <Link
                   href={item.href}
-                  className="px-3 py-2 text-white text-lg font-medium hover:bg-white/10 rounded transition-colors inline-block whitespace-nowrap"
+                  className="px-1.5 xl:px-2 2xl:px-3 py-2 text-white text-base 2xl:text-lg font-medium hover:bg-white/10 rounded transition-colors inline-block whitespace-nowrap"
                 >
                   {item.name}
                 </Link>
@@ -171,67 +203,120 @@ export default function Header() {
 
           <div className="relative flex-shrink-0 mr-2" ref={searchRef}>
             <button
-              className="hidden lg:block px-4 py-2 text-white hover:text-gray-200"
-              onClick={() => setSearchOpen(!searchOpen)}
+              type="button"
+              aria-label="打开搜索"
+              className="px-4 py-2 text-white hover:text-gray-200"
+              onClick={() => {
+                setMobileMenuOpen(false);
+                setSearchOpen(!searchOpen);
+              }}
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                />
               </svg>
             </button>
 
             {searchOpen && (
-              <div className="absolute right-0 top-full mt-2 bg-white shadow-lg rounded-md p-4 w-80">
+              <form
+                role="search"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  const query = searchQuery.trim();
+                  if (!query) return;
+                  router.push(`/search?q=${encodeURIComponent(query)}`);
+                  setSearchOpen(false);
+                }}
+                className="absolute right-0 top-full mt-2 bg-white shadow-lg rounded-md p-4 w-[min(20rem,calc(100vw-2rem))]"
+              >
                 <input
                   type="text"
+                  name="q"
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
                   placeholder="请输入搜索内容..."
+                  aria-label="搜索文章"
+                  maxLength={100}
                   className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   autoFocus
                 />
-                <button className="mt-2 w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700">
+                <button
+                  type="submit"
+                  className="mt-2 w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700"
+                >
                   搜索
                 </button>
-              </div>
+              </form>
             )}
           </div>
 
           <button
+            ref={menuButtonRef}
+            type="button"
+            aria-label={mobileMenuOpen ? '关闭导航菜单' : '打开导航菜单'}
+            aria-expanded={mobileMenuOpen}
+            aria-controls={mobileMenuOpen ? 'site-mobile-nav' : undefined}
             className="lg:hidden p-2 text-white"
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            onClick={() => {
+              setSearchOpen(false);
+              setMobileMenuOpen(!mobileMenuOpen);
+            }}
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 6h16M4 12h16M4 18h16"
+              />
             </svg>
           </button>
         </div>
-
-        {mobileMenuOpen && (
-          <div className="lg:hidden pb-4">
-            {navItems.map((item) => (
-              <div key={item.name}>
-                <Link
-                  href={item.href}
-                  className="block px-4 py-2 text-white hover:bg-white/10"
-                >
-                  {item.name}
-                </Link>
-                {item.children && (
-                  <div className="pl-4">
-                    {item.children.map((child) => (
-                      <Link
-                        key={child.name}
-                        href={child.href}
-                        className="block px-4 py-2 text-sm text-gray-200 hover:bg-white/10"
-                      >
-                        {child.name}
-                      </Link>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
       </div>
+
+      {mobileMenuOpen && (
+        <nav
+          ref={menuPanelRef}
+          id="site-mobile-nav"
+          aria-label="窄屏网站导航"
+          className={`absolute left-2 top-full z-50 lg:hidden w-[min(22rem,calc(100vw-1rem))] ${scrolled ? 'max-h-[calc(100dvh-4rem)]' : 'max-h-[calc(100dvh-7rem)]'} overflow-y-auto overscroll-contain rounded-b-lg border border-gray-200 bg-white p-3 text-gray-800 shadow-2xl`}
+        >
+          {navItems.map((item) => (
+            item.children ? (
+              <details key={item.name} className="border-b border-gray-100 last:border-0">
+                <summary className="cursor-pointer rounded px-3 py-3 font-medium hover:bg-blue-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600">
+                  {item.name}
+                </summary>
+                <div className="pb-2 pl-4">
+                  {item.children.map((child) => (
+                    <Link
+                      key={child.name}
+                      href={child.href}
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="block rounded px-3 py-2 text-sm text-gray-700 hover:bg-blue-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600"
+                    >
+                      {child.name}
+                    </Link>
+                  ))}
+                </div>
+              </details>
+            ) : (
+              <Link
+                key={item.name}
+                href={item.href}
+                onClick={() => setMobileMenuOpen(false)}
+                className="block rounded border-b border-gray-100 px-3 py-3 font-medium hover:bg-blue-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600"
+              >
+                {item.name}
+              </Link>
+            )
+          ))}
+        </nav>
+      )}
     </header>
   );
 }

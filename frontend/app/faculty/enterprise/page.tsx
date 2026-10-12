@@ -4,7 +4,7 @@ import Footer from '@/components/layout/Footer';
 import Sidebar from '@/components/layout/Sidebar';
 import Breadcrumb from '@/components/layout/Breadcrumb';
 import Link from 'next/link';
-import pool from '@/lib/db';
+import { getContentAll } from '@/lib/strapi-content';
 
 type Supervisor = {
   id: number;
@@ -34,16 +34,7 @@ export default async function EnterpriseSupervisors() {
     { name: '企业培养导师', href: '/faculty/enterprise' },
   ];
 
-  const result = await pool.query(
-    `
-    SELECT id, name, slug, title, college, major, personal_website
-    FROM supervisors
-    WHERE category = 'enterprise' AND is_active = true
-    ORDER BY college, major, sort_order, name
-    `
-  );
-
-  const supervisors: Supervisor[] = result.rows;
+  const supervisors = await getContentAll<Supervisor>('supervisors', 'enterprise');
 
   const grouped: GroupedSupervisors = {};
   supervisors.forEach((sup) => {

@@ -4,8 +4,7 @@ import Footer from '@/components/layout/Footer';
 import Sidebar from '@/components/layout/Sidebar';
 import Breadcrumb from '@/components/layout/Breadcrumb';
 import Link from 'next/link';
-import Image from 'next/image';
-import pool from '@/lib/db';
+import { getContentPage, mediaUrl, type StrapiMedia } from '@/lib/strapi-content';
 
 const PAGE_SIZE = 6; // 3列 × 2行
 
@@ -13,7 +12,7 @@ type ShowcaseItem = {
   id: number;
   name: string;
   description: string | null;
-  image_url: string;
+  image: StrapiMedia | null;
 };
 
 function getPageNumbers(current: number, total: number): (number | '...')[] {
@@ -48,27 +47,10 @@ export default async function StudentsShowcase({
     { name: '学生风采', href: '/students/showcase' },
   ];
 
-  const countRes = await pool.query(
-    `SELECT COUNT(*)::int AS total FROM student_showcase WHERE is_active = true`
-  );
-
-  const total = countRes.rows[0]?.total || 0;
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const safePage = Math.min(currentPage, totalPages);
-  const safeOffset = (safePage - 1) * PAGE_SIZE;
-
-  const listRes = await pool.query(
-    `
-    SELECT id, name, description, image_url
-    FROM student_showcase
-    WHERE is_active = true
-    ORDER BY sort_order, id ASC
-    LIMIT $1 OFFSET $2
-    `,
-    [PAGE_SIZE, safeOffset]
-  );
-
-  const items: ShowcaseItem[] = listRes.rows;
+  const result = await getContentPage<ShowcaseItem>('student-showcases', currentPage, PAGE_SIZE);
+  const { page: safePage, pageCount } = result.meta.pagination;
+  const totalPages = Math.max(1, pageCount);
+  const items = result.data;
   const pageNumbers = getPageNumbers(safePage, totalPages);
 
   return (
@@ -100,14 +82,15 @@ export default async function StudentsShowcase({
                     >
                       {/* 图片区域 */}
                       <div className="relative w-full aspect-[3/4] overflow-hidden bg-gray-100">
-                        <Image
-                          src={item.image_url}
-                          alt={item.name}
-                          fill
-                          className="object-cover group-hover:scale-105 transition-transform duration-500"
-                          sizes="(max-width: 1280px) 33vw"
-                          onError={undefined}
-                        />
+                        {mediaUrl(item.image) ? (
+                          <img
+                            src={mediaUrl(item.image)!}
+                            alt={item.name}
+                            className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                          />
+                        ) : (
+                          <div className="absolute inset-0 flex items-center justify-center text-gray-400">暂无图片</div>
+                        )}
                         {/* hover 遮罩 */}
                         <div className="absolute inset-0 bg-blue-600/0 group-hover:bg-blue-600/20 transition-all duration-300"></div>
                       </div>

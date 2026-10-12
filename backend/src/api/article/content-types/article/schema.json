@@ -4,7 +4,8 @@
   "info": {
     "singularName": "article",
     "pluralName": "articles",
-    "displayName": "Article"
+    "displayName": "Article",
+    "description": "文章管理 - 支持多级审核流程"
   },
   "options": {
     "draftAndPublish": true
@@ -29,10 +30,12 @@
       "default": "draft",
       "enum": [
         "draft",
-        "pending",
-        "published",
-        "rejected",
-        "approved"
+        "pending_admin",
+        "rejected_admin",
+        "pending_leader",
+        "rejected_leader",
+        "approved",
+        "published"
       ]
     },
     "publish_time": {
@@ -63,6 +66,36 @@
       "relation": "manyToOne",
       "target": "api::category.category",
       "inversedBy": "secondary_articles"
+    },
+    "created_by_user": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::users-permissions.user"
+    },
+    "reviewed_by_admin": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::users-permissions.user"
+    },
+    "reviewed_by_leader": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::users-permissions.user"
+    },
+    "admin_review_comment": {
+      "type": "text"
+    },
+    "admin_review_date": {
+      "type": "datetime"
+    },
+    "leader_review_comment": {
+      "type": "text"
+    },
+    "leader_review_date": {
+      "type": "datetime"
+    },
+    "rejection_reason": {
+      "type": "text"
     }
   }
 }

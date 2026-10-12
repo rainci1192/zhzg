@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import Breadcrumb from '@/components/layout/Breadcrumb';
-import pool from '@/lib/db';
+import { getContentDetail, mediaUrl, type StrapiMedia } from '@/lib/strapi-content';
 
 type Education = {
   period: string;
@@ -18,6 +18,24 @@ type WorkExperience = {
   description: string;
 };
 
+type Supervisor = {
+  id: number;
+  name: string;
+  name_en?: string | null;
+  category: 'internal' | 'enterprise';
+  college: string | null;
+  major: string | null;
+  title: string | null;
+  photo: StrapiMedia | null;
+  personal_website: string | null;
+  contact_info?: string | null;
+  bio: string | null;
+  education?: Education[] | null;
+  work_experience?: WorkExperience[] | null;
+  social_positions?: string[] | null;
+  research_areas?: string | null;
+};
+
 export default async function SupervisorDetail({
   params,
 }: {
@@ -25,19 +43,8 @@ export default async function SupervisorDetail({
 }) {
   const { slug } = await params;
 
-  const result = await pool.query(
-    `
-    SELECT *
-    FROM supervisors
-    WHERE slug = $1 AND is_active = true
-    LIMIT 1
-    `,
-    [slug]
-  );
-
-  if (result.rows.length === 0) notFound();
-
-  const supervisor = result.rows[0];
+  const supervisor = await getContentDetail<Supervisor>('supervisors', slug);
+  if (!supervisor) notFound();
   const education: Education[] = supervisor.education || [];
   const workExperience: WorkExperience[] = supervisor.work_experience || [];
   const socialPositions: string[] = supervisor.social_positions || [];
@@ -67,9 +74,9 @@ export default async function SupervisorDetail({
           {/* 顶部：照片 + 基本信息 */}
           <div className="flex gap-8 mb-8 pb-8 border-b">
             <div className="flex-shrink-0">
-              {supervisor.photo_url ? (
+              {mediaUrl(supervisor.photo) ? (
                 <img
-                  src={supervisor.photo_url}
+                  src={mediaUrl(supervisor.photo)!}
                   alt={supervisor.name}
                   className="w-40 h-52 object-cover rounded-lg shadow-md border-4 border-gray-100"
                 />
@@ -130,9 +137,8 @@ export default async function SupervisorDetail({
               <h2 className="text-2xl font-bold text-gray-800 mb-4 pb-2 border-b-2 border-blue-600">
                 个人简介
               </h2>
-              <div className="text-gray-700 leading-relaxed whitespace-pre-wrap">
-                {supervisor.bio}
-              </div>
+              <div className="prose prose-gray max-w-none leading-relaxed"
+                dangerouslySetInnerHTML={{ __html: supervisor.bio }} />
             </div>
           )}
 

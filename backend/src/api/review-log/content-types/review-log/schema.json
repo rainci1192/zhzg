@@ -1,0 +1,52 @@
+{
+  "kind": "collectionType",
+  "collectionName": "review_logs",
+  "info": {
+    "singularName": "review-log",
+    "pluralName": "review-logs",
+    "displayName": "Review Log",
+    "description": "文章审核历史记录"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "article": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::article.article"
+    },
+    "reviewer": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::users-permissions.user"
+    },
+    "reviewer_role": {
+      "type": "string"
+    },
+    "action": {
+      "type": "enumeration",
+      "enum": [
+        "submit",
+        "approve_admin",
+        "reject_admin",
+        "approve_leader",
+        "reject_leader",
+        "publish"
+      ]
+    },
+    "from_status": {
+      "type": "string"
+    },
+    "to_status": {
+      "type": "string"
+    },
+    "comment": {
+      "type": "text"
+    },
+    "review_date": {
+      "type": "datetime"
+    }
+  }
+}

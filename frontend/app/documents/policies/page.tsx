@@ -4,7 +4,7 @@ import Footer from '@/components/layout/Footer';
 import Sidebar from '@/components/layout/Sidebar';
 import Breadcrumb from '@/components/layout/Breadcrumb';
 import Link from 'next/link';
-import pool from '@/lib/db';
+import { getContentPage } from '@/lib/strapi-content';
 
 const PAGE_SIZE = 5;
 
@@ -46,27 +46,10 @@ export default async function DocumentsPolicies({
     { name: '政策文件', href: '/documents/policies' },
   ];
 
-  const countRes = await pool.query(
-    `SELECT COUNT(*)::int AS total FROM policy_documents WHERE is_active = true`
-  );
-
-  const total = countRes.rows[0]?.total || 0;
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const safePage = Math.min(currentPage, totalPages);
-  const safeOffset = (safePage - 1) * PAGE_SIZE;
-
-  const listRes = await pool.query(
-    `
-    SELECT id, title, slug, publish_time
-    FROM policy_documents
-    WHERE is_active = true
-    ORDER BY sort_order, publish_time DESC NULLS LAST, id DESC
-    LIMIT $1 OFFSET $2
-    `,
-    [PAGE_SIZE, safeOffset]
-  );
-
-  const documents: PolicyDocument[] = listRes.rows;
+  const result = await getContentPage<PolicyDocument>('policy-documents', currentPage, PAGE_SIZE);
+  const { page: safePage, pageCount } = result.meta.pagination;
+  const totalPages = Math.max(1, pageCount);
+  const documents = result.data;
   const pageNumbers = getPageNumbers(safePage, totalPages);
 
   return (

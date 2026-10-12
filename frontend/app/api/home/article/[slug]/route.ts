@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import pool from '@/lib/db';
+import { getArticleBySlug } from '@/lib/api';
 
 export async function GET(
   _req: Request,
@@ -8,26 +8,16 @@ export async function GET(
   try {
     const { slug } = await params;
 
-    const sql = `
-      SELECT a.id, a.title, a.subtitle, a.slug, a.summary, a.content_html,
-             a.publish_time, a.source, a.author_name, a.view_count,
-             c.name AS category_name, c.slug AS category_slug
-      FROM articles a
-      JOIN categories c ON c.id = a.category_id
-      WHERE a.slug = $1 AND a.status = 'published'
-      LIMIT 1
-    `;
-    const { rows } = await pool.query(sql, [slug]);
-
-    if (!rows.length) {
+    const result = await getArticleBySlug(slug);
+    if (!result.data) {
       return NextResponse.json({ code: 404, message: "not found" }, { status: 404 });
     }
-
-    await pool.query(`UPDATE articles SET view_count = view_count + 1 WHERE id = $1`, [rows[0].id]);
-
-    return NextResponse.json({ code: 0, data: rows[0] });
+    return NextResponse.json({
+      code: 0,
+      data: { ...result.data, content_html: result.data.content || '' },
+    });
   } catch (error) {
     console.error(error);
-    return NextResponse.json({ code: 500, message: "article api error" }, { status: 500 });
+    return NextResponse.json({ code: 502, message: "Strapi 服务暂不可用" }, { status: 502 });
   }
 }

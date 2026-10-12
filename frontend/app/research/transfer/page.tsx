@@ -3,7 +3,7 @@ import Footer from '@/components/layout/Footer';
 import Sidebar from '@/components/layout/Sidebar';
 import Breadcrumb from '@/components/layout/Breadcrumb';
 import Link from 'next/link';
-import pool from '@/lib/db';
+import { getContentPage } from '@/lib/strapi-content';
 
 const PAGE_SIZE = 5;
 
@@ -11,8 +11,8 @@ type TransferItem = {
   id: number;
   title: string;
   slug: string;
-  summary: string | null;
-  publish_time: string | null;
+  summary?: string | null;
+  publish_time?: string | null;
 };
 
 function getPageNumbers(current: number, total: number): (number | '...')[] {
@@ -47,35 +47,10 @@ export default async function ResearchTransfer({
     { name: '成果转化', href: '/research/transfer' },
   ];
 
-  const countRes = await pool.query(
-    `
-    SELECT COUNT(*)::int AS total
-    FROM articles a
-    JOIN categories c ON c.id = a.category_id
-    WHERE a.status = 'published'
-      AND c.slug = 'research-transfer'
-    `
-  );
-
-  const total = countRes.rows[0]?.total || 0;
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const safePage = Math.min(currentPage, totalPages);
-  const safeOffset = (safePage - 1) * PAGE_SIZE;
-
-  const listRes = await pool.query(
-    `
-    SELECT a.id, a.title, a.slug, a.summary, a.publish_time
-    FROM articles a
-    JOIN categories c ON c.id = a.category_id
-    WHERE a.status = 'published'
-      AND c.slug = 'research-transfer'
-    ORDER BY a.is_top DESC, a.publish_time DESC NULLS LAST, a.id DESC
-    LIMIT $1 OFFSET $2
-    `,
-    [PAGE_SIZE, safeOffset]
-  );
-
-  const transferData: TransferItem[] = listRes.rows;
+  const result = await getContentPage<TransferItem>('research-transfers', currentPage, PAGE_SIZE);
+  const totalPages = Math.max(1, result.meta.pagination.pageCount);
+  const safePage = result.meta.pagination.page;
+  const transferData: TransferItem[] = result.data;
   const pageNumbers = getPageNumbers(safePage, totalPages);
 
   return (
@@ -108,7 +83,7 @@ export default async function ResearchTransfer({
                     return (
                       <Link
                         key={item.id}
-                        href={`/article/${item.slug}?from=transfer`}
+                        href={`/research/transfer/${item.slug}`}
                         className="group block bg-white rounded-lg shadow-sm hover:shadow-lg transition-all duration-300 p-6"
                       >
                         <div className="flex items-start gap-4">

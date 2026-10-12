@@ -72,7 +72,7 @@ export default function NoticeList() {
 
   return (
     <div className="px-12 py-8">
-      {/* 标题区 + 分割线 */}
+      {/* 标题区 - 与新闻动态完全一致的样式 */}
       <div className="mb-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -94,14 +94,15 @@ export default function NoticeList() {
             <span className="relative z-10">查看更多</span>
           </Link>
         </div>
-
         <div className="mt-4 h-px w-full bg-gradient-to-r from-blue-200 via-gray-300 to-gray-200" />
       </div>
 
       {displayList.length === 0 ? (
-        <div className="text-gray-400 text-center py-12">暂无通知公告</div>
+        <div className="text-gray-400 text-center py-12 bg-white rounded-xl border border-dashed border-gray-200">
+          暂无通知公告
+        </div>
       ) : (
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
           {displayList.map((notice) => {
             const { day, yearMonth } = formatDate(notice.publish_time);
 
@@ -109,44 +110,39 @@ export default function NoticeList() {
               <Link
                 key={notice.id}
                 href={`/article/${notice.slug}?from=notice`}
-                className="group relative overflow-hidden rounded-lg bg-gray-50 transition-all duration-500 shadow-sm hover:shadow-lg hover:-translate-y-[2px]"
+                className="group relative flex items-center gap-5 p-4 bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-md hover:border-blue-100 hover:-translate-y-0.5 transition-all duration-300 cursor-pointer overflow-hidden"
               >
-                {/* 流光动效层 */}
-                <span className="absolute inset-0 bg-gradient-to-r from-transparent via-blue-100/60 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></span>
-
-                <div className="relative p-6 flex items-center gap-4 transition-all duration-500 group-hover:bg-gradient-to-r group-hover:from-blue-50 group-hover:to-blue-100">
-                  {/* 日期 */}
-                  <div className="flex-shrink-0 text-center">
-                    <div className="text-5xl font-bold leading-none text-blue-700 group-hover:text-blue-800 transition-colors duration-500">
-                      {day}
-                    </div>
-                    <div className="text-sm mt-1 text-gray-500 group-hover:text-blue-600 transition-colors duration-500">
-                      {yearMonth}
-                    </div>
-                  </div>
-
-                  {/* 标题 */}
-                  <div className="flex-1 min-w-0">
-                    <h4 className="text-lg font-bold leading-tight line-clamp-2 text-gray-800 group-hover:text-blue-700 transition-colors duration-500">
-                      {notice.title}
-                    </h4>
-                    {notice.summary && (
-                      <p className="text-sm mt-2 line-clamp-1 text-gray-500 group-hover:text-blue-600 transition-colors duration-500">
-                        {notice.summary}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* 箭头 */}
-                  <div className="flex-shrink-0 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-500">
-                    <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </div>
+                <div className="flex-shrink-0 flex flex-col items-center justify-center w-[72px] h-[72px] bg-gray-50 rounded-xl group-hover:bg-blue-600 group-hover:scale-105 transition-all duration-300 ease-out shadow-inner">
+                  <span className="text-2xl font-bold font-mono tracking-tight text-gray-800 group-hover:text-white transition-colors duration-300">
+                    {day}
+                  </span>
+                  <span className="text-[11px] font-mono mt-0.5 text-gray-400 group-hover:text-blue-100 transition-colors duration-300">
+                    {yearMonth}
+                  </span>
                 </div>
 
-                {/* 底部细蓝线动效 */}
-                <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-gradient-to-r from-blue-400 to-blue-600 scale-x-0 group-hover:scale-x-100 transition-transform duration-500 origin-left"></div>
+                <div className="flex-1 min-w-0 pr-4">
+                  <h4 className="text-[15px] font-semibold text-gray-700 leading-snug tracking-wide line-clamp-2 group-hover:text-blue-600 group-hover:translate-x-1.5 transition-all duration-300 ease-out">
+                    {notice.title}
+                  </h4>
+                  {notice.summary && (
+                    <p className="text-xs mt-1.5 text-gray-400 line-clamp-1 group-hover:text-blue-500/80 group-hover:translate-x-1.5 transition-all duration-300 ease-out">
+                      {notice.summary}
+                    </p>
+                  )}
+                </div>
+
+                <div className="absolute right-3 bottom-3 opacity-0 translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300 text-blue-500">
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    strokeWidth={2.5}
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 19.5l15-15m0 0H8.25m11.25 0v11.25" />
+                  </svg>
+                </div>
               </Link>
             );
           })}

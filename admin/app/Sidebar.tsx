@@ -13,7 +13,7 @@ import {
   Users, 
   CheckCircle, 
   Activity, 
-  Database 
+  Database
 } from 'lucide-react';
 
 const menuItems = [
