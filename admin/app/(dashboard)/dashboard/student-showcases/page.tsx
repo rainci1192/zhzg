@@ -1,5 +1,7 @@
 'use client';
 
+import { strapiFetch } from '@/lib/strapi-fetch';
+
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
 
@@ -60,7 +62,7 @@ export default function StudentShowcasesManagement() {
 
   const fetchShowcases = async () => {
     try {
-      const response = await fetch(`${STRAPI_URL}/api/student-showcases?populate=image&sort[0]=sort_order:asc`);
+      const response = await strapiFetch(`${STRAPI_URL}/api/student-showcases?populate=image&sort[0]=sort_order:asc`);
       const data: StrapiResponse = await response.json();
       setShowcases(data.data.map((item) => ({
         id: item.id,
@@ -83,7 +85,7 @@ export default function StudentShowcasesManagement() {
       const uploadFormData = new FormData();
       uploadFormData.append('files', file);
 
-      const response = await fetch(`${STRAPI_URL}/api/upload`, {
+      const response = await strapiFetch(`${STRAPI_URL}/api/upload`, {
         method: 'POST',
         body: uploadFormData,
       });
@@ -131,7 +133,7 @@ export default function StudentShowcasesManagement() {
       
       const method = editingShowcase ? 'PUT' : 'POST';
       
-      const response = await fetch(url, {
+      const response = await strapiFetch(url, {
         method,
         headers: {
           'Content-Type': 'application/json',
@@ -179,7 +181,7 @@ export default function StudentShowcasesManagement() {
     if (!confirm('确定要删除这个学生风采吗？')) return;
 
     try {
-      const response = await fetch(`${STRAPI_URL}/api/student-showcases/${documentId}`, {
+      const response = await strapiFetch(`${STRAPI_URL}/api/student-showcases/${documentId}`, {
         method: 'DELETE',
       });
 

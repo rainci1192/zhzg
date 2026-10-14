@@ -1,5 +1,7 @@
 'use client';
 
+import { strapiFetch } from '@/lib/strapi-fetch';
+
 import { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import Image from 'next/image';
@@ -72,7 +74,7 @@ export default function ResearchInstitutionsManagement() {
 
   const fetchInstitutions = async () => {
     try {
-      const response = await fetch(`${STRAPI_URL}/api/research-institutions?populate=cover_image&sort=sort_order:asc`);
+      const response = await strapiFetch(`${STRAPI_URL}/api/research-institutions?populate=cover_image&sort=sort_order:asc`);
       const data: StrapiResponse = await response.json();
       setInstitutions(data.data.map((item) => ({
         id: item.id,
@@ -95,7 +97,7 @@ export default function ResearchInstitutionsManagement() {
     try {
       const uploadFormData = new FormData();
       uploadFormData.append('files', file);
-      const response = await fetch(`${STRAPI_URL}/api/upload`, {
+      const response = await strapiFetch(`${STRAPI_URL}/api/upload`, {
         method: 'POST',
         body: uploadFormData,
       });
@@ -113,7 +115,7 @@ export default function ResearchInstitutionsManagement() {
   const handleEditorUpload = async (file: File): Promise<string> => {
     const uploadFormData = new FormData();
     uploadFormData.append('files', file);
-    const response = await fetch(`${STRAPI_URL}/api/upload`, {
+    const response = await strapiFetch(`${STRAPI_URL}/api/upload`, {
       method: 'POST',
       body: uploadFormData,
     });
@@ -149,7 +151,7 @@ export default function ResearchInstitutionsManagement() {
 
       const method = editingInstitution ? 'PUT' : 'POST';
 
-      const response = await fetch(url, {
+      const response = await strapiFetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -190,7 +192,7 @@ export default function ResearchInstitutionsManagement() {
   const handleDelete = async (documentId: string) => {
     if (!confirm('确定要删除这个科研机构吗？')) return;
     try {
-      const response = await fetch(`${STRAPI_URL}/api/research-institutions/${documentId}`, {
+      const response = await strapiFetch(`${STRAPI_URL}/api/research-institutions/${documentId}`, {
         method: 'DELETE',
       });
       if (response.ok) {

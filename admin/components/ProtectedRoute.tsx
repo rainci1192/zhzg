@@ -19,8 +19,7 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
     if (isLoading) return;
 
     if (!user) {
-      // 未登录，跳转到登录页（如果有的话）
-      // router.push('/login');
+      router.replace('/login');
       return;
     }
 
@@ -31,8 +30,8 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
     }
   }, [user, isLoading, pathname, canAccessPath, router]);
 
-  // 加载中
-  if (isLoading) {
+  // Do not render protected content while the saved Strapi token is being checked.
+  if (isLoading || !user) {
     return (
       <div className="flex items-center justify-center h-screen">
         <div className="text-center">
@@ -44,7 +43,7 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
   }
 
   // 无权限
-  if (user && !canAccessPath(pathname)) {
+  if (!canAccessPath(pathname)) {
     return (
       <div className="flex items-center justify-center h-screen">
         <div className="text-center max-w-md">

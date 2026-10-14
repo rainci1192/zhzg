@@ -1,18 +1,11 @@
+import { strapiFetch } from '../strapi-fetch';
 const STRAPI_BASE_URL =
   process.env.NEXT_PUBLIC_STRAPI_URL ||
   process.env.STRAPI_URL ||
   'http://localhost:1337';
 
-const STRAPI_API_TOKEN =
-  process.env.NEXT_PUBLIC_STRAPI_API_TOKEN ||
-  process.env.STRAPI_API_TOKEN ||
-  '';
-
 function authHeaders(): Record<string, string> {
-  return {
-    'Content-Type': 'application/json',
-    ...(STRAPI_API_TOKEN ? { Authorization: `Bearer ${STRAPI_API_TOKEN}` } : {}),
-  };
+  return { 'Content-Type': 'application/json' };
 }
 
 export type LeaderPhoto = { id: number; url: string; name: string };
@@ -93,21 +86,21 @@ export async function fetchLeaders(): Promise<Leader[]> {
     'sort[1]': 'id:asc',
     'pagination[pageSize]': '50',
   });
-  const res = await fetch(`${STRAPI_BASE_URL}/api/leaders?${params}`, { headers: authHeaders(), cache: 'no-store' });
+  const res = await strapiFetch(`${STRAPI_BASE_URL}/api/leaders?${params}`, { headers: authHeaders(), cache: 'no-store' });
   if (!res.ok) throw new Error(`获取领导信息失败: ${res.status}`);
   const json = (await res.json()) as StrapiListResponse;
   return (json.data ?? []).map(unwrap);
 }
 
 export async function fetchLeader(documentId: string): Promise<Leader> {
-  const res = await fetch(`${STRAPI_BASE_URL}/api/leaders/${documentId}?populate=photo`, { headers: authHeaders(), cache: 'no-store' });
+  const res = await strapiFetch(`${STRAPI_BASE_URL}/api/leaders/${documentId}?populate=photo`, { headers: authHeaders(), cache: 'no-store' });
   if (!res.ok) throw new Error(`获取领导信息失败: ${res.status}`);
   const json = (await res.json()) as StrapiSingleResponse;
   return unwrap(json.data ?? (json as StrapiEntity));
 }
 
 export async function createLeader(payload: LeaderPayload): Promise<Leader> {
-  const res = await fetch(`${STRAPI_BASE_URL}/api/leaders`, {
+  const res = await strapiFetch(`${STRAPI_BASE_URL}/api/leaders`, {
     method: 'POST', headers: authHeaders(), body: JSON.stringify({ data: payload }),
   });
   if (!res.ok) {
@@ -119,7 +112,7 @@ export async function createLeader(payload: LeaderPayload): Promise<Leader> {
 }
 
 export async function updateLeader(documentId: string, payload: LeaderPayload): Promise<Leader> {
-  const res = await fetch(`${STRAPI_BASE_URL}/api/leaders/${documentId}`, {
+  const res = await strapiFetch(`${STRAPI_BASE_URL}/api/leaders/${documentId}`, {
     method: 'PUT', headers: authHeaders(), body: JSON.stringify({ data: payload }),
   });
   if (!res.ok) {
@@ -131,16 +124,16 @@ export async function updateLeader(documentId: string, payload: LeaderPayload): 
 }
 
 export async function deleteLeader(documentId: string): Promise<void> {
-  const res = await fetch(`${STRAPI_BASE_URL}/api/leaders/${documentId}`, { method: 'DELETE', headers: authHeaders() });
+  const res = await strapiFetch(`${STRAPI_BASE_URL}/api/leaders/${documentId}`, { method: 'DELETE', headers: authHeaders() });
   if (!res.ok) throw new Error(`删除失败: ${res.status}`);
 }
 
 export async function uploadPhoto(file: File): Promise<StrapiUploadResult> {
   const formData = new FormData();
   formData.append('files', file);
-  const res = await fetch(`${STRAPI_BASE_URL}/api/upload`, {
+  const res = await strapiFetch(`${STRAPI_BASE_URL}/api/upload`, {
     method: 'POST',
-    headers: STRAPI_API_TOKEN ? { Authorization: `Bearer ${STRAPI_API_TOKEN}` } : {},
+    headers: {},
     body: formData,
   });
   if (!res.ok) throw new Error(`上传失败: ${res.status}`);

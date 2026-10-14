@@ -1,0 +1,55 @@
+{
+  "kind": "collectionType",
+  "collectionName": "research_transfers",
+  "info": {
+    "singularName": "research-transfer",
+    "pluralName": "research-transfers",
+    "displayName": "Research Transfer"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "title": {
+      "type": "text",
+      "maxLength": 200,
+      "required": true
+    },
+    "slug": {
+      "type": "uid",
+      "targetField": "title",
+      "required": true
+    },
+    "summary": {
+      "type": "text"
+    },
+    "attachments": {
+      "type": "media",
+      "multiple": true,
+      "allowedTypes": [
+        "images",
+        "files",
+        "videos",
+        "audios"
+      ]
+    },
+    "publish_time": {
+      "type": "datetime"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true
+    },
+    "is_top": {
+      "type": "boolean"
+    },
+    "sort_order": {
+      "type": "integer",
+      "default": 0
+    },
+    "content": {
+      "type": "richtext"
+    }
+  }
+}

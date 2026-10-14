@@ -1,20 +1,28 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { fetchRoles, clearRolesCache } from '@/lib/permissions';
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  type ReactNode,
+} from 'react';
+import { adminLogin } from '@/lib/api';
+import { strapiFetch } from '@/lib/strapi-fetch';
+import { clearPermissionsCache, fetchRoles } from '@/lib/permissions';
 
 const STRAPI_URL = process.env.NEXT_PUBLIC_STRAPI_URL || 'http://localhost:1337';
 
-interface User {
+export interface User {
   id: string;
-  documentId?: string;
+  documentId: string;
   name: string;
   username: string;
   email: string;
   role: string;
-  roleId?: number;
+  roleId: number;
   avatar?: string;
-  is_active?: boolean;
+  is_active: boolean;
 }
 
 interface AuthContextType {
@@ -22,99 +30,168 @@ interface AuthContextType {
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
-  updateUserRole: (roleId: number, roleName: string) => void;
+}
+
+interface StrapiRecord extends Record<string, unknown> {
+  id?: number | string;
+  documentId?: string;
+  attributes?: Record<string, unknown>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+function clearStoredSession() {
+  if (typeof window === 'undefined') return;
+  window.localStorage.removeItem('strapi_jwt');
+  window.localStorage.removeItem('strapi_user');
+  // Remove the old demo session so it can never be reused as an identity.
+  window.localStorage.removeItem('auth_user');
+  clearPermissionsCache();
+}
+
+function unwrapRecord(value: unknown): StrapiRecord | null {
+  if (!value || typeof value !== 'object') return null;
+  const record = value as StrapiRecord;
+  if (record.attributes && typeof record.attributes === 'object') {
+    return { ...record.attributes, id: record.id, documentId: record.documentId };
+  }
+  return record;
+}
+
+function unwrapRelation(value: unknown): StrapiRecord | null {
+  if (!value || typeof value !== 'object') return null;
+  const relation = value as { data?: unknown };
+  return unwrapRecord(relation.data ?? value);
+}
+
+async function fetchCurrentAdmin(): Promise<User> {
+  const identityResponse = await strapiFetch(`${STRAPI_URL}/api/users/me?populate=role`);
+  if (!identityResponse.ok) {
+    throw new Error('登录状态已失效，请重新登录。');
+  }
+
+  const identity = (await identityResponse.json()) as {
+    id?: number | string;
+    username?: string;
+    email?: string;
+  };
+  const email = identity.email?.trim();
+  if (!email) {
+    throw new Error('Strapi 未返回有效的账号邮箱，请联系管理员检查账号。');
+  }
+
+  const profileUrl =
+    `${STRAPI_URL}/api/backend-admins` +
+    `?filters[email][$eq]=${encodeURIComponent(email)}` +
+    '&populate[backend_role]=true&populate[avatar]=true';
+  const profileResponse = await strapiFetch(profileUrl);
+  if (!profileResponse.ok) {
+    throw new Error('无法读取后台管理员资料，请联系管理员检查 Strapi API 权限。');
+  }
+
+  const profileResult = (await profileResponse.json()) as { data?: unknown[] };
+  const profile = unwrapRecord(profileResult.data?.[0]);
+  if (!profile) {
+    throw new Error('此 Strapi 账号尚未关联后台管理员资料，请联系管理员完成账号绑定。');
+  }
+
+  const profileEmail = String(profile.email ?? '').trim().toLowerCase();
+  if (profileEmail !== email.toLowerCase()) {
+    throw new Error('后台管理员邮箱与 Strapi 登录账号不一致，请联系管理员检查账号绑定。');
+  }
+
+  if (profile.is_active !== true) {
+    throw new Error('此后台账号已停用，请联系管理员。');
+  }
+
+  const role = unwrapRelation(profile.backend_role);
+  const roleId = Number(role?.id);
+  const roleName = typeof role?.name === 'string' ? role.name : '';
+  if (!Number.isFinite(roleId) || roleId <= 0 || !roleName) {
+    throw new Error('此后台账号尚未分配有效角色，请联系管理员。');
+  }
+
+  const roles = await fetchRoles();
+  if (!roles.some((item) => item.id === roleId && item.name === roleName)) {
+    throw new Error('无法读取此账号对应的角色权限，请联系管理员检查 Strapi 角色配置。');
+  }
+
+  const avatar = unwrapRelation(profile.avatar);
+  const avatarUrl = typeof avatar?.url === 'string' ? avatar.url : undefined;
+
+  return {
+    id: String(profile.id ?? identity.id ?? ''),
+    documentId: String(profile.documentId ?? ''),
+    name: String(profile.name ?? identity.username ?? email),
+    username: String(profile.username ?? identity.username ?? email),
+    email,
+    role: roleName,
+    roleId,
+    avatar: avatarUrl,
+    is_active: true,
+  };
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // 初始化：从 localStorage 加载用户信息并获取角色数据
   useEffect(() => {
-    const loadUser = async () => {
-      try {
-        // 先加载角色数据
-        await fetchRoles();
+    let cancelled = false;
 
-        const savedUser = localStorage.getItem('auth_user');
-        if (savedUser) {
-          setUser(JSON.parse(savedUser));
-        } else {
-          // 默认用户（用于演示）
-          const defaultUser: User = {
-            id: '1',
-            name: '超级管理员',
-            // cspell:disable-next-line
-            username: 'superadmin',
-            email: 'super@example.com',
-            role: 'super_admin',
-          };
-          setUser(defaultUser);
-          localStorage.setItem('auth_user', JSON.stringify(defaultUser));
-        }
-      } catch (error) {
-        console.error('加载用户信息失败:', error);
-      } finally {
+    const restoreSession = async () => {
+      const token = window.localStorage.getItem('strapi_jwt');
+      // Never trust the old locally stored demo identity.
+      window.localStorage.removeItem('auth_user');
+
+      if (!token) {
+        setUser(null);
         setIsLoading(false);
+        return;
+      }
+
+      try {
+        const currentUser = await fetchCurrentAdmin();
+        if (!cancelled) setUser(currentUser);
+      } catch (error) {
+        console.error('恢复后台登录状态失败:', error);
+        clearStoredSession();
+        if (!cancelled) setUser(null);
+      } finally {
+        if (!cancelled) setIsLoading(false);
       }
     };
 
-    loadUser();
+    void restoreSession();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const login = async (email: string, password: string) => {
     setIsLoading(true);
     try {
-      // 调用 Strapi API 登录
-      const response = await fetch(
-        `${STRAPI_URL}/api/backend-admins?filters[email][$eq]=${email}&populate=backend_role`
-      );
-      const data = await response.json();
+      const response = await adminLogin(email.trim(), password);
+      window.localStorage.setItem('strapi_jwt', response.jwt);
+      window.localStorage.setItem('strapi_user', JSON.stringify(response.user));
 
-      if (data.data && data.data.length > 0) {
-        const userData = data.data[0];
-        
-        // TODO: 实际项目中应该验证密码
-        // 这里只是演示，实际应该调用 Strapi 的认证 API
-        console.log('登录密码:', password);
+      const currentUser = await fetchCurrentAdmin();
+      setUser(currentUser);
 
-        // 检查用户是否被禁用
-        if (!userData.is_active) {
-          throw new Error('账户已被禁用');
+      // Last-login tracking is useful, but a logging failure should not undo a valid login.
+      if (currentUser.documentId) {
+        try {
+          await strapiFetch(`${STRAPI_URL}/api/backend-admins/${currentUser.documentId}`, {
+            method: 'PUT',
+            body: JSON.stringify({ data: { last_login: new Date().toISOString() } }),
+          });
+        } catch (error) {
+          console.warn('更新最后登录时间失败:', error);
         }
-
-        const newUser: User = {
-          id: userData.id.toString(),
-          documentId: userData.documentId,
-          name: userData.name,
-          username: userData.username,
-          email: userData.email,
-          role: userData.backend_role?.name || 'viewer',
-          roleId: userData.backend_role?.id,
-          avatar: userData.avatar?.url,
-          is_active: userData.is_active,
-        };
-
-        setUser(newUser);
-        localStorage.setItem('auth_user', JSON.stringify(newUser));
-
-        // 更新最后登录时间
-        await fetch(`${STRAPI_URL}/api/backend-admins/${userData.documentId}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            data: {
-              last_login: new Date().toISOString(),
-            },
-          }),
-        });
-      } else {
-        throw new Error('用户不存在');
       }
     } catch (error) {
-      console.error('登录失败:', error);
+      clearStoredSession();
+      setUser(null);
       throw error;
     } finally {
       setIsLoading(false);
@@ -122,21 +199,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = () => {
+    clearStoredSession();
     setUser(null);
-    localStorage.removeItem('auth_user');
-  };
-
-  const updateUserRole = (roleId: number, roleName: string) => {
-    if (user) {
-      const updatedUser = { ...user, role: roleName, roleId };
-      setUser(updatedUser);
-      localStorage.setItem('auth_user', JSON.stringify(updatedUser));
-      clearRolesCache(); // 清除缓存以重新加载权限
-    }
   };
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, logout, updateUserRole }}>
+    <AuthContext.Provider value={{ user, isLoading, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

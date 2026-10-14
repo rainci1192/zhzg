@@ -1,5 +1,7 @@
 'use client';
 
+import { strapiFetch } from '@/lib/strapi-fetch';
+
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { fetchRoles, StrapiRole } from '@/lib/permissions';
@@ -53,7 +55,7 @@ export default function RolePermissionsConfigPage() {
     try {
       const permissionsUrl = `${STRAPI_URL}/api/role-permissions?filters[backend_role][id][$eq]=${roleId}&populate=permission_module&populate=allowed_actions`;
       
-      const permissionsRes = await fetch(permissionsUrl);
+      const permissionsRes = await strapiFetch(permissionsUrl);
       if (!permissionsRes.ok) {
         throw new Error(`加载权限记录失败: ${permissionsRes.status}`);
       }
@@ -76,14 +78,14 @@ export default function RolePermissionsConfigPage() {
       }
       
       const modulesUrl = `${STRAPI_URL}/api/permission-modules`;
-      const modulesRes = await fetch(modulesUrl);
+      const modulesRes = await strapiFetch(modulesUrl);
       const modulesData = await modulesRes.json();
       const modulesMap = new Map<number, PermissionModule>(
         (modulesData.data || []).map((m: PermissionModule) => [m.id, m])
       );
       
       const actionsUrl = `${STRAPI_URL}/api/permission-actions`;
-      const actionsRes = await fetch(actionsUrl);
+      const actionsRes = await strapiFetch(actionsUrl);
       const actionsData = await actionsRes.json();
       const actionsMap = new Map<number, PermissionAction>(
         (actionsData.data || []).map((a: PermissionAction) => [a.id, a])
@@ -174,8 +176,8 @@ export default function RolePermissionsConfigPage() {
     try {
       const [rolesData, modulesRes, actionsRes] = await Promise.all([
         fetchRoles(),
-        fetch(`${STRAPI_URL}/api/permission-modules?sort=category:asc,sort_order:asc`),
-        fetch(`${STRAPI_URL}/api/permission-actions?sort=sort_order:asc`),
+        strapiFetch(`${STRAPI_URL}/api/permission-modules?sort=category:asc,sort_order:asc`),
+        strapiFetch(`${STRAPI_URL}/api/permission-actions?sort=sort_order:asc`),
       ]);
 
       const currentRole = rolesData.find((r) => r.id === roleId);
@@ -236,7 +238,7 @@ export default function RolePermissionsConfigPage() {
     try {
       if (rolePermissions.length > 0) {
         const deletePromises = rolePermissions.map((rp) =>
-          fetch(`${STRAPI_URL}/api/role-permissions/${rp.documentId}`, {
+          strapiFetch(`${STRAPI_URL}/api/role-permissions/${rp.documentId}`, {
             method: 'DELETE',
           })
         );
@@ -262,7 +264,7 @@ export default function RolePermissionsConfigPage() {
         };
 
         try {
-          const createRes = await fetch(`${STRAPI_URL}/api/role-permissions`, {
+          const createRes = await strapiFetch(`${STRAPI_URL}/api/role-permissions`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(createPayload),

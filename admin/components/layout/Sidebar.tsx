@@ -1,5 +1,7 @@
 'use client';
 
+import { strapiFetch } from '@/lib/strapi-fetch';
+
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState, useMemo, useEffect, useCallback } from 'react';
@@ -346,7 +348,7 @@ export default function Sidebar() {
       const url = `${STRAPI_URL}/api/role-permissions?filters[backend_role][id][$eq]=${roleId}&populate=permission_module&populate=allowed_actions`;
       console.log('请求 URL:', url);
 
-      const response = await fetch(url);
+      const response = await strapiFetch(url);
 
       if (!response.ok) {
         throw new Error('加载权限失败');

@@ -1,5 +1,7 @@
 'use client';
 
+import { strapiFetch } from '@/lib/strapi-fetch';
+
 import { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 
@@ -80,7 +82,7 @@ export default function StudentDocumentsManagement() {
 
   const fetchDocuments = async () => {
     try {
-      const response = await fetch(`${STRAPI_URL}/api/student-documents?populate=attachments&sort[0]=sort_order:asc&sort[1]=publish_time:desc`);
+      const response = await strapiFetch(`${STRAPI_URL}/api/student-documents?populate=attachments&sort[0]=sort_order:asc&sort[1]=publish_time:desc`);
       const data: StrapiResponse = await response.json();
       setDocuments(data.data.map((item) => ({
         id: item.id,
@@ -104,7 +106,7 @@ export default function StudentDocumentsManagement() {
     try {
       const uploadFormData = new FormData();
       files.forEach(file => uploadFormData.append('files', file));
-      const response = await fetch(`${STRAPI_URL}/api/upload`, {
+      const response = await strapiFetch(`${STRAPI_URL}/api/upload`, {
         method: 'POST',
         body: uploadFormData,
       });
@@ -122,7 +124,7 @@ export default function StudentDocumentsManagement() {
   const handleEditorUpload = async (file: File): Promise<string> => {
     const uploadFormData = new FormData();
     uploadFormData.append('files', file);
-    const response = await fetch(`${STRAPI_URL}/api/upload`, {
+    const response = await strapiFetch(`${STRAPI_URL}/api/upload`, {
       method: 'POST',
       body: uploadFormData,
     });
@@ -158,7 +160,7 @@ export default function StudentDocumentsManagement() {
         : `${STRAPI_URL}/api/student-documents`;
       const method = editingDocument ? 'PUT' : 'POST';
 
-      const response = await fetch(url, {
+      const response = await strapiFetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -207,7 +209,7 @@ export default function StudentDocumentsManagement() {
   const handleDelete = async (documentId: string) => {
     if (!confirm('确定要删除这个学生文档吗？')) return;
     try {
-      const response = await fetch(`${STRAPI_URL}/api/student-documents/${documentId}`, {
+      const response = await strapiFetch(`${STRAPI_URL}/api/student-documents/${documentId}`, {
         method: 'DELETE',
       });
       if (response.ok) {
@@ -247,7 +249,7 @@ export default function StudentDocumentsManagement() {
       ?.filter(a => a.id !== attachmentId)
       .map(a => a.id) || [];
     try {
-      const response = await fetch(`${STRAPI_URL}/api/student-documents/${editingDocument.documentId}`, {
+      const response = await strapiFetch(`${STRAPI_URL}/api/student-documents/${editingDocument.documentId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ data: { attachments: updatedAttachments } }),

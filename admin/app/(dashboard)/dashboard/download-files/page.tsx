@@ -1,5 +1,7 @@
 'use client';
 
+import { strapiFetch } from '@/lib/strapi-fetch';
+
 import { useEffect, useState } from 'react';
 
 interface DownloadFile {
@@ -70,7 +72,7 @@ export default function DownloadFilesManagement() {
 
   const fetchFiles = async () => {
     try {
-      const response = await fetch(`${STRAPI_URL}/api/download-files?populate=file&sort[0]=sort_order:asc`);
+      const response = await strapiFetch(`${STRAPI_URL}/api/download-files?populate=file&sort[0]=sort_order:asc`);
       const data: StrapiResponse = await response.json();
       setFiles(data.data.map((item) => ({
         id: item.id,
@@ -93,7 +95,7 @@ export default function DownloadFilesManagement() {
       const uploadFormData = new FormData();
       uploadFormData.append('files', file);
 
-      const response = await fetch(`${STRAPI_URL}/api/upload`, {
+      const response = await strapiFetch(`${STRAPI_URL}/api/upload`, {
         method: 'POST',
         body: uploadFormData,
       });
@@ -141,7 +143,7 @@ export default function DownloadFilesManagement() {
       
       const method = editingFile ? 'PUT' : 'POST';
       
-      const response = await fetch(url, {
+      const response = await strapiFetch(url, {
         method,
         headers: {
           'Content-Type': 'application/json',
@@ -187,7 +189,7 @@ export default function DownloadFilesManagement() {
     if (!confirm('确定要删除这个资料吗？')) return;
 
     try {
-      const response = await fetch(`${STRAPI_URL}/api/download-files/${documentId}`, {
+      const response = await strapiFetch(`${STRAPI_URL}/api/download-files/${documentId}`, {
         method: 'DELETE',
       });
 

@@ -2,14 +2,15 @@
 
 import { LogOut } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function Header() {
   const router = useRouter();
+  const { user, logout } = useAuth();
 
   const handleLogout = () => {
-    localStorage.removeItem('strapi_jwt');
-    localStorage.removeItem('strapi_user');
-    router.push('/login');
+    logout();
+    router.replace('/login');
   };
 
   return (
@@ -21,7 +22,7 @@ export default function Header() {
       <div className="flex items-center gap-6">
         <div className="text-sm">
           <span className="text-gray-400">当前用户：</span>
-          <span className="font-medium text-gray-700">超级管理员</span>
+          <span className="font-medium text-gray-700">{user?.name || user?.username || user?.email}</span>
         </div>
         
         <button

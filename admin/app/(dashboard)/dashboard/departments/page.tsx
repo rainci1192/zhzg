@@ -1,5 +1,7 @@
 'use client';
 
+import { strapiFetch } from '@/lib/strapi-fetch';
+
 import { useEffect, useState } from 'react';
 
 interface Department {
@@ -42,7 +44,7 @@ export default function DepartmentsManagement() {
 
   const fetchDepartments = async () => {
     try {
-      const response = await fetch(`${STRAPI_URL}/api/departments?sort=sort_order:asc`);
+      const response = await strapiFetch(`${STRAPI_URL}/api/departments?sort=sort_order:asc`);
       const data: StrapiResponse = await response.json();
       setDepartments(data.data.map((item) => ({
         id: item.id,
@@ -69,7 +71,7 @@ export default function DepartmentsManagement() {
       
       const method = editingDepartment ? 'PUT' : 'POST';
       
-      const response = await fetch(url, {
+      const response = await strapiFetch(url, {
         method,
         headers: {
           'Content-Type': 'application/json',
@@ -113,7 +115,7 @@ export default function DepartmentsManagement() {
     if (!confirm('确定要删除这个机构吗？')) return;
 
     try {
-      const response = await fetch(`${STRAPI_URL}/api/departments/${documentId}`, {
+      const response = await strapiFetch(`${STRAPI_URL}/api/departments/${documentId}`, {
         method: 'DELETE',
       });
 

@@ -1,5 +1,7 @@
 'use client';
 
+import { strapiFetch } from '@/lib/strapi-fetch';
+
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -52,7 +54,7 @@ export default function UsersManagement() {
         setRoles(rolesData);
 
         // 加载用户
-        const response = await fetch(`${STRAPI_URL}/api/backend-admins?populate=backend_role&sort=createdAt:desc`);
+        const response = await strapiFetch(`${STRAPI_URL}/api/backend-admins?populate=backend_role&sort=createdAt:desc`);
         const data = await response.json();
         setUsers(data.data || []);
       } catch (error) {
@@ -125,7 +127,7 @@ export default function UsersManagement() {
       
       const method = editingUser ? 'PUT' : 'POST';
 
-      const response = await fetch(url, {
+      const response = await strapiFetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -133,7 +135,7 @@ export default function UsersManagement() {
 
       if (response.ok) {
         // 重新加载用户列表
-        const usersResponse = await fetch(`${STRAPI_URL}/api/backend-admins?populate=backend_role&sort=createdAt:desc`);
+        const usersResponse = await strapiFetch(`${STRAPI_URL}/api/backend-admins?populate=backend_role&sort=createdAt:desc`);
         const usersData = await usersResponse.json();
         setUsers(usersData.data || []);
         setShowModal(false);
@@ -153,7 +155,7 @@ export default function UsersManagement() {
     if (!confirm('确定要删除这个用户吗？此操作不可恢复。')) return;
 
     try {
-      const response = await fetch(`${STRAPI_URL}/api/backend-admins/${documentId}`, {
+      const response = await strapiFetch(`${STRAPI_URL}/api/backend-admins/${documentId}`, {
         method: 'DELETE',
       });
 
@@ -171,7 +173,7 @@ export default function UsersManagement() {
 
   const toggleUserStatus = async (user: BackendAdmin) => {
     try {
-      const response = await fetch(`${STRAPI_URL}/api/backend-admins/${user.documentId}`, {
+      const response = await strapiFetch(`${STRAPI_URL}/api/backend-admins/${user.documentId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

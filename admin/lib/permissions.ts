@@ -1,3 +1,5 @@
+import { strapiFetch } from './strapi-fetch';
+
 /**
  * 权限管理系统 - Strapi 驱动版本（细粒度权限）
  */
@@ -79,7 +81,7 @@ export async function fetchRoles(): Promise<StrapiRole[]> {
   }
 
   try {
-    const response = await fetch(`${STRAPI_URL}/api/backend-roles?sort=name:asc`);
+    const response = await strapiFetch(`${STRAPI_URL}/api/backend-roles?sort=name:asc`);
     const data = await response.json();
     rolesCache = data.data;
 
@@ -101,7 +103,7 @@ export async function fetchRolePermissions(roleId: number): Promise<RolePermissi
   }
 
   try {
-    const response = await fetch(
+    const response = await strapiFetch(
       `${STRAPI_URL}/api/role-permissions?filters[backend_role][id][$eq]=${roleId}&populate[permission_module]=*&populate[allowed_actions]=*`
     );
     const data = await response.json();

@@ -1,5 +1,7 @@
 'use client';
 
+import { strapiFetch } from '@/lib/strapi-fetch';
+
 import { useState, useEffect, useCallback } from 'react';
 import { fetchRoles, StrapiRole } from '@/lib/permissions';
 import { Shield, Save, AlertCircle, CheckSquare, Square } from 'lucide-react';
@@ -51,7 +53,7 @@ export default function RolePermissionsPage() {
     const url = `${STRAPI_URL}/api/role-permissions?filters[backend_role][id][$eq]=${roleId}&populate=*`;
     console.log('请求 URL:', url);
 
-    const response = await fetch(url);
+    const response = await strapiFetch(url);
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -117,8 +119,8 @@ export default function RolePermissionsPage() {
     try {
       const [rolesData, modulesRes, actionsRes] = await Promise.all([
         fetchRoles(),
-        fetch(`${STRAPI_URL}/api/permission-modules?sort=category:asc,sort_order:asc`),
-        fetch(`${STRAPI_URL}/api/permission-actions?sort=sort_order:asc`),
+        strapiFetch(`${STRAPI_URL}/api/permission-modules?sort=category:asc,sort_order:asc`),
+        strapiFetch(`${STRAPI_URL}/api/permission-actions?sort=sort_order:asc`),
       ]);
 
       setRoles(rolesData);
@@ -189,7 +191,7 @@ export default function RolePermissionsPage() {
       if (rolePermissions.length > 0) {
         console.log('删除现有权限:', rolePermissions.length, '条');
         const deletePromises = rolePermissions.map((rp) =>
-          fetch(`${STRAPI_URL}/api/role-permissions/${rp.documentId}`, {
+          strapiFetch(`${STRAPI_URL}/api/role-permissions/${rp.documentId}`, {
             method: 'DELETE',
           })
         );
@@ -217,7 +219,7 @@ export default function RolePermissionsPage() {
 
         console.log('创建权限 payload:', payload);
 
-        const promise = fetch(`${STRAPI_URL}/api/role-permissions`, {
+        const promise = strapiFetch(`${STRAPI_URL}/api/role-permissions`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),

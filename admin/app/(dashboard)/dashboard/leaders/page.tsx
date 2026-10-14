@@ -1,5 +1,7 @@
 'use client';
 
+import { strapiFetch } from '@/lib/strapi-fetch';
+
 import { useEffect, useState } from 'react';
 
 interface Leader {
@@ -45,7 +47,7 @@ export default function LeadersManagement() {
 
   const fetchLeaders = async () => {
     try {
-      const response = await fetch(`${STRAPI_URL}/api/leaders?sort=sort_order:asc`);
+      const response = await strapiFetch(`${STRAPI_URL}/api/leaders?sort=sort_order:asc`);
       const data: StrapiResponse = await response.json();
       setLeaders(data.data.map((item) => ({
         id: item.id,
@@ -73,7 +75,7 @@ export default function LeadersManagement() {
       
       const method = editingLeader ? 'PUT' : 'POST';
       
-      const response = await fetch(url, {
+      const response = await strapiFetch(url, {
         method,
         headers: {
           'Content-Type': 'application/json',
@@ -119,7 +121,7 @@ export default function LeadersManagement() {
     if (!confirm('确定要删除这条领导信息吗？')) return;
 
     try {
-      const response = await fetch(`${STRAPI_URL}/api/leaders/${documentId}`, {
+      const response = await strapiFetch(`${STRAPI_URL}/api/leaders/${documentId}`, {
         method: 'DELETE',
       });
 

@@ -1,18 +1,14 @@
 'use client';
 
+import { strapiFetch } from '@/lib/strapi-fetch';
+
 import { useState, useEffect } from 'react';
 
 const STRAPI_BASE_URL =
   process.env.NEXT_PUBLIC_STRAPI_URL || 'http://localhost:1337';
 
-const STRAPI_API_TOKEN =
-  process.env.NEXT_PUBLIC_STRAPI_API_TOKEN || '';
-
 function authHeaders(): Record<string, string> {
-  return {
-    'Content-Type': 'application/json',
-    ...(STRAPI_API_TOKEN ? { Authorization: `Bearer ${STRAPI_API_TOKEN}` } : {}),
-  };
+  return { 'Content-Type': 'application/json' };
 }
 
 const COUNCIL_SLUG = 'about-council-content';
@@ -39,7 +35,7 @@ export default function CouncilArticleEditor() {
           'filters[slug][$eq]': COUNCIL_SLUG,
           'pagination[pageSize]': '1',
         });
-        const res = await fetch(`${STRAPI_BASE_URL}/api/articles?${params}`, {
+        const res = await strapiFetch(`${STRAPI_BASE_URL}/api/articles?${params}`, {
           headers: authHeaders(),
           cache: 'no-store',
         });
@@ -79,13 +75,13 @@ export default function CouncilArticleEditor() {
 
       let res: Response;
       if (article) {
-        res = await fetch(`${STRAPI_BASE_URL}/api/articles/${article.id}`, {
+        res = await strapiFetch(`${STRAPI_BASE_URL}/api/articles/${article.id}`, {
           method: 'PUT',
           headers: authHeaders(),
           body: JSON.stringify(payload),
         });
       } else {
-        res = await fetch(`${STRAPI_BASE_URL}/api/articles`, {
+        res = await strapiFetch(`${STRAPI_BASE_URL}/api/articles`, {
           method: 'POST',
           headers: authHeaders(),
           body: JSON.stringify(payload),

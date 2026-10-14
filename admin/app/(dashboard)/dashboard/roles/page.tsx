@@ -1,5 +1,7 @@
 'use client';
 
+import { strapiFetch } from '@/lib/strapi-fetch';
+
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { fetchRoles, StrapiRole } from '@/lib/permissions';
@@ -81,7 +83,7 @@ export default function RolesPage() {
 
       const method = editingRole ? 'PUT' : 'POST';
 
-      const response = await fetch(url, {
+      const response = await strapiFetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -110,7 +112,7 @@ export default function RolesPage() {
     if (!confirm(`确定要删除角色"${role.display_name}"吗？`)) return;
 
     try {
-      const response = await fetch(`${STRAPI_URL}/api/backend-roles/${role.documentId}`, {
+      const response = await strapiFetch(`${STRAPI_URL}/api/backend-roles/${role.documentId}`, {
         method: 'DELETE',
       });
 

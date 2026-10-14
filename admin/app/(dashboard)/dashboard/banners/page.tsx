@@ -1,5 +1,7 @@
 'use client';
 
+import { strapiFetch } from '@/lib/strapi-fetch';
+
 import { useState, useEffect } from 'react';
 import { api } from '@/lib/api';
 import { Plus, Edit, Trash2, Image as ImageIcon } from 'lucide-react';
@@ -114,7 +116,7 @@ export default function BannersPage() {
         
         console.log('📤 正在上传图片到:', `${strapiUrl}/api/upload`);
         
-        const uploadRes = await fetch(`${strapiUrl}/api/upload`, {
+        const uploadRes = await strapiFetch(`${strapiUrl}/api/upload`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,

@@ -1,22 +1,9 @@
+import { strapiFetch } from './strapi-fetch';
+
 const STRAPI_URL = process.env.NEXT_PUBLIC_STRAPI_URL || 'http://localhost:1337';
 
-function getAuthToken(): string | null {
-  if (typeof window === 'undefined') return null;
-  return localStorage.getItem('strapi_jwt');
-}
-
 async function strapiRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  const token = getAuthToken();
-
-  const headers = new Headers(options.headers || {});
-  if (!headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
-  if (token) headers.set('Authorization', `Bearer ${token}`);
-
-  const res = await fetch(`${STRAPI_URL}${endpoint}`, {
-    ...options,
-    headers,
-    cache: 'no-store',
-  });
+  const res = await strapiFetch(`${STRAPI_URL}${endpoint}`, options);
 
   if (!res.ok) {
     const errorData: unknown = await res.json().catch(() => ({}));
@@ -30,7 +17,7 @@ async function strapiRequest<T>(endpoint: string, options: RequestInit = {}): Pr
       msg = (errorData as { error?: { message?: string } }).error!.message!;
     }
 
-    if (res.status === 401 || res.status === 403) {
+    if (res.status === 401) {
       if (typeof window !== 'undefined') {
         localStorage.removeItem('strapi_jwt');
         localStorage.removeItem('strapi_user');
@@ -120,13 +107,11 @@ export async function adminLogin(email: string, password: string): Promise<Login
 
 // 上传
 export async function uploadFile(file: File) {
-  const token = getAuthToken();
   const formData = new FormData();
   formData.append('files', file);
 
-  const res = await fetch(`${STRAPI_URL}/api/upload`, {
+  const res = await strapiFetch(`${STRAPI_URL}/api/upload`, {
     method: 'POST',
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
     body: formData,
   });
 

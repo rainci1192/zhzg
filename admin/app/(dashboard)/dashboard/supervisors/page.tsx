@@ -1,3 +1,4 @@
+import { strapiFetch } from '@/lib/strapi-fetch';
 /* cSpell:disable */
 'use client';
 
@@ -94,7 +95,7 @@ export default function SupervisorsManagement() {
 
   const fetchSupervisors = async () => {
     try {
-      const response = await fetch(`${STRAPI_URL}/api/supervisors?populate=photo&sort[0]=category:asc&sort[1]=college:asc&sort[2]=sort_order:asc`);
+      const response = await strapiFetch(`${STRAPI_URL}/api/supervisors?populate=photo&sort[0]=category:asc&sort[1]=college:asc&sort[2]=sort_order:asc`);
       const data: StrapiResponse = await response.json();
       setSupervisors(data.data.map((item) => ({
         id: item.id,
@@ -122,7 +123,7 @@ export default function SupervisorsManagement() {
     try {
       const uploadFormData = new FormData();
       uploadFormData.append('files', file);
-      const response = await fetch(`${STRAPI_URL}/api/upload`, {
+      const response = await strapiFetch(`${STRAPI_URL}/api/upload`, {
         method: 'POST',
         body: uploadFormData,
       });
@@ -140,7 +141,7 @@ export default function SupervisorsManagement() {
   const handleEditorUpload = async (file: File): Promise<string> => {
     const uploadFormData = new FormData();
     uploadFormData.append('files', file);
-    const response = await fetch(`${STRAPI_URL}/api/upload`, {
+    const response = await strapiFetch(`${STRAPI_URL}/api/upload`, {
       method: 'POST',
       body: uploadFormData,
     });
@@ -175,7 +176,7 @@ export default function SupervisorsManagement() {
         : `${STRAPI_URL}/api/supervisors`;
       const method = editingSupervisor ? 'PUT' : 'POST';
 
-      const response = await fetch(url, {
+      const response = await strapiFetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -232,7 +233,7 @@ export default function SupervisorsManagement() {
   const handleDelete = async (documentId: string) => {
     if (!confirm('确定要删除这个导师吗？')) return;
     try {
-      const response = await fetch(`${STRAPI_URL}/api/supervisors/${documentId}`, {
+      const response = await strapiFetch(`${STRAPI_URL}/api/supervisors/${documentId}`, {
         method: 'DELETE',
       });
       if (response.ok) {

@@ -1,5 +1,7 @@
 'use client';
 
+import { strapiFetch } from '@/lib/strapi-fetch';
+
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { fetchRoles, StrapiRole } from '@/lib/permissions';
@@ -39,7 +41,7 @@ export default function RoleUsersPage() {
       setRole(currentRole || null);
 
       // 加载该角色的用户
-      const response = await fetch(
+      const response = await strapiFetch(
         `${STRAPI_URL}/api/backend-admins?filters[backend_role][id][$eq]=${roleId}&populate=backend_role&sort=createdAt:desc`
       );
       const data = await response.json();

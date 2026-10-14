@@ -2,10 +2,11 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { adminLogin, type LoginResponse } from '@/lib/api';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function LoginPage() {
   const router = useRouter();
+  const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -16,21 +17,13 @@ export default function LoginPage() {
     setLoading(true);
     setError('');
 
-    console.log('🔄 [登录请求] Payload:', { email });
-
     try {
-      const res: LoginResponse = await adminLogin(email, password);
-      console.log('✅ [登录成功] JWT 已获取');
-
-      localStorage.setItem('strapi_jwt', res.jwt);
-      localStorage.setItem('strapi_user', JSON.stringify(res.user));
-
+      await login(email, password);
       router.push('/dashboard');
     } catch (err: unknown) {
       const message = err instanceof Error 
         ? err.message 
         : '登录失败，请检查邮箱和密码';
-      console.error('❌ [登录失败] 详细错误:', err);
       setError(message);
     } finally {
       setLoading(false);

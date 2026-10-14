@@ -1,5 +1,7 @@
 'use client';
 
+import { strapiFetch } from '@/lib/strapi-fetch';
+
 import { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 
@@ -88,7 +90,7 @@ export default function ResearchTransfersManagement() {
 
   const fetchTransfers = async () => {
     try {
-      const response = await fetch(`${STRAPI_URL}/api/research-transfers?populate=attachments&sort[0]=is_top:desc&sort[1]=publish_time:desc`);
+      const response = await strapiFetch(`${STRAPI_URL}/api/research-transfers?populate=attachments&sort[0]=is_top:desc&sort[1]=publish_time:desc`);
       const data: StrapiResponse = await response.json();
       setTransfers(data.data.map((item) => ({
         id: item.id,
@@ -114,7 +116,7 @@ export default function ResearchTransfersManagement() {
     try {
       const uploadFormData = new FormData();
       files.forEach(file => uploadFormData.append('files', file));
-      const response = await fetch(`${STRAPI_URL}/api/upload`, {
+      const response = await strapiFetch(`${STRAPI_URL}/api/upload`, {
         method: 'POST',
         body: uploadFormData,
       });
@@ -132,7 +134,7 @@ export default function ResearchTransfersManagement() {
   const handleEditorUpload = async (file: File): Promise<string> => {
     const uploadFormData = new FormData();
     uploadFormData.append('files', file);
-    const response = await fetch(`${STRAPI_URL}/api/upload`, {
+    const response = await strapiFetch(`${STRAPI_URL}/api/upload`, {
       method: 'POST',
       body: uploadFormData,
     });
@@ -168,7 +170,7 @@ export default function ResearchTransfersManagement() {
         : `${STRAPI_URL}/api/research-transfers`;
       const method = editingTransfer ? 'PUT' : 'POST';
 
-      const response = await fetch(url, {
+      const response = await strapiFetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -221,7 +223,7 @@ export default function ResearchTransfersManagement() {
   const handleDelete = async (documentId: string) => {
     if (!confirm('确定要删除这个成果转化吗？')) return;
     try {
-      const response = await fetch(`${STRAPI_URL}/api/research-transfers/${documentId}`, {
+      const response = await strapiFetch(`${STRAPI_URL}/api/research-transfers/${documentId}`, {
         method: 'DELETE',
       });
       if (response.ok) {
@@ -263,7 +265,7 @@ export default function ResearchTransfersManagement() {
       ?.filter(a => a.id !== attachmentId)
       .map(a => a.id) || [];
     try {
-      const response = await fetch(`${STRAPI_URL}/api/research-transfers/${editingTransfer.documentId}`, {
+      const response = await strapiFetch(`${STRAPI_URL}/api/research-transfers/${editingTransfer.documentId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ data: { attachments: updatedAttachments } }),

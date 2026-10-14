@@ -1,5 +1,7 @@
 'use client';
 
+import { strapiFetch } from '@/lib/strapi-fetch';
+
 import { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import Image from 'next/image';
@@ -58,7 +60,7 @@ export default function PagesManagement() {
 
   const fetchPages = async () => {
     try {
-      const res = await fetch(`${STRAPI_URL}/api/pages?populate=*&sort=createdAt:desc`, {
+      const res = await strapiFetch(`${STRAPI_URL}/api/pages?populate=*&sort=createdAt:desc`, {
         headers: { Accept: 'application/json' },
       });
       const json = (await res.json()) as PagesResp;
@@ -138,13 +140,13 @@ export default function PagesManagement() {
       };
 
       if (editingKey) {
-        await fetch(`${STRAPI_URL}/api/pages/${editingKey}`, {
+        await strapiFetch(`${STRAPI_URL}/api/pages/${editingKey}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ data: payload }),
         });
       } else {
-        await fetch(`${STRAPI_URL}/api/pages`, {
+        await strapiFetch(`${STRAPI_URL}/api/pages`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ data: payload }),
@@ -163,7 +165,7 @@ export default function PagesManagement() {
   const handleDelete = async (page: Page) => {
     if (!confirm('确定删除这个页面吗？')) return;
     try {
-      await fetch(`${STRAPI_URL}/api/pages/${getKey(page)}`, {
+      await strapiFetch(`${STRAPI_URL}/api/pages/${getKey(page)}`, {
         method: 'DELETE',
       });
       await fetchPages();

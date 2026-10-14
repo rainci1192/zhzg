@@ -1,18 +1,11 @@
+import { strapiFetch } from '../strapi-fetch';
 const STRAPI_BASE_URL =
   process.env.NEXT_PUBLIC_STRAPI_URL ||
   process.env.STRAPI_URL ||
   'http://localhost:1337';
 
-const STRAPI_API_TOKEN =
-  process.env.NEXT_PUBLIC_STRAPI_API_TOKEN ||
-  process.env.STRAPI_API_TOKEN ||
-  '';
-
 function authHeaders(): Record<string, string> {
-  return {
-    'Content-Type': 'application/json',
-    ...(STRAPI_API_TOKEN ? { Authorization: `Bearer ${STRAPI_API_TOKEN}` } : {}),
-  };
+  return { 'Content-Type': 'application/json' };
 }
 
 export type PartnerLogo = { id: number; url: string; name: string };
@@ -102,21 +95,21 @@ export async function fetchPartners(): Promise<Partner[]> {
     'sort[1]': 'id:asc',
     'pagination[pageSize]': '200',
   });
-  const res = await fetch(`${STRAPI_BASE_URL}/api/council-members?${params}`, { headers: authHeaders(), cache: 'no-store' });
+  const res = await strapiFetch(`${STRAPI_BASE_URL}/api/council-members?${params}`, { headers: authHeaders(), cache: 'no-store' });
   if (!res.ok) throw new Error(`获取合作单位失败: ${res.status}`);
   const json = (await res.json()) as StrapiListResponse;
   return (json.data ?? []).map(unwrap);
 }
 
 export async function fetchPartner(documentId: string): Promise<Partner> {
-  const res = await fetch(`${STRAPI_BASE_URL}/api/council-members/${documentId}?populate=logo`, { headers: authHeaders(), cache: 'no-store' });
+  const res = await strapiFetch(`${STRAPI_BASE_URL}/api/council-members/${documentId}?populate=logo`, { headers: authHeaders(), cache: 'no-store' });
   if (!res.ok) throw new Error(`获取合作单位失败: ${res.status}`);
   const json = (await res.json()) as StrapiSingleResponse;
   return unwrap(json.data ?? (json as StrapiPartnerEntity));
 }
 
 export async function createPartner(payload: PartnerPayload): Promise<Partner> {
-  const res = await fetch(`${STRAPI_BASE_URL}/api/council-members`, {
+  const res = await strapiFetch(`${STRAPI_BASE_URL}/api/council-members`, {
     method: 'POST', headers: authHeaders(), body: JSON.stringify({ data: payload }),
   });
   if (!res.ok) {
@@ -128,7 +121,7 @@ export async function createPartner(payload: PartnerPayload): Promise<Partner> {
 }
 
 export async function updatePartner(documentId: string, payload: PartnerPayload): Promise<Partner> {
-  const res = await fetch(`${STRAPI_BASE_URL}/api/council-members/${documentId}`, {
+  const res = await strapiFetch(`${STRAPI_BASE_URL}/api/council-members/${documentId}`, {
     method: 'PUT', headers: authHeaders(), body: JSON.stringify({ data: payload }),
   });
   if (!res.ok) {
@@ -140,16 +133,16 @@ export async function updatePartner(documentId: string, payload: PartnerPayload)
 }
 
 export async function deletePartner(documentId: string): Promise<void> {
-  const res = await fetch(`${STRAPI_BASE_URL}/api/council-members/${documentId}`, { method: 'DELETE', headers: authHeaders() });
+  const res = await strapiFetch(`${STRAPI_BASE_URL}/api/council-members/${documentId}`, { method: 'DELETE', headers: authHeaders() });
   if (!res.ok) throw new Error(`删除失败: ${res.status}`);
 }
 
 export async function uploadLogo(file: File): Promise<StrapiUploadResult> {
   const formData = new FormData();
   formData.append('files', file);
-  const res = await fetch(`${STRAPI_BASE_URL}/api/upload`, {
+  const res = await strapiFetch(`${STRAPI_BASE_URL}/api/upload`, {
     method: 'POST',
-    headers: STRAPI_API_TOKEN ? { Authorization: `Bearer ${STRAPI_API_TOKEN}` } : {},
+    headers: {},
     body: formData,
   });
   if (!res.ok) throw new Error(`上传失败: ${res.status}`);
