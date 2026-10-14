@@ -7,6 +7,10 @@ const STORAGE_KEYS = {
   RECENT_PAGES: 'recent_pages',
 } as const;
 
+function getRecentPagesStorageKey(userKey: string): string {
+  return `${STORAGE_KEYS.RECENT_PAGES}:${encodeURIComponent(userKey)}`;
+}
+
 export const storage = {
   // 保存侧边栏展开状态
   setSidebarExpanded(groups: Set<string>) {
@@ -35,10 +39,11 @@ export const storage = {
   },
 
   // 保存最近访问页面
-  addRecentPage(page: { title: string; href: string; icon: string }) {
+  addRecentPage(userKey: string, page: { title: string; href: string; icon: string }) {
     try {
-      if (typeof window !== 'undefined') {
-        const saved = localStorage.getItem(STORAGE_KEYS.RECENT_PAGES);
+      if (typeof window !== 'undefined' && userKey) {
+        const storageKey = getRecentPagesStorageKey(userKey);
+        const saved = localStorage.getItem(storageKey);
         let recent: typeof page[] = saved ? JSON.parse(saved) : [];
         
         // 移除重复项
@@ -50,7 +55,7 @@ export const storage = {
         // 只保留最近 5 个
         recent = recent.slice(0, 5);
         
-        localStorage.setItem(STORAGE_KEYS.RECENT_PAGES, JSON.stringify(recent));
+        localStorage.setItem(storageKey, JSON.stringify(recent));
       }
     } catch (error) {
       console.error('保存最近访问失败:', error);
@@ -58,10 +63,10 @@ export const storage = {
   },
 
   // 获取最近访问页面
-  getRecentPages(): Array<{ title: string; href: string; icon: string }> {
+  getRecentPages(userKey: string): Array<{ title: string; href: string; icon: string }> {
     try {
-      if (typeof window !== 'undefined') {
-        const saved = localStorage.getItem(STORAGE_KEYS.RECENT_PAGES);
+      if (typeof window !== 'undefined' && userKey) {
+        const saved = localStorage.getItem(getRecentPagesStorageKey(userKey));
         return saved ? JSON.parse(saved) : [];
       }
     } catch (error) {
@@ -71,10 +76,10 @@ export const storage = {
   },
 
   // 清空最近访问
-  clearRecentPages() {
+  clearRecentPages(userKey: string) {
     try {
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem(STORAGE_KEYS.RECENT_PAGES);
+      if (typeof window !== 'undefined' && userKey) {
+        localStorage.removeItem(getRecentPagesStorageKey(userKey));
       }
     } catch (error) {
       console.error('清空最近访问失败:', error);

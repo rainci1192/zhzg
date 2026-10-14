@@ -1,20 +1,21 @@
-自定义后台用户草稿账号登录修复包（直接覆盖版）
+最近访问按登录用户隔离修复包（直接覆盖版）
 
-适用源码：rainci1192/zhzg，GitHub main 最新检查提交 f6650160e4a6ee39ef572c99bd9b1818cc8a12f3。
+适用源码：rainci1192/zhzg 的 admin 项目。
 
-本包修复：自定义“用户管理”账号改用 Backend Admin 登录接口校验，并为现有后台 JWT/API 流程建立兼容的 Users & Permissions 用户关联；新增和修改后台账号时哈希保存密码，旧明文密码在首次成功登录时迁移为哈希。并修复草稿状态导致的新建后台账号被登录接口判定为不存在的问题。为避免旧账号被锁在系统外，若管理员以前用同邮箱的 Users & Permissions 账号登录，也会兼容验证原密码；新建的后台账号使用“用户管理”里设置的密码。
+修复内容：
+- 最近访问记录不再使用所有账号共用的 recent_pages 键。
+- 按当前后台管理员的 documentId（无 documentId 时使用 id 或邮箱）分别保存和读取。
+- 切换登录身份时立即加载新账号的记录，不显示上一位账号的记录。
+- “清空”只清除当前登录账号的最近访问记录。
 
-安装步骤（Windows）
-1. 先备份 E:\zgweb\backend\src\api\backend-admin 文件夹，以及 E:\zgweb\admin\lib\api.ts 和 E:\zgweb\admin\app\login\page.tsx。
-2. 右键本 ZIP 选择“全部解压”，解压目标选择 E:\zgweb（项目根目录）。本压缩包内直接是 admin 和 backend 两个目录，不要再进入额外的补丁子文件夹。出现覆盖提示时选择“替换目标中的文件”。
-3. 在文件资源管理器确认以下文件已经位于项目对应路径：
-   - E:\zgweb\admin\lib\api.ts
-   - E:\zgweb\backend\src\api\backend-admin\routes\backend-admin-auth.js
-   - E:\zgweb\backend\src\api\backend-admin\content-types\backend-admin\lifecycles.js
-4. 检查 E:\zgweb\admin\lib\api.ts 中登录地址已是 /api/backend-admins/auth/login。若仍是 /api/auth/local，说明没有覆盖到项目文件。
-5. 重启 Strapi 后端和 Next.js 管理后台，再用“用户管理”中已启用、已分配角色的账号邮箱和密码登录。账号可以保持草稿；登录时以“活跃”状态和分配的角色为准。
+安装步骤（Windows）：
+1. 先备份以下两个原文件：
+   E:\zgweb\admin\components\layout\Sidebar.tsx
+   E:\zgweb\admin\lib\storage.ts
+2. 将本 ZIP 解压到项目根目录 E:\zgweb，压缩包内直接是 admin 目录；出现覆盖提示时选择“替换目标中的文件”。
+3. 确认文件位于：
+   E:\zgweb\admin\components\layout\Sidebar.tsx
+   E:\zgweb\admin\lib\storage.ts
+4. 重启 Next.js 管理后台。退出当前账号并重新登录后分别访问几个菜单进行验证。
 
-说明
-- 登录成功后，Strapi Content Manager 的 User 列表可能出现自动建立的关联用户，这是现有 JWT 及 API 权限流程需要的账号映射。已有 User 的密码不会被此补丁修改。
-- 不要通过放开 Public 或 Authenticated 的写入权限来排错。
-- 如果仍失败，请记录登录页完整错误文字；如果能打开浏览器开发者工具，也可提供 Network 中该登录请求的 HTTP 状态码和响应错误文字。不要发送密码、JWT、Cookie 或 Authorization 内容。
+说明：升级前已经混在 recent_pages 中的历史记录没有账号归属，无法安全分配给某个用户；修复后每个账号从新的独立记录开始保存。旧的混合记录不会再显示。

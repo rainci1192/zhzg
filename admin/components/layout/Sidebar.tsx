@@ -315,6 +315,9 @@ export default function Sidebar() {
   const pathname = usePathname();
   const { canAccessPath, userRole } = usePermission();
   const { user } = useAuth();
+  const recentPagesUserKey = user
+    ? `backend-admin:${user.documentId || user.id || user.email.trim().toLowerCase()}`
+    : null;
 
   const [userPermissions, setUserPermissions] = useState<{
     modules: Set<string>;
@@ -484,7 +487,9 @@ export default function Sidebar() {
 
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(initialExpandedGroups);
   const [recentPages, setRecentPages] = useState<Array<{ title: string; href: string; icon: string }>>([]);
+  const [recentPagesOwner, setRecentPagesOwner] = useState<string | null>(null);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const visibleRecentPages = recentPagesOwner === recentPagesUserKey ? recentPages : [];
 
   const flatMenuItems = useMemo(() => {
     const items: Array<{
@@ -523,14 +528,23 @@ export default function Sidebar() {
 
   useEffect(() => {
     const loadRecent = () => {
-      const pages = storage.getRecentPages();
+      if (!recentPagesUserKey) {
+        setRecentPages([]);
+        setRecentPagesOwner(null);
+        return;
+      }
+
+      const pages = storage.getRecentPages(recentPagesUserKey);
       setRecentPages(pages);
+      setRecentPagesOwner(recentPagesUserKey);
     };
     loadRecent();
-  }, []);
+  }, [recentPagesUserKey]);
 
   useEffect(() => {
     const updateRecent = () => {
+      if (!recentPagesUserKey) return;
+
       let currentPage: { title: string; href: string; icon: string } | null = null;
 
       for (const group of filteredMenuConfig) {
@@ -556,13 +570,14 @@ export default function Sidebar() {
       }
 
       if (currentPage && currentPage.href !== '/dashboard') {
-        storage.addRecentPage(currentPage);
-        setRecentPages(storage.getRecentPages());
+        storage.addRecentPage(recentPagesUserKey, currentPage);
+        setRecentPages(storage.getRecentPages(recentPagesUserKey));
+        setRecentPagesOwner(recentPagesUserKey);
       }
     };
 
     updateRecent();
-  }, [pathname, filteredMenuConfig]);
+  }, [pathname, filteredMenuConfig, recentPagesUserKey]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -597,8 +612,10 @@ export default function Sidebar() {
   };
 
   const handleClearRecent = () => {
-    storage.clearRecentPages();
+    if (!recentPagesUserKey) return;
+    storage.clearRecentPages(recentPagesUserKey);
     setRecentPages([]);
+    setRecentPagesOwner(recentPagesUserKey);
   };
 
   return (
@@ -636,7 +653,7 @@ export default function Sidebar() {
       </div>
 
       <nav className="flex-1 px-3 py-6 overflow-y-auto">
-        {recentPages.length > 0 && (
+        {visibleRecentPages.length > 0 && (
           <div className="mb-6">
             <div className="flex items-center justify-between px-4 mb-2">
               <div className="flex items-center gap-2 text-xs font-medium text-gray-500">
@@ -651,7 +668,7 @@ export default function Sidebar() {
               </button>
             </div>
             <ul className="space-y-1">
-              {recentPages.map((page) => {
+              {visibleRecentPages.map((page) => {
                 const Icon = getIconComponent(page.icon);
                 return (
                   <li key={page.href}>
