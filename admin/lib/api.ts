@@ -74,17 +74,17 @@ function normalizeRelations(data: unknown): Record<string, unknown> {
 export interface LoginResponse {
   jwt: string;
   user: {
-    id: number;
+    id: number | string;
     username?: string;
     email: string;
   };
 }
 
 export async function adminLogin(email: string, password: string): Promise<LoginResponse> {
-  const res = await fetch(`${STRAPI_URL}/api/auth/local`, {
+  const res = await fetch(`${STRAPI_URL}/api/backend-admins/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ identifier: email, password }),
+    body: JSON.stringify({ email, password }),
     cache: 'no-store',
   });
 

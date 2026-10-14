@@ -1,0 +1,20 @@
+后台自定义用户登录修复包（直接覆盖版）
+
+适用源码：rainci1192/zhzg，GitHub main 最新检查提交 f6650160e4a6ee39ef572c99bd9b1818cc8a12f3。
+
+本包修复：自定义“用户管理”账号改用 Backend Admin 登录接口校验，并为现有后台 JWT/API 流程建立兼容的 Users & Permissions 用户关联；新增和修改后台账号时哈希保存密码，旧明文密码在首次成功登录时迁移为哈希。
+
+安装步骤（Windows）
+1. 先备份 E:\zgweb\backend\src\api\backend-admin 文件夹，以及 E:\zgweb\admin\lib\api.ts 和 E:\zgweb\admin\app\login\page.tsx。
+2. 右键本 ZIP 选择“全部解压”，解压目标选择 E:\zgweb（项目根目录）。本压缩包内直接是 admin 和 backend 两个目录，不要再进入额外的补丁子文件夹。出现覆盖提示时选择“替换目标中的文件”。
+3. 在文件资源管理器确认以下文件已经位于项目对应路径：
+   - E:\zgweb\admin\lib\api.ts
+   - E:\zgweb\backend\src\api\backend-admin\routes\backend-admin-auth.js
+   - E:\zgweb\backend\src\api\backend-admin\content-types\backend-admin\lifecycles.js
+4. 检查 E:\zgweb\admin\lib\api.ts 中登录地址已是 /api/backend-admins/auth/login。若仍是 /api/auth/local，说明没有覆盖到项目文件。
+5. 重启 Strapi 后端和 Next.js 管理后台，再用“用户管理”中已启用、已分配角色的账号邮箱和密码登录。若账号显示为草稿，请先发布。
+
+说明
+- 登录成功后，Strapi Content Manager 的 User 列表可能出现自动建立的关联用户，这是现有 JWT 及 API 权限流程需要的账号映射。已有 User 的密码不会被此补丁修改。
+- 不要通过放开 Public 或 Authenticated 的写入权限来排错。
+- 如果仍失败，请记录登录页完整错误文字；如果能打开浏览器开发者工具，也可提供 Network 中该登录请求的 HTTP 状态码和响应错误文字。不要发送密码、JWT、Cookie 或 Authorization 内容。

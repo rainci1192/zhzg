@@ -57,7 +57,7 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full px-5 py-4 border border-gray-200 rounded-2xl focus:outline-none focus:border-blue-500 transition-all text-base"
-                placeholder="请输入 Strapi 注册邮箱"
+                placeholder="请输入后台用户管理中的邮箱"
                 required
               />
             </div>
