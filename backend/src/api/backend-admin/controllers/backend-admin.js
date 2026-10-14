@@ -16,8 +16,12 @@ module.exports = createCoreController('api::backend-admin.backend-admin', ({ str
       return ctx.badRequest('请输入有效的邮箱和密码。');
     }
 
+    // Backend Admin records are account records, not public content. The
+    // content type currently has Draft & Publish enabled, so users created
+    // from the custom management screen can remain drafts. Do not require
+    // publishedAt here; is_active is the login access control.
     const admin = await strapi.db.query('api::backend-admin.backend-admin').findOne({
-      where: { email: { $eqi: email }, publishedAt: { $notNull: true } },
+      where: { email: { $eqi: email } },
       populate: ['backend_role'],
     });
 
