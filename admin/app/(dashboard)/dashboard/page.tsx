@@ -33,7 +33,9 @@ export default function DashboardPage() {
     async function load() {
       const requests = await Promise.allSettled([
         api.getArticles('?filters[review_status][$eq]=published&pagination[pageSize]=1'),
-        api.getArticles('?filters[review_status][$eq]=pending&pagination[pageSize]=1'),
+        api.getArticles(
+          '?filters[review_status][$in][0]=pending_level1&filters[review_status][$in][1]=pending_level2&filters[review_status][$in][2]=pending_admin&filters[review_status][$in][3]=pending_leader&pagination[pageSize]=1'
+        ),
         api.getCategories('?pagination[pageSize]=1'),
         api.getBanners('?pagination[pageSize]=1'),
       ]);

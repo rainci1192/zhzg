@@ -30,12 +30,17 @@
       "default": "draft",
       "enum": [
         "draft",
+        "pending_level1",
+        "rejected_level1",
+        "pending_level2",
+        "rejected_level2",
+        "approved_pending_publish",
+        "published",
         "pending_admin",
         "rejected_admin",
         "pending_leader",
         "rejected_leader",
-        "approved",
-        "published"
+        "approved"
       ]
     },
     "publish_time": {
@@ -72,6 +77,21 @@
       "relation": "manyToOne",
       "target": "plugin::users-permissions.user"
     },
+    "created_by_admin": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::backend-admin.backend-admin"
+    },
+    "level1_reviewer": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::backend-admin.backend-admin"
+    },
+    "level2_reviewer": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::backend-admin.backend-admin"
+    },
     "reviewed_by_admin": {
       "type": "relation",
       "relation": "manyToOne",
@@ -81,6 +101,18 @@
       "type": "relation",
       "relation": "manyToOne",
       "target": "plugin::users-permissions.user"
+    },
+    "level1_review_comment": {
+      "type": "text"
+    },
+    "level1_review_date": {
+      "type": "datetime"
+    },
+    "level2_review_comment": {
+      "type": "text"
+    },
+    "level2_review_date": {
+      "type": "datetime"
     },
     "admin_review_comment": {
       "type": "text"

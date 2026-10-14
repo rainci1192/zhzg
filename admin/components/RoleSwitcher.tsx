@@ -8,6 +8,12 @@ const ROLE_LABELS: Record<string, string> = {
   admin: '管理员',
   editor: '编辑',
   reviewer: '审核员',
+  article_level1_reviewer: '一级审核',
+  article_level2_reviewer: '二级审核',
+  level1_reviewer: '一级审核',
+  level2_reviewer: '二级审核',
+  reviewer_level1: '一级审核',
+  reviewer_level2: '二级审核',
   viewer: '查看者',
 };
 

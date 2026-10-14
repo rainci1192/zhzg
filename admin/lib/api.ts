@@ -141,6 +141,28 @@ export const api = {
     const payload = normalizeRelations(data);
     return strapiRequest<unknown>(`/api/articles/${id}`, { method: 'PUT', body: JSON.stringify({ data: payload }) });
   },
+  getLevel1Reviewers: () =>
+    strapiRequest<unknown>('/api/article-workflow/level1-reviewers'),
+  submitArticleForReview: (id: string, level1ReviewerId?: string | number) =>
+    strapiRequest<unknown>(`/api/article-workflow/${id}/submit`, {
+      method: 'POST',
+      body: JSON.stringify(level1ReviewerId ? { level1_reviewer_id: level1ReviewerId } : {}),
+    }),
+  reviewArticleLevel1: (id: string, decision: 'approve' | 'reject', comment: string) =>
+    strapiRequest<unknown>(`/api/article-workflow/${id}/level1-review`, {
+      method: 'POST',
+      body: JSON.stringify({ decision, comment }),
+    }),
+  reviewArticleLevel2: (id: string, decision: 'approve' | 'reject', comment: string) =>
+    strapiRequest<unknown>(`/api/article-workflow/${id}/level2-review`, {
+      method: 'POST',
+      body: JSON.stringify({ decision, comment }),
+    }),
+  publishArticle: (id: string) =>
+    strapiRequest<unknown>(`/api/article-workflow/${id}/publish`, {
+      method: 'POST',
+      body: JSON.stringify({}),
+    }),
   deleteArticle: (id: string) =>
     strapiRequest<unknown>(`/api/articles/${id}`, { method: 'DELETE' }),
 

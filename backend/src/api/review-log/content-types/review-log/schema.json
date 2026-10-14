@@ -22,6 +22,11 @@
       "relation": "manyToOne",
       "target": "plugin::users-permissions.user"
     },
+    "reviewer_admin": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::backend-admin.backend-admin"
+    },
     "reviewer_role": {
       "type": "string"
     },
@@ -29,11 +34,15 @@
       "type": "enumeration",
       "enum": [
         "submit",
+        "approve_level1",
+        "reject_level1",
+        "approve_level2",
+        "reject_level2",
+        "publish",
         "approve_admin",
         "reject_admin",
         "approve_leader",
-        "reject_leader",
-        "publish"
+        "reject_leader"
       ]
     },
     "from_status": {

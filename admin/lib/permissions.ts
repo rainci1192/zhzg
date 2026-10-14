@@ -12,6 +12,8 @@ export enum UserRole {
   ADMIN = 'admin',
   EDITOR = 'editor',
   REVIEWER = 'reviewer',
+  ARTICLE_LEVEL1_REVIEWER = 'article_level1_reviewer',
+  ARTICLE_LEVEL2_REVIEWER = 'article_level2_reviewer',
   VIEWER = 'viewer',
 }
 
