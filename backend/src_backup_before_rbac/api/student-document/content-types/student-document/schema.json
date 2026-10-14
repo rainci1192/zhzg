@@ -1,0 +1,48 @@
+{
+  "kind": "collectionType",
+  "collectionName": "student_documents",
+  "info": {
+    "singularName": "student-document",
+    "pluralName": "student-documents",
+    "displayName": "Student Document"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "title": {
+      "type": "string",
+      "maxLength": 200,
+      "required": true
+    },
+    "slug": {
+      "type": "uid",
+      "targetField": "title",
+      "required": true
+    },
+    "attachments": {
+      "type": "media",
+      "multiple": true,
+      "allowedTypes": [
+        "images",
+        "videos",
+        "audios",
+        "files"
+      ]
+    },
+    "publish_time": {
+      "type": "datetime"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true
+    },
+    "sort_order": {
+      "type": "integer"
+    },
+    "content": {
+      "type": "richtext"
+    }
+  }
+}

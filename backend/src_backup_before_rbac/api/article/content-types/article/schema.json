@@ -1,0 +1,101 @@
+{
+  "kind": "collectionType",
+  "collectionName": "articles",
+  "info": {
+    "singularName": "article",
+    "pluralName": "articles",
+    "displayName": "Article",
+    "description": "文章管理 - 支持多级审核流程"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "title": {
+      "type": "string",
+      "required": true
+    },
+    "slug": {
+      "type": "uid",
+      "targetField": "title",
+      "required": true
+    },
+    "summary": {
+      "type": "text"
+    },
+    "review_status": {
+      "type": "enumeration",
+      "required": true,
+      "default": "draft",
+      "enum": [
+        "draft",
+        "pending_admin",
+        "rejected_admin",
+        "pending_leader",
+        "rejected_leader",
+        "approved",
+        "published"
+      ]
+    },
+    "publish_time": {
+      "type": "datetime"
+    },
+    "is_top": {
+      "type": "boolean",
+      "default": false
+    },
+    "content": {
+      "type": "richtext"
+    },
+    "cover": {
+      "type": "media",
+      "multiple": false,
+      "allowedTypes": [
+        "images"
+      ]
+    },
+    "primary_category": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::category.category",
+      "inversedBy": "primary_articles"
+    },
+    "secondary_category": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::category.category",
+      "inversedBy": "secondary_articles"
+    },
+    "created_by_user": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::users-permissions.user"
+    },
+    "reviewed_by_admin": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::users-permissions.user"
+    },
+    "reviewed_by_leader": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::users-permissions.user"
+    },
+    "admin_review_comment": {
+      "type": "text"
+    },
+    "admin_review_date": {
+      "type": "datetime"
+    },
+    "leader_review_comment": {
+      "type": "text"
+    },
+    "leader_review_date": {
+      "type": "datetime"
+    },
+    "rejection_reason": {
+      "type": "text"
+    }
+  }
+}

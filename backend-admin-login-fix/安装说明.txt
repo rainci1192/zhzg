@@ -1,0 +1,22 @@
+后台管理员登录修复包
+适用项目：rainci1192/zhzg，main 分支提交 b0dd3785d430fbd3609c628c36dfedb3ce8bbcaf
+
+修复内容
+- 登录接口改为校验“用户管理”中的 Backend Admin 邮箱、密码、启用状态和角色。
+- 登录成功后自动创建或复用对应的 Strapi Users & Permissions 关联用户，并签发现有后台可用的 JWT。这个关联用户用于兼容现有 Content API 和角色权限规则；已有 User 的密码不会被本补丁修改。
+- 新建或修改后台账号时对密码做 bcrypt 哈希；旧的明文密码会在首次成功登录时转为哈希。
+- 密码字段不再通过内容 API 返回。
+
+安装步骤（Windows）
+1. 先退出网站后台，并复制备份 E:\zgweb\backend\src\api\backend-admin 文件夹，以及 E:\zgweb\admin\lib\api.ts、E:\zgweb\admin\app\login\page.tsx。
+2. 把本压缩包解压到 E:\zgweb。若 Windows 询问是否覆盖文件，选择“替换目标中的文件”。请保持压缩包里的 backend、admin 目录结构。
+3. 启动 Strapi 后端，等待显示启动成功；再重新启动 Next.js 管理后台。
+4. 打开原来的管理后台登录页面，用“用户管理”里该账号的邮箱和密码登录。账号须已启用、已分配后台角色并已发布。
+5. 登录成功后，可以在 Strapi Content Manager 的 User 列表中看到系统自动建立的关联账号；日常仍在自定义后台的“用户管理”维护账号和角色。
+
+重要说明
+- 不要把整个压缩包解压进 backend 或 admin 子目录；解压目标是 E:\zgweb 项目根目录。
+- 不要改动 Public 或 Authenticated 的权限设置来排错。
+- 如果邮箱已关联一个被封禁的 Users & Permissions 账号，或该邮箱已绑定第三方登录方式，接口会拒绝登录；请由管理员检查该账号状态。
+- 压缩包只包含需要新增或覆盖的文件，不包含 node_modules、环境变量或数据库文件。
+- 回滚时用第 1 步备份的文件覆盖回去即可。
