@@ -2,7 +2,7 @@
 
 适用源码：rainci1192/zhzg，GitHub main 最新检查提交 f6650160e4a6ee39ef572c99bd9b1818cc8a12f3。
 
-本包修复：自定义“用户管理”账号改用 Backend Admin 登录接口校验，并为现有后台 JWT/API 流程建立兼容的 Users & Permissions 用户关联；新增和修改后台账号时哈希保存密码，旧明文密码在首次成功登录时迁移为哈希。
+本包修复：自定义“用户管理”账号改用 Backend Admin 登录接口校验，并为现有后台 JWT/API 流程建立兼容的 Users & Permissions 用户关联；新增和修改后台账号时哈希保存密码，旧明文密码在首次成功登录时迁移为哈希。为避免旧账号被锁在系统外，若管理员以前用同邮箱的 Users & Permissions 账号登录，也会兼容验证原密码；新建的后台账号使用“用户管理”里设置的密码。
 
 安装步骤（Windows）
 1. 先备份 E:\zgweb\backend\src\api\backend-admin 文件夹，以及 E:\zgweb\admin\lib\api.ts 和 E:\zgweb\admin\app\login\page.tsx。
