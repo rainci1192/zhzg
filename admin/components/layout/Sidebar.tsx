@@ -333,6 +333,33 @@ export default function Sidebar() {
     actions: new Map(),
   });
   const [permissionsLoading, setPermissionsLoading] = useState(true);
+  const [taskCount, setTaskCount] = useState(0);
+
+  const loadTaskCount = useCallback(async () => {
+    if (!user) {
+      setTaskCount(0);
+      return;
+    }
+    try {
+      const response = await strapiFetch(`${STRAPI_URL}/api/article-workflow/tasks`);
+      if (!response.ok) return;
+      const payload = await response.json();
+      setTaskCount(Number(payload?.meta?.actionable || 0));
+    } catch (error) {
+      console.warn('加载工作台任务数量失败:', error);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    void loadTaskCount();
+    const refresh = () => void loadTaskCount();
+    window.addEventListener('workflow-tasks-updated', refresh);
+    const timer = window.setInterval(refresh, 60000);
+    return () => {
+      window.removeEventListener('workflow-tasks-updated', refresh);
+      window.clearInterval(timer);
+    };
+  }, [loadTaskCount]);
 
   useEffect(() => {
   async function loadUserPermissions() {
@@ -720,7 +747,8 @@ export default function Sidebar() {
                       }`}
                     >
                       <Icon className="w-5 h-5" />
-                      {item.title}
+                      <span className="flex-1">{item.title}</span>
+                      {item.href === '/dashboard' && taskCount > 0 && <span className="min-w-5 rounded-full bg-red-500 px-1.5 py-0.5 text-center text-xs font-bold text-white">{taskCount > 99 ? '99+' : taskCount}</span>}
                     </Link>
                   </li>
                 );

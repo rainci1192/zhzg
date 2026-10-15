@@ -492,8 +492,11 @@ export interface ApiArticleArticle extends Struct.CollectionTypeSchema {
         'rejected_level1',
         'pending_level2',
         'rejected_level2',
+        'pending_republish',
+        'rejected_republish',
         'approved_pending_publish',
         'published',
+        'unpublished',
         'pending_admin',
         'rejected_admin',
         'pending_leader',
@@ -1194,6 +1197,10 @@ export interface ApiReviewLogReviewLog extends Struct.CollectionTypeSchema {
         'reject_admin',
         'approve_leader',
         'reject_leader',
+        'submit_republish',
+        'approve_republish',
+        'reject_republish',
+        'unpublish',
       ]
     >;
     article: Schema.Attribute.Relation<'manyToOne', 'api::article.article'>;

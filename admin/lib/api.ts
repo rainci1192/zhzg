@@ -143,6 +143,8 @@ export const api = {
   },
   getLevel1Reviewers: () =>
     strapiRequest<unknown>('/api/article-workflow/level1-reviewers'),
+  getWorkflowTasks: () =>
+    strapiRequest<unknown>('/api/article-workflow/tasks'),
   submitArticleForReview: (id: string, level1ReviewerId?: string | number) =>
     strapiRequest<unknown>(`/api/article-workflow/${id}/submit`, {
       method: 'POST',
@@ -162,6 +164,11 @@ export const api = {
     strapiRequest<unknown>(`/api/article-workflow/${id}/publish`, {
       method: 'POST',
       body: JSON.stringify({}),
+    }),
+  unpublishArticle: (id: string, comment = '') =>
+    strapiRequest<unknown>(`/api/article-workflow/${id}/unpublish`, {
+      method: 'POST',
+      body: JSON.stringify({ comment }),
     }),
   deleteArticle: (id: string) =>
     strapiRequest<unknown>(`/api/articles/${id}`, { method: 'DELETE' }),

@@ -50,7 +50,13 @@ const ARTICLE_POPULATE = [
 ];
 
 function roleName(admin) {
-  return String(admin?.backend_role?.name || '').trim().toLowerCase();
+  const role = admin?.backend_role?.data || admin?.backend_role;
+  return String(role?.name || '').trim().toLowerCase();
+}
+
+function roleDisplayName(admin) {
+  const role = admin?.backend_role?.data || admin?.backend_role;
+  return role?.display_name || role?.name || '';
 }
 
 function uniqueAdmins(items) {
@@ -150,8 +156,116 @@ function canManageLegacyUnownedArticle(article, admin) {
   return (
     !article?.created_by_admin &&
     new Set(['editor', 'admin', SUPER_ADMIN_ROLE]).has(roleName(admin)) &&
-    new Set(['draft', 'rejected_level1', 'rejected_level2', 'rejected_admin', 'rejected_leader']).has(article.review_status)
+    new Set(['draft', 'rejected_level1', 'rejected_level2', 'rejected_admin', 'rejected_leader', 'rejected_republish', 'unpublished']).has(article.review_status)
   );
+}
+
+const STATUS_LABELS = {
+  draft: '草稿',
+  pending_level1: '一级审核中',
+  rejected_level1: '一级审核退回',
+  pending_level2: '二级审核中',
+  rejected_level2: '二级审核退回',
+  pending_republish: '修改待二级审核',
+  rejected_republish: '修改审核退回',
+  approved_pending_publish: '待发布',
+  published: '已发布',
+  unpublished: '已取消发布',
+  pending_admin: '一级审核中',
+  rejected_admin: '一级审核退回',
+  pending_leader: '二级审核中',
+  rejected_leader: '二级审核退回',
+  approved: '待发布',
+};
+
+function adminSummary(admin) {
+  if (!admin) return null;
+  return {
+    id: admin.id,
+    documentId: admin.documentId,
+    name: admin.name || admin.username || admin.email,
+    email: admin.email,
+    role: roleName(admin),
+    role_display_name: roleDisplayName(admin),
+  };
+}
+
+function makeTask(article, type, title, admin, extra = {}) {
+  return {
+    id: `article:${article.documentId || article.id}:${type}`,
+    type,
+    title,
+    article_id: article.id,
+    article_document_id: article.documentId,
+    article_title: String(article.title || '未命名文章'),
+    slug: article.slug,
+    status: article.review_status,
+    status_label: STATUS_LABELS[article.review_status] || article.review_status,
+    updatedAt: article.updatedAt,
+    createdAt: article.createdAt,
+    submitter: adminSummary(article.created_by_admin),
+    reviewer: adminSummary(admin),
+    ...extra,
+  };
+}
+
+function buildTasks(articles, admin, identity) {
+  const tasks = [];
+  const superAdmin = isSuperAdmin(admin);
+  const level1 = isLevel1(admin);
+  const level2 = isLevel2(admin);
+
+  for (const article of articles || []) {
+    const mine = ownerMatches(article, admin, identity);
+    const status = article.review_status;
+
+    if (level1 && (status === 'pending_level1' || status === 'pending_admin') &&
+      (superAdmin || status === 'pending_admin' || assignedReviewerMatches(article, admin, 'level1_reviewer'))) {
+      tasks.push(makeTask(article, 'review_level1', '处理一级审核', admin, {
+        action_required: true,
+        actions: ['preview', 'approve', 'reject'],
+      }));
+    }
+
+    if (level2 && (status === 'pending_level2' || status === 'pending_leader' || status === 'pending_republish')) {
+      tasks.push(makeTask(article, 'review_level2', status === 'pending_republish' ? '处理修改后的二级审核' : '处理二级审核', admin, {
+        action_required: true,
+        actions: ['preview', 'approve', 'reject'],
+      }));
+    }
+
+    if (!mine) continue;
+
+    if (status === 'draft' || status === 'unpublished') {
+      tasks.push(makeTask(article, 'author_submit', status === 'unpublished' ? '取消发布后重新提交' : '完善草稿并提交审核', admin, {
+        action_required: true, actions: ['preview', 'edit', 'submit'],
+      }));
+    } else if (status === 'rejected_level1' || status === 'rejected_admin') {
+      tasks.push(makeTask(article, 'author_revision_level1', '处理一级审核退回', admin, {
+        action_required: true, actions: ['preview', 'edit', 'submit'],
+        comment: article.rejection_reason || article.level1_review_comment || article.admin_review_comment || '',
+      }));
+    } else if (status === 'rejected_level2' || status === 'rejected_leader' || status === 'rejected_republish') {
+      tasks.push(makeTask(article, 'author_revision_level2', '处理二级审核退回', admin, {
+        action_required: true, actions: ['preview', 'edit', 'submit'],
+        comment: article.rejection_reason || article.level2_review_comment || article.leader_review_comment || '',
+      }));
+    } else if (status === 'approved_pending_publish' || status === 'approved') {
+      tasks.push(makeTask(article, 'author_publish', '审核通过，确认发布', admin, {
+        action_required: true, actions: ['preview', 'publish'],
+      }));
+    } else if (status === 'pending_level1' || status === 'pending_admin' || status === 'pending_level2' || status === 'pending_leader' || status === 'pending_republish') {
+      tasks.push(makeTask(article, 'author_tracking', '查看审核进度', admin, {
+        action_required: false, actions: ['preview'],
+      }));
+    } else if (status === 'published') {
+      tasks.push(makeTask(article, 'author_published', '已发布文章', admin, {
+        action_required: false, actions: ['preview', 'edit', 'unpublish'],
+      }));
+    }
+  }
+
+  return tasks.sort((a, b) => String(b.updatedAt || b.createdAt || '').localeCompare(String(a.updatedAt || a.createdAt || '')));
 }
 
 async function findArticle(strapi, key) {
@@ -236,6 +350,15 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
 
     const updateData = { ...input };
     if (!article.created_by_admin) updateData.created_by_admin = admin.id;
+    // Editing a published article creates a new version that must pass the
+    // second review before it replaces the published content.
+    if (article.review_status === 'published') {
+      updateData.review_status = 'pending_republish';
+      updateData.publishedAt = null;
+      updateData.level2_review_comment = null;
+      updateData.level2_review_date = null;
+      updateData.rejection_reason = null;
+    }
     const result = await updateArticle(strapi, article, updateData);
     ctx.body = { data: result };
   },
@@ -256,8 +379,8 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
         documentId: item.documentId,
         name: item.name,
         email: item.email,
-        role: item.backend_role?.name,
-        role_display_name: item.backend_role?.display_name,
+        role: roleName(item),
+        role_display_name: roleDisplayName(item),
       }));
 
     ctx.body = { data: reviewers };
@@ -276,6 +399,8 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
       'rejected_level2',
       'rejected_admin',
       'rejected_leader',
+      'rejected_republish',
+      'unpublished',
     ]);
     if (!allowedStatuses.has(article.review_status)) {
       return ctx.badRequest('当前文章状态不能提交审核。');
@@ -283,6 +408,26 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
 
     const canSubmit = ownerMatches(article, admin, ctx.state.user) || canManageLegacyUnownedArticle(article, admin) || isSuperAdmin(admin);
     if (!canSubmit) return ctx.forbidden('只有文章发布者可以提交审核。');
+
+    // A changed published article goes straight back to the second review.
+    if (article.review_status === 'rejected_republish') {
+      const updated = await updateArticle(strapi, article, {
+        review_status: 'pending_republish',
+        level2_review_comment: null,
+        level2_review_date: null,
+        rejection_reason: null,
+      });
+      await writeReviewLog(strapi, {
+        article,
+        reviewer: admin,
+        action: 'submit_republish',
+        fromStatus: article.review_status,
+        toStatus: 'pending_republish',
+        comment: '',
+      });
+      ctx.body = { data: updated };
+      return;
+    }
 
     const allReviewers = await strapi.db.query(ADMIN_UID).findMany({
       where: { is_active: true },
@@ -378,7 +523,7 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
 
     const article = await findArticle(strapi, ctx.params.id);
     if (!article) return ctx.notFound('文章不存在。');
-    if (article.review_status !== 'pending_level2' && article.review_status !== 'pending_leader') {
+    if (article.review_status !== 'pending_level2' && article.review_status !== 'pending_leader' && article.review_status !== 'pending_republish') {
       return ctx.badRequest('当前文章不在二级审核状态。');
     }
 
@@ -387,19 +532,25 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
     if (!decision) return ctx.badRequest('审核决定只能是 approve 或 reject。');
     if (decision === 'reject' && !comment) return ctx.badRequest('退回时必须填写原因。');
 
-    const nextStatus = decision === 'approve' ? 'approved_pending_publish' : 'rejected_level2';
+    const isRepublish = article.review_status === 'pending_republish';
+    const nextStatus = decision === 'approve'
+      ? (isRepublish ? 'published' : 'approved_pending_publish')
+      : (isRepublish ? 'rejected_republish' : 'rejected_level2');
     const updated = await updateArticle(strapi, article, {
       review_status: nextStatus,
       level2_reviewer: admin.id,
       level2_review_comment: comment || null,
       level2_review_date: new Date().toISOString(),
       rejection_reason: decision === 'reject' ? comment : null,
+      ...(isRepublish && decision === 'approve' ? { publishedAt: new Date().toISOString(), publish_time: new Date().toISOString() } : {}),
     });
 
     await writeReviewLog(strapi, {
       article,
       reviewer: admin,
-      action: decision === 'approve' ? 'approve_level2' : 'reject_level2',
+      action: isRepublish
+        ? (decision === 'approve' ? 'approve_republish' : 'reject_republish')
+        : (decision === 'approve' ? 'approve_level2' : 'reject_level2'),
       fromStatus: article.review_status,
       toStatus: nextStatus,
       comment,
@@ -439,5 +590,58 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
     });
 
     ctx.body = { data: updated };
+  },
+
+  async unpublish(ctx) {
+    const admin = await getCurrentAdmin(ctx, strapi);
+    if (!admin) return;
+    const article = await findArticle(strapi, ctx.params.id);
+    if (!article) return ctx.notFound('文章不存在。');
+    if (article.review_status !== 'published') return ctx.badRequest('只有已发布文章可以取消发布。');
+
+    const canUnpublish = ownerMatches(article, admin, ctx.state.user) || isSuperAdmin(admin);
+    if (!canUnpublish) return ctx.forbidden('只有文章发布者或超级管理员可以取消发布。');
+
+    const comment = String(ctx.request.body?.comment || '').trim();
+    const updated = await updateArticle(strapi, article, {
+      review_status: 'unpublished',
+      publishedAt: null,
+      rejection_reason: comment || null,
+    });
+    await writeReviewLog(strapi, {
+      article,
+      reviewer: admin,
+      action: 'unpublish',
+      fromStatus: article.review_status,
+      toStatus: 'unpublished',
+      comment,
+    });
+    ctx.body = { data: updated };
+  },
+
+  async tasks(ctx) {
+    const admin = await getCurrentAdmin(ctx, strapi);
+    if (!admin) return;
+
+    const articles = await strapi.db.query(ARTICLE_UID).findMany({
+      populate: ARTICLE_POPULATE,
+      orderBy: { updatedAt: 'desc' },
+      limit: 200,
+    });
+    const tasks = buildTasks(articles, admin, ctx.state.user);
+    const actionable = tasks.filter((task) => task.action_required);
+    const byType = tasks.reduce((result, task) => {
+      result[task.type] = (result[task.type] || 0) + 1;
+      return result;
+    }, {});
+    ctx.body = {
+      data: tasks,
+      meta: {
+        total: tasks.length,
+        actionable: actionable.length,
+        byType,
+        generatedAt: new Date().toISOString(),
+      },
+    };
   },
 }));

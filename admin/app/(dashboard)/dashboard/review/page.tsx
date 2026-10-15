@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 
-type ReviewStatus = 'pending_level1' | 'pending_level2' | 'pending_admin' | 'pending_leader';
+type ReviewStatus = 'pending_level1' | 'pending_level2' | 'pending_republish' | 'pending_admin' | 'pending_leader';
 
 interface Article {
   id: string;
@@ -16,7 +16,7 @@ interface Article {
 }
 
 const level1Statuses = new Set<ReviewStatus>(['pending_level1', 'pending_admin']);
-const level2Statuses = new Set<ReviewStatus>(['pending_level2', 'pending_leader']);
+const level2Statuses = new Set<ReviewStatus>(['pending_level2', 'pending_republish', 'pending_leader']);
 const level1Roles = new Set(['article_level1_reviewer', 'level1_reviewer', 'reviewer_level1']);
 const level2Roles = new Set(['article_level2_reviewer', 'level2_reviewer', 'reviewer_level2']);
 
@@ -36,9 +36,10 @@ export default function ReviewPage() {
     setLoading(true);
     try {
       const res = (await api.getArticles(
-        '?filters[review_status][$in][0]=pending_level1&filters[review_status][$in][1]=pending_level2&filters[review_status][$in][2]=pending_admin&filters[review_status][$in][3]=pending_leader&sort=createdAt:desc'
+        '?filters[review_status][$in][0]=pending_level1&filters[review_status][$in][1]=pending_level2&filters[review_status][$in][2]=pending_admin&filters[review_status][$in][3]=pending_leader&filters[review_status][$in][4]=pending_republish&sort=createdAt:desc'
       )) as { data?: Article[] };
       setList(res.data || []);
+      if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('workflow-tasks-updated'));
     } finally {
       setLoading(false);
     }

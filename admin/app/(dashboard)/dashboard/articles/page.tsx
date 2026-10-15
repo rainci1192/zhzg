@@ -18,8 +18,11 @@ type ReviewStatus =
   | 'rejected_level1'
   | 'pending_level2'
   | 'rejected_level2'
+  | 'pending_republish'
+  | 'rejected_republish'
   | 'approved_pending_publish'
   | 'published'
+  | 'unpublished'
   | 'pending_admin'
   | 'rejected_admin'
   | 'pending_leader'
@@ -95,12 +98,13 @@ function uniqueReviewers(items: Reviewer[]) {
   });
 }
 
-function relationMatches(relation: AdminRelation | null | undefined, user: { id?: string; documentId?: string; email?: string } | null) {
-  if (!relation || !user) return false;
+function relationMatches(relation: AdminRelation | { data?: AdminRelation } | null | undefined, user: { id?: string; documentId?: string; email?: string } | null) {
+  const normalized = relation && typeof relation === 'object' && 'data' in relation ? relation.data : relation;
+  if (!normalized || !user) return false;
   return (
-    (relation.id != null && String(relation.id) === String(user.id)) ||
-    (relation.documentId && relation.documentId === user.documentId) ||
-    (relation.email && relation.email.toLowerCase() === user.email?.toLowerCase())
+    (normalized.id != null && String(normalized.id) === String(user.id)) ||
+    (normalized.documentId && normalized.documentId === user.documentId) ||
+    (normalized.email && normalized.email.toLowerCase() === user.email?.toLowerCase())
   );
 }
 
@@ -245,6 +249,12 @@ export default function ArticlesPage() {
   };
 
   const openSubmitModal = async (article: Article) => {
+    if (article.review_status === 'rejected_republish') {
+      setSubmittingArticle(article);
+      setSelectedLevel1Reviewer('__republish__');
+      setIsSubmitModalOpen(true);
+      return;
+    }
     try {
       const response = (await api.getLevel1Reviewers()) as { data?: Reviewer[] };
       const reviewers = uniqueReviewers(response.data || []);
@@ -259,9 +269,12 @@ export default function ArticlesPage() {
   };
 
   const submitForReview = async () => {
-    if (!submittingArticle || !selectedLevel1Reviewer) return alert('请选择一级审核人员。');
+    if (!submittingArticle || !selectedLevel1Reviewer) return alert('请选择审核人员。');
     try {
-      await api.submitArticleForReview(getKey(submittingArticle), selectedLevel1Reviewer);
+      await api.submitArticleForReview(
+        getKey(submittingArticle),
+        selectedLevel1Reviewer === '__republish__' ? undefined : selectedLevel1Reviewer
+      );
       setIsSubmitModalOpen(false);
       setSubmittingArticle(null);
       await fetchArticles();
@@ -322,8 +335,11 @@ export default function ArticlesPage() {
       rejected_level1: { label: '一级审核退回', color: 'bg-red-100 text-red-600', icon: <XCircle className="w-3 h-3" /> },
       pending_level2: { label: '待二级审核', color: 'bg-blue-100 text-blue-600', icon: <Clock className="w-3 h-3" /> },
       rejected_level2: { label: '二级审核退回', color: 'bg-orange-100 text-orange-600', icon: <XCircle className="w-3 h-3" /> },
+      pending_republish: { label: '修改待二级审核', color: 'bg-indigo-100 text-indigo-600', icon: <Clock className="w-3 h-3" /> },
+      rejected_republish: { label: '修改审核退回', color: 'bg-red-100 text-red-600', icon: <XCircle className="w-3 h-3" /> },
       approved_pending_publish: { label: '待发布者发布', color: 'bg-purple-100 text-purple-600', icon: <CheckCircle className="w-3 h-3" /> },
       published: { label: '已发布', color: 'bg-emerald-100 text-emerald-600', icon: <CheckCircle className="w-3 h-3" /> },
+      unpublished: { label: '已取消发布', color: 'bg-gray-100 text-gray-600', icon: <XCircle className="w-3 h-3" /> },
       pending_admin: { label: '待一级审核（旧状态）', color: 'bg-amber-100 text-amber-600', icon: <Clock className="w-3 h-3" /> },
       rejected_admin: { label: '一级审核退回（旧状态）', color: 'bg-red-100 text-red-600', icon: <XCircle className="w-3 h-3" /> },
       pending_leader: { label: '待二级审核（旧状态）', color: 'bg-blue-100 text-blue-600', icon: <Clock className="w-3 h-3" /> },
@@ -335,19 +351,20 @@ export default function ArticlesPage() {
   };
 
   const renderActions = (article: Article) => {
-    const editable = ['draft', 'rejected_level1', 'rejected_level2', 'rejected_admin', 'rejected_leader'].includes(article.review_status);
+    const editable = ['draft', 'rejected_level1', 'rejected_level2', 'rejected_republish', 'rejected_admin', 'rejected_leader', 'unpublished', 'published'].includes(article.review_status);
     const canReviewLevel1 = isLevel1 && (article.review_status === 'pending_level1' || article.review_status === 'pending_admin') && (isSuperAdmin || article.review_status === 'pending_admin' || relationMatches(article.level1_reviewer, user));
-    const canReviewLevel2 = isLevel2 && (article.review_status === 'pending_level2' || article.review_status === 'pending_leader');
+    const canReviewLevel2 = isLevel2 && (article.review_status === 'pending_level2' || article.review_status === 'pending_leader' || article.review_status === 'pending_republish');
     const canPublish = isPublisher && article.review_status === 'approved_pending_publish' && (isSuperAdmin || relationMatches(article.created_by_admin, user));
 
     return (
       <div className="flex items-center justify-center gap-2">
         <a href={`${FRONTEND_URL}/article/${article.slug}`} target="_blank" rel="noreferrer" className="text-indigo-600 hover:text-indigo-800" title="预览"><Eye className="w-4 h-4" /></a>
         {isPublisher && editable && <button onClick={() => openModal(article)} className="text-blue-600 hover:text-blue-800" title="编辑"><Edit className="w-4 h-4" /></button>}
-        {isPublisher && editable && <button onClick={() => openSubmitModal(article)} className="text-amber-600 hover:text-amber-800" title="提交一级审核"><Send className="w-4 h-4" /></button>}
+        {isPublisher && editable && article.review_status !== 'published' && <button onClick={() => openSubmitModal(article)} className="text-amber-600 hover:text-amber-800" title={article.review_status === 'rejected_republish' ? '提交二级审核' : '提交一级审核'}><Send className="w-4 h-4" /></button>}
         {canReviewLevel1 && <><button onClick={() => openReviewModal(article, 'approve')} className="text-green-600 hover:text-green-800" title="一级审核通过"><CheckCircle className="w-4 h-4" /></button><button onClick={() => openReviewModal(article, 'reject')} className="text-red-600 hover:text-red-800" title="一级审核退回"><XCircle className="w-4 h-4" /></button></>}
         {canReviewLevel2 && <><button onClick={() => openReviewModal(article, 'approve')} className="text-green-600 hover:text-green-800" title="二级审核通过"><CheckCircle className="w-4 h-4" /></button><button onClick={() => openReviewModal(article, 'reject')} className="text-red-600 hover:text-red-800" title="二级审核退回"><XCircle className="w-4 h-4" /></button></>}
         {canPublish && <button onClick={() => publish(article)} className="text-purple-600 hover:text-purple-800" title="发布"><CheckCircle className="w-4 h-4" /></button>}
+        {isPublisher && article.review_status === 'published' && <button onClick={async () => { if (!confirm('确定取消发布这篇文章吗？')) return; try { await api.unpublishArticle(getKey(article)); await fetchArticles(); } catch (error) { alert(`取消发布失败：${error instanceof Error ? error.message : '未知错误'}`); } }} className="text-orange-600 hover:text-orange-800" title="取消发布"><XCircle className="w-4 h-4" /></button>}
         {(article.rejection_reason || article.level1_review_comment || article.level2_review_comment || article.admin_review_comment || article.leader_review_comment) && <button onClick={() => alert(`审核意见：\n${article.rejection_reason || ''}\n${article.level1_review_comment || ''}\n${article.level2_review_comment || ''}`)} className="text-gray-600 hover:text-gray-800" title="查看意见"><MessageSquare className="w-4 h-4" /></button>}
         {isPublisher && editable && <button onClick={() => handleDelete(article)} className="text-red-500 hover:text-red-700" title="删除"><Trash2 className="w-4 h-4" /></button>}
       </div>
@@ -361,7 +378,7 @@ export default function ArticlesPage() {
 
       {isModalOpen && <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"><div className="bg-white rounded-3xl shadow-2xl w-full max-w-5xl mx-4 p-8 max-h-[90vh] overflow-y-auto"><h2 className="text-2xl font-bold mb-6">{editingKey ? '编辑文章' : '新增文章'}</h2><form onSubmit={saveArticle} className="space-y-6"><input className="w-full px-4 py-3 border rounded" placeholder="标题" value={form.title} onChange={(event) => setForm((previous) => ({ ...previous, title: event.target.value }))} required /><textarea className="w-full px-4 py-3 border rounded" placeholder="摘要" rows={2} value={form.summary} onChange={(event) => setForm((previous) => ({ ...previous, summary: event.target.value }))} /><div><label className="block mb-2 font-medium">正文内容</label><WordLikeEditor value={form.content} onChange={(html) => setForm((previous) => ({ ...previous, content: html }))} uploadImage={handleEditorUpload} /></div><div className="grid grid-cols-1 md:grid-cols-2 gap-6"><div><label className="block mb-2 font-medium">一级分类（必选）</label><select value={form.primaryCategoryId} onChange={(event) => setForm((previous) => ({ ...previous, primaryCategoryId: event.target.value, secondaryCategoryId: '' }))} className="w-full px-4 py-3 border rounded"><option value="">请选择一级分类</option>{primaryOptions.map((category) => <option key={category.id} value={String(category.id)}>{category.name}</option>)}</select></div><div><label className="block mb-2 font-medium">二级分类（可选）</label><select value={form.secondaryCategoryId} onChange={(event) => setForm((previous) => ({ ...previous, secondaryCategoryId: event.target.value }))} className="w-full px-4 py-3 border rounded" disabled={!form.primaryCategoryId}><option value="">不分类</option>{secondaryOptions.map((category) => <option key={category.id} value={String(category.id)}>{category.name}</option>)}</select></div></div><div><label className="block mb-2 font-medium">封面图</label>{form.coverPreview && <Image src={form.coverPreview} width={160} height={96} className="w-40 h-24 object-cover rounded mb-2" alt="cover" unoptimized />}<input type="file" accept="image/*" onChange={(event) => setCoverFile(event.target.files?.[0] || null)} /></div><div className="flex justify-end gap-4"><button type="button" onClick={() => setIsModalOpen(false)} className="px-6 py-3 border rounded">取消</button><button type="submit" className="px-6 py-3 bg-blue-600 text-white rounded">保存</button></div></form></div></div>}
 
-      {isSubmitModalOpen && submittingArticle && <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"><div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6"><h3 className="text-xl font-bold mb-4">选择一级审核人员</h3><p className="text-sm text-gray-600 mb-4">文章：{submittingArticle.title}</p><select value={selectedLevel1Reviewer} onChange={(event) => setSelectedLevel1Reviewer(event.target.value)} className="w-full px-4 py-3 border rounded-lg mb-6"><option value="">请选择</option>{level1Reviewers.map((reviewer) => { const reviewerKey = String(reviewer.documentId || reviewer.email || reviewer.id); return <option key={reviewerKey} value={reviewerKey}>{reviewer.name}（{reviewer.email}）</option>; })}</select><div className="flex justify-end gap-3"><button onClick={() => setIsSubmitModalOpen(false)} className="px-4 py-2 border rounded-lg">取消</button><button onClick={submitForReview} className="px-4 py-2 bg-blue-600 text-white rounded-lg">提交审核</button></div></div></div>}
+      {isSubmitModalOpen && submittingArticle && <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"><div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6"><h3 className="text-xl font-bold mb-4">{submittingArticle.review_status === 'rejected_republish' ? '提交二级审核' : '选择一级审核人员'}</h3><p className="text-sm text-gray-600 mb-4">文章：{submittingArticle.title}</p>{submittingArticle.review_status === 'rejected_republish' ? <p className="rounded-lg bg-indigo-50 p-3 text-sm text-indigo-700">修改后的已发布文章将直接进入二级审核。</p> : <select value={selectedLevel1Reviewer} onChange={(event) => setSelectedLevel1Reviewer(event.target.value)} className="w-full px-4 py-3 border rounded-lg mb-6"><option value="">请选择</option>{level1Reviewers.map((reviewer) => { const reviewerKey = String(reviewer.documentId || reviewer.email || reviewer.id); return <option key={reviewerKey} value={reviewerKey}>{reviewer.name}（{reviewer.email}）</option>; })}</select>}<div className="flex justify-end gap-3"><button onClick={() => setIsSubmitModalOpen(false)} className="px-4 py-2 border rounded-lg">取消</button><button onClick={submitForReview} className="px-4 py-2 bg-blue-600 text-white rounded-lg">提交审核</button></div></div></div>}
 
       {isReviewModalOpen && reviewingArticle && <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"><div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6"><h3 className="text-xl font-bold mb-4">{reviewingArticle.review_status === 'pending_level1' || reviewingArticle.review_status === 'pending_admin' ? '一级审核' : '二级审核'}{reviewAction === 'approve' ? '通过' : '退回'}</h3><p className="text-sm text-gray-600 mb-2">文章标题：</p><p className="font-medium mb-4">{reviewingArticle.title}</p><label className="block text-sm font-medium text-gray-700 mb-2">审核意见 {reviewAction === 'reject' && <span className="text-red-500">*</span>}</label><textarea value={reviewComment} onChange={(event) => setReviewComment(event.target.value)} className="w-full px-4 py-3 border rounded-lg" rows={4} placeholder={reviewAction === 'approve' ? '可选填审核意见' : '请填写退回原因'} /><div className="flex justify-end gap-3 mt-4"><button onClick={() => setIsReviewModalOpen(false)} className="px-4 py-2 border rounded-lg">取消</button><button onClick={handleReview} className={`px-4 py-2 rounded-lg text-white ${reviewAction === 'approve' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}`}>确认{reviewAction === 'approve' ? '通过' : '退回'}</button></div></div></div>}
     </div>

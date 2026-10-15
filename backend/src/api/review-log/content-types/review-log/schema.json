@@ -43,6 +43,10 @@
         "reject_admin",
         "approve_leader",
         "reject_leader"
+        ,"submit_republish"
+        ,"approve_republish"
+        ,"reject_republish"
+        ,"unpublish"
       ]
     },
     "from_status": {
