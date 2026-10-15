@@ -41,7 +41,7 @@ module.exports = {
         // custom backend-admin role and the assigned reviewer. Requiring the
         // generic article.update permission here incorrectly blocks reviewer
         // roles that only have the custom `review` action.
-        auth: { scope: [] },
+        auth: { scope: ['api::article.article.find'] },
         policies: [],
         middlewares: [],
       },
@@ -51,7 +51,7 @@ module.exports = {
       path: '/article-workflow/:id/level1-review',
       handler: 'api::article.article.level1Review',
       config: {
-        auth: { scope: [] },
+        auth: { scope: ['api::article.article.find'] },
         policies: [],
         middlewares: [],
       },
@@ -61,7 +61,7 @@ module.exports = {
       path: '/article-workflow/:id/level2-review',
       handler: 'api::article.article.level2Review',
       config: {
-        auth: { scope: [] },
+        auth: { scope: ['api::article.article.find'] },
         policies: [],
         middlewares: [],
       },
@@ -71,7 +71,7 @@ module.exports = {
       path: '/article-workflow/:id/publish',
       handler: 'api::article.article.publish',
       config: {
-        auth: { scope: [] },
+        auth: { scope: ['api::article.article.find'] },
         policies: [],
         middlewares: [],
       },
@@ -81,7 +81,7 @@ module.exports = {
       path: '/article-workflow/:id/unpublish',
       handler: 'api::article.article.unpublish',
       config: {
-        auth: { scope: [] },
+        auth: { scope: ['api::article.article.find'] },
         policies: [],
         middlewares: [],
       },
