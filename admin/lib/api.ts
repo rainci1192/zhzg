@@ -132,7 +132,7 @@ export const api = {
   // articles（关联字段自动 normalize）
   getArticles: (q = '') => strapiRequest<unknown>(`/api/articles${q}`),
   getArticle: (id: string) =>
-    strapiRequest<unknown>(`/api/articles/${id}?populate=*`),
+    strapiRequest<unknown>(`/api/article-workflow/${encodeURIComponent(id)}/preview`),
   createArticle: (data: unknown) => {
     const payload = normalizeRelations(data);
     return strapiRequest<unknown>('/api/articles', { method: 'POST', body: JSON.stringify({ data: payload }) });

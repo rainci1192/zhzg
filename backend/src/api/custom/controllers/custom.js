@@ -94,12 +94,13 @@ module.exports = {
   const rows = await strapi.entityService.findMany('api::article.article', {
     filters: {
       review_status: 'published',
-      category: { slug: 'news' },
+      primary_category: { slug: 'news' },
     },
     fields: ['id', 'title', 'slug', 'summary', 'publish_time', 'is_top'],
     populate: {
       cover: true,
-      category: true,
+      primary_category: true,
+      secondary_category: true,
     },
     sort: [{ is_top: 'desc' }, { publish_time: 'desc' }, { id: 'desc' }],
     limit,
@@ -114,12 +115,13 @@ async homeNotices(ctx) {
   const rows = await strapi.entityService.findMany('api::article.article', {
     filters: {
       review_status: 'published',
-      category: { slug: 'notices' },
+      primary_category: { slug: 'notices' },
     },
     fields: ['id', 'title', 'slug', 'summary', 'publish_time', 'is_top'],
     populate: {
       cover: true,
-      category: true,
+      primary_category: true,
+      secondary_category: true,
     },
     sort: [{ is_top: 'desc' }, { publish_time: 'desc' }, { id: 'desc' }],
     limit,
@@ -140,7 +142,8 @@ async homeNotices(ctx) {
       fields: ['id', 'title', 'slug', 'summary', 'content', 'publish_time', 'is_top'],
       populate: {
         cover: true,
-        category: true,
+        primary_category: true,
+        secondary_category: true,
       },
       limit: 1,
     });
@@ -173,12 +176,16 @@ async homeNotices(ctx) {
       strapi.entityService.findMany('api::article.article', {
         filters: {
           review_status: 'published',
-          category: { id: category.id },
+          $or: [
+            { primary_category: { id: category.id } },
+            { secondary_category: { id: category.id } },
+          ],
         },
         fields: ['id', 'title', 'slug', 'summary', 'publish_time', 'is_top'],
         populate: {
           cover: true,
-          category: true,
+          primary_category: true,
+          secondary_category: true,
         },
         sort: [{ is_top: 'desc' }, { publish_time: 'desc' }, { id: 'desc' }],
         start,
@@ -187,7 +194,10 @@ async homeNotices(ctx) {
       strapi.entityService.count('api::article.article', {
         filters: {
           review_status: 'published',
-          category: { id: category.id },
+          $or: [
+            { primary_category: { id: category.id } },
+            { secondary_category: { id: category.id } },
+          ],
         },
       }),
     ]);

@@ -619,6 +619,17 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
     ctx.body = { data: updated };
   },
 
+  // Admin preview endpoint. It deliberately avoids the public
+  // `/api/articles/:slug` route, whose parameter is reserved for published
+  // website pages and may be intercepted by the public router.
+  async preview(ctx) {
+    const admin = await getCurrentAdmin(ctx, strapi);
+    if (!admin) return;
+    const article = await findArticle(strapi, ctx.params.id);
+    if (!article) return ctx.notFound('文章不存在。');
+    ctx.body = { data: article };
+  },
+
   async tasks(ctx) {
     const admin = await getCurrentAdmin(ctx, strapi);
     if (!admin) return;
