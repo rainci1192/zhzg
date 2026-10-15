@@ -150,7 +150,7 @@ export default function DashboardPage() {
         await loadHistory();
         window.alert(action === 'approve' && task.type === 'review_level1' ? '一级审核通过，已提交二级审核。' : action === 'approve' ? '审核通过。' : '文章已退回发布者。');
       } else if (action === 'publish') {
-        if (!window.confirm('二级审核已通过，确认发布吗？')) return;
+        if (!window.confirm(task.type === 'admin_publish' ? '超级管理员可直接发布，确认发布吗？' : '二级审核已通过，确认发布吗？')) return;
         await api.publishArticle(id);
         await loadTasks();
         await loadHistory();

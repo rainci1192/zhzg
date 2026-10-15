@@ -145,6 +145,8 @@ export const api = {
     strapiRequest<unknown>('/api/article-workflow/level1-reviewers'),
   getLevel2Reviewers: () =>
     strapiRequest<unknown>('/api/article-workflow/level2-reviewers'),
+  getArticlePublishers: () =>
+    strapiRequest<unknown>('/api/article-workflow/publishers'),
   getWorkflowTasks: () =>
     strapiRequest<unknown>('/api/article-workflow/tasks'),
   getWorkflowHistory: (limit = 100) =>

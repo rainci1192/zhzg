@@ -97,6 +97,62 @@ function hasProtectedField(data) {
   return Object.keys(data || {}).some((field) => WORKFLOW_FIELDS.has(field));
 }
 
+async function hasArticleAction(strapi, admin, actionName) {
+  if (isSuperAdmin(admin)) return true;
+
+  const roleId = relationId(admin?.backend_role);
+  if (!roleId) {
+    const legacyPermissions = admin.backend_role?.permissions;
+    if (Array.isArray(legacyPermissions)) {
+      if (actionName === 'review') return legacyPermissions.includes('manage_review');
+      return ['create', 'update', 'delete', 'publish'].includes(actionName)
+        && legacyPermissions.includes('manage_articles');
+    }
+    if (actionName === 'review') return isLevel1(admin) || isLevel2(admin);
+    return ['editor', 'admin'].includes(roleName(admin));
+  }
+
+  const grants = await strapi.db.query('api::role-permission.role-permission').findMany({
+    where: { backend_role: Number(roleId) || roleId },
+    populate: ['permission_module', 'allowed_actions'],
+  });
+
+  // Older installations may only have the coarse role permission list. Keep
+  // that list as a compatibility fallback until fine-grained article grants
+  // are created in the role-permission manager.
+  const articleGrants = (grants || []).filter((grant) => {
+    const module = grant.permission_module?.data || grant.permission_module;
+    return module?.name === 'articles';
+  });
+
+  if (articleGrants.length === 0) {
+    const legacyPermissions = admin.backend_role?.permissions;
+    if (!Array.isArray(legacyPermissions)) {
+      if (actionName === 'review') return isLevel1(admin) || isLevel2(admin);
+      return ['editor', 'admin'].includes(roleName(admin));
+    }
+    if (actionName === 'review') return legacyPermissions.includes('manage_review');
+    return ['create', 'update', 'delete', 'publish'].includes(actionName)
+      && legacyPermissions.includes('manage_articles');
+  }
+
+  return articleGrants.some((grant) => {
+    const actions = grant.allowed_actions?.data || grant.allowed_actions || [];
+    return actions.some((action) => (action?.name || action?.data?.name) === actionName);
+  });
+}
+
+const EDITABLE_STATUSES = new Set([
+  'draft',
+  'rejected_level1',
+  'rejected_level2',
+  'rejected_republish',
+  'rejected_admin',
+  'rejected_leader',
+  'unpublished',
+  'published',
+]);
+
 async function findBackendAdmin(strapi, key, populate = ['backend_role']) {
   const value = String(key ?? '').trim();
   if (!value) return null;
@@ -219,6 +275,17 @@ function buildTasks(articles, admin, identity) {
     const mine = ownerMatches(article, admin, identity);
     const status = article.review_status;
 
+    // Super administrators can publish directly and do not need to enter the
+    // two-level review queue. Keep one actionable task for that shortcut so
+    // the workbench does not incorrectly present review tasks to them.
+    if (superAdmin && status !== 'published') {
+      tasks.push(makeTask(article, 'admin_publish', '超级管理员可直接发布', admin, {
+        action_required: true,
+        actions: ['preview', 'edit', 'publish'],
+      }));
+      continue;
+    }
+
     if (level1 && (status === 'pending_level1' || status === 'pending_admin') &&
       (superAdmin || status === 'pending_admin' || assignedReviewerMatches(article, admin, 'level1_reviewer'))) {
       tasks.push(makeTask(article, 'review_level1', '处理一级审核', admin, {
@@ -319,13 +386,25 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
   async create(ctx) {
     const admin = await getCurrentAdmin(ctx, strapi);
     if (!admin) return;
+    if (!(await hasArticleAction(strapi, admin, 'create'))) {
+      return ctx.forbidden('当前角色没有创建文章的权限。');
+    }
 
     const input = ctx.request.body?.data || {};
     const data = { ...input };
+    const requestedOwner = input.created_by_admin;
     for (const field of WORKFLOW_FIELDS) delete data[field];
 
     data.review_status = 'draft';
-    data.created_by_admin = admin.id;
+    if (isSuperAdmin(admin) && requestedOwner !== undefined) {
+      const owner = await findBackendAdmin(strapi, requestedOwner, ['backend_role']);
+      if (!owner || owner.is_active !== true) {
+        return ctx.badRequest('请选择有效的文章发布者。');
+      }
+      data.created_by_admin = owner.id;
+    } else {
+      data.created_by_admin = admin.id;
+    }
 
     const result = await strapi.db.query(ARTICLE_UID).create({
       data,
@@ -345,20 +424,41 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
   async update(ctx) {
     const admin = await getCurrentAdmin(ctx, strapi);
     if (!admin) return;
+    if (!(await hasArticleAction(strapi, admin, 'update'))) {
+      return ctx.forbidden('当前角色没有修改文章的权限。');
+    }
 
     const input = ctx.request.body?.data || {};
-    if (hasProtectedField(input)) {
+    const protectedFields = Object.keys(input).filter(
+      (field) => WORKFLOW_FIELDS.has(field) && !(isSuperAdmin(admin) && field === 'created_by_admin')
+    );
+    if (protectedFields.length > 0) {
       return ctx.badRequest('审核状态、审核人和发布时间只能通过文章审核流程操作。');
+    }
+    if (Object.prototype.hasOwnProperty.call(input, 'created_by_admin') && !isSuperAdmin(admin)) {
+      return ctx.forbidden('只有超级管理员可以修改文章发布者。');
     }
 
     const article = await findArticle(strapi, ctx.params.id);
     if (!article) return ctx.notFound('文章不存在。');
 
-    const allowed = ownerMatches(article, admin, ctx.state.user) || canManageLegacyUnownedArticle(article, admin) || isSuperAdmin(admin);
+    const allowed = ownerMatches(article, admin, ctx.state.user) || isSuperAdmin(admin);
     if (!allowed) return ctx.forbidden('只有文章发布者可以编辑这篇文章。');
+    if (!isSuperAdmin(admin) && !EDITABLE_STATUSES.has(article.review_status)) {
+      return ctx.forbidden('当前文章正在审核中，暂不能修改。');
+    }
 
     const updateData = { ...input };
-    if (!article.created_by_admin) updateData.created_by_admin = admin.id;
+    const requestedOwner = updateData.created_by_admin;
+    for (const field of WORKFLOW_FIELDS) delete updateData[field];
+    if (isSuperAdmin(admin) && requestedOwner !== undefined) {
+      const owner = await findBackendAdmin(strapi, requestedOwner, ['backend_role']);
+      if (!owner || owner.is_active !== true) {
+        return ctx.badRequest('请选择有效的文章发布者。');
+      }
+      updateData.created_by_admin = owner.id;
+    }
+    if (!article.created_by_admin && requestedOwner === undefined) updateData.created_by_admin = admin.id;
     // Editing a published article creates a new version that must pass the
     // second review before it replaces the published content.
     const wasPublished = article.review_status === 'published';
@@ -432,9 +532,36 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
     ctx.body = { data: reviewers };
   },
 
+  async listPublishers(ctx) {
+    const admin = await getCurrentAdmin(ctx, strapi);
+    if (!admin) return;
+
+    const allAdmins = isSuperAdmin(admin)
+      ? await strapi.db.query(ADMIN_UID).findMany({
+        where: { is_active: true },
+        populate: ['backend_role'],
+        orderBy: { name: 'asc' },
+      })
+      : [admin];
+
+    ctx.body = {
+      data: uniqueAdmins(allAdmins).map((item) => ({
+        id: item.id,
+        documentId: item.documentId,
+        name: item.name,
+        email: item.email,
+        role: roleName(item),
+        role_display_name: roleDisplayName(item),
+      })),
+    };
+  },
+
   async submit(ctx) {
     const admin = await getCurrentAdmin(ctx, strapi);
     if (!admin) return;
+    if (!(await hasArticleAction(strapi, admin, 'update'))) {
+      return ctx.forbidden('当前角色没有提交文章审核的权限。');
+    }
 
     const article = await findArticle(strapi, ctx.params.id);
     if (!article) return ctx.notFound('文章不存在。');
@@ -452,7 +579,7 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
       return ctx.badRequest('当前文章状态不能提交审核。');
     }
 
-    const canSubmit = ownerMatches(article, admin, ctx.state.user) || canManageLegacyUnownedArticle(article, admin) || isSuperAdmin(admin);
+    const canSubmit = ownerMatches(article, admin, ctx.state.user) || isSuperAdmin(admin);
     if (!canSubmit) return ctx.forbidden('只有文章发布者可以提交审核。');
 
     // A changed published article goes straight back to the second review.
@@ -525,6 +652,9 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
     const admin = await getCurrentAdmin(ctx, strapi);
     if (!admin) return;
     if (!isLevel1(admin)) return ctx.forbidden('当前账号不是一级审核人员。');
+    if (!(await hasArticleAction(strapi, admin, 'review'))) {
+      return ctx.forbidden('当前角色没有一级审核权限。');
+    }
 
     const article = await findArticle(strapi, ctx.params.id);
     if (!article) return ctx.notFound('文章不存在。');
@@ -583,6 +713,9 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
     const admin = await getCurrentAdmin(ctx, strapi);
     if (!admin) return;
     if (!isLevel2(admin)) return ctx.forbidden('当前账号不是二级审核人员。');
+    if (!(await hasArticleAction(strapi, admin, 'review'))) {
+      return ctx.forbidden('当前角色没有二级审核权限。');
+    }
 
     const article = await findArticle(strapi, ctx.params.id);
     if (!article) return ctx.notFound('文章不存在。');
@@ -628,17 +761,19 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
   async publish(ctx) {
     const admin = await getCurrentAdmin(ctx, strapi);
     if (!admin) return;
+    if (!(await hasArticleAction(strapi, admin, 'publish'))) {
+      return ctx.forbidden('当前角色没有发布文章的权限。');
+    }
 
     const article = await findArticle(strapi, ctx.params.id);
     if (!article) return ctx.notFound('文章不存在。');
-    if (article.review_status !== 'approved_pending_publish' && article.review_status !== 'approved') {
+    if (!isSuperAdmin(admin) && article.review_status !== 'approved_pending_publish' && article.review_status !== 'approved') {
       return ctx.badRequest('文章必须先通过二级审核才能发布。');
     }
 
     const canPublish =
       ownerMatches(article, admin, ctx.state.user) ||
-      isSuperAdmin(admin) ||
-      (!article.created_by_admin && new Set(['editor', 'admin']).has(roleName(admin)));
+      isSuperAdmin(admin);
     if (!canPublish) return ctx.forbidden('只有文章发布者可以最终发布。');
 
     const updated = await updateArticle(strapi, article, {
@@ -661,6 +796,9 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
   async unpublish(ctx) {
     const admin = await getCurrentAdmin(ctx, strapi);
     if (!admin) return;
+    if (!(await hasArticleAction(strapi, admin, 'publish'))) {
+      return ctx.forbidden('当前角色没有取消发布文章的权限。');
+    }
     const article = await findArticle(strapi, ctx.params.id);
     if (!article) return ctx.notFound('文章不存在。');
     if (article.review_status !== 'published') return ctx.badRequest('只有已发布文章可以取消发布。');
@@ -683,6 +821,26 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
       comment,
     });
     ctx.body = { data: updated };
+  },
+
+  async delete(ctx) {
+    const admin = await getCurrentAdmin(ctx, strapi);
+    if (!admin) return;
+    if (!(await hasArticleAction(strapi, admin, 'delete'))) {
+      return ctx.forbidden('当前角色没有删除文章的权限。');
+    }
+
+    const article = await findArticle(strapi, ctx.params.id);
+    if (!article) return ctx.notFound('文章不存在。');
+    if (!isSuperAdmin(admin) && !ownerMatches(article, admin, ctx.state.user)) {
+      return ctx.forbidden('只有文章发布者可以删除这篇文章。');
+    }
+    if (!isSuperAdmin(admin) && !EDITABLE_STATUSES.has(article.review_status)) {
+      return ctx.forbidden('当前文章正在审核中，暂不能删除。');
+    }
+
+    await strapi.db.query(ARTICLE_UID).delete({ where: { id: article.id } });
+    ctx.status = 204;
   },
 
   // Admin preview endpoint. It deliberately avoids the public

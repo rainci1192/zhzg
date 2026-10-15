@@ -44,6 +44,16 @@ module.exports = {
     },
     {
       method: 'GET',
+      path: '/article-workflow/publishers',
+      handler: 'api::article.article.listPublishers',
+      config: {
+        auth: { scope: ['api::article.article.find'] },
+        policies: [],
+        middlewares: [],
+      },
+    },
+    {
+      method: 'GET',
       path: '/article-workflow/history',
       handler: 'api::article.article.history',
       config: {
