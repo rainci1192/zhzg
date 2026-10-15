@@ -108,35 +108,79 @@ module.exports = {
           strapi.log.info(`已创建文章审核角色: ${definition.display_name}`);
         }
 
-        // If the fine-grained permission records already exist, grant the new
-        // role the minimum permissions needed for the article menu and review.
-        const module = await strapi.db.query('api::permission-module.permission-module').findOne({
+        // Ensure the article module and the two actions exist. Older installs
+        // may have the role rows but no fine-grained module row yet.
+        const moduleUid = 'api::permission-module.permission-module';
+        const actionUid = 'api::permission-action.permission-action';
+        const rolePermissionUid = 'api::role-permission.role-permission';
+        let module = await strapi.db.query(moduleUid).findOne({
           where: { name: 'articles' },
         });
-        const actions = (await strapi.db.query('api::permission-action.permission-action').findMany({
-          where: { name: { $in: ['view', 'review'] } },
-        })) || [];
 
-        if (module && actions.length > 0) {
-          const rolePermissionUid = 'api::role-permission.role-permission';
-          const existing = await strapi.db.query(rolePermissionUid).findOne({
-            where: {
-              backend_role: role.id,
-              permission_module: module.id,
+        if (!module) {
+          module = await strapi.db.query(moduleUid).create({
+            data: {
+              name: 'articles',
+              display_name: '文章',
+              description: '文章内容和审核流程',
+              category: 'content',
+              sort_order: 1,
+              is_active: true,
+              publishedAt: new Date().toISOString(),
             },
           });
+        }
 
-          if (!existing) {
-            await strapi.db.query(rolePermissionUid).create({
+        const actionDefinitions = {
+          view: { display_name: '查看', description: '查看文章列表和详情', color: 'blue', icon: 'Eye', sort_order: 1 },
+          review: { display_name: '审核', description: '处理文章审核流程', color: 'yellow', icon: 'CheckCircle', sort_order: 6 },
+        };
+        const actions = [];
+        for (const name of Object.keys(actionDefinitions)) {
+          let action = await strapi.db.query(actionUid).findOne({ where: { name } });
+          if (!action) {
+            action = await strapi.db.query(actionUid).create({
               data: {
-                backend_role: role.id,
-                permission_module: module.id,
-                allowed_actions: actions.map((action) => action.id),
-                data_scope: 'all',
+                name,
+                ...actionDefinitions[name],
                 publishedAt: new Date().toISOString(),
               },
             });
           }
+          actions.push(action);
+        }
+
+        const grants = (await strapi.db.query(rolePermissionUid).findMany({
+          where: { backend_role: role.id },
+          populate: ['permission_module', 'allowed_actions'],
+        })) || [];
+
+        // Repair rows created by an earlier bootstrap that contain the
+        // actions but lost their permission_module relation.
+        for (const grant of grants) {
+          if (!grant.permission_module) {
+            await strapi.db.query(rolePermissionUid).update({
+              where: { id: grant.id },
+              data: { permission_module: module.id },
+            });
+          }
+        }
+
+        const hasArticleGrant = grants.some((grant) => {
+          const moduleId = grant.permission_module?.id ?? grant.permission_module;
+          return String(moduleId) === String(module.id);
+        });
+
+        if (!hasArticleGrant) {
+          await strapi.db.query(rolePermissionUid).create({
+            data: {
+              backend_role: role.id,
+              permission_module: module.id,
+              allowed_actions: actions.map((action) => action.id),
+              data_scope: 'all',
+              publishedAt: new Date().toISOString(),
+            },
+          });
         }
       } catch (error) {
         strapi.log.warn(`文章审核角色初始化失败（可在后台角色管理中手动创建）: ${error.message}`);

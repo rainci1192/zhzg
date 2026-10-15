@@ -446,6 +446,10 @@ export interface ApiArticleArticle extends Struct.CollectionTypeSchema {
     admin_review_date: Schema.Attribute.DateTime;
     content: Schema.Attribute.RichText;
     cover: Schema.Attribute.Media<'images'>;
+    created_by_admin: Schema.Attribute.Relation<
+      'manyToOne',
+      'api::backend-admin.backend-admin'
+    >;
     created_by_user: Schema.Attribute.Relation<
       'manyToOne',
       'plugin::users-permissions.user'
@@ -456,6 +460,18 @@ export interface ApiArticleArticle extends Struct.CollectionTypeSchema {
     is_top: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
     leader_review_comment: Schema.Attribute.Text;
     leader_review_date: Schema.Attribute.DateTime;
+    level1_review_comment: Schema.Attribute.Text;
+    level1_review_date: Schema.Attribute.DateTime;
+    level1_reviewer: Schema.Attribute.Relation<
+      'manyToOne',
+      'api::backend-admin.backend-admin'
+    >;
+    level2_review_comment: Schema.Attribute.Text;
+    level2_review_date: Schema.Attribute.DateTime;
+    level2_reviewer: Schema.Attribute.Relation<
+      'manyToOne',
+      'api::backend-admin.backend-admin'
+    >;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<
       'oneToMany',
@@ -472,12 +488,17 @@ export interface ApiArticleArticle extends Struct.CollectionTypeSchema {
     review_status: Schema.Attribute.Enumeration<
       [
         'draft',
+        'pending_level1',
+        'rejected_level1',
+        'pending_level2',
+        'rejected_level2',
+        'approved_pending_publish',
+        'published',
         'pending_admin',
         'rejected_admin',
         'pending_leader',
         'rejected_leader',
         'approved',
-        'published',
       ]
     > &
       Schema.Attribute.Required &
@@ -1164,11 +1185,15 @@ export interface ApiReviewLogReviewLog extends Struct.CollectionTypeSchema {
     action: Schema.Attribute.Enumeration<
       [
         'submit',
+        'approve_level1',
+        'reject_level1',
+        'approve_level2',
+        'reject_level2',
+        'publish',
         'approve_admin',
         'reject_admin',
         'approve_leader',
         'reject_leader',
-        'publish',
       ]
     >;
     article: Schema.Attribute.Relation<'manyToOne', 'api::article.article'>;
@@ -1188,6 +1213,10 @@ export interface ApiReviewLogReviewLog extends Struct.CollectionTypeSchema {
     reviewer: Schema.Attribute.Relation<
       'manyToOne',
       'plugin::users-permissions.user'
+    >;
+    reviewer_admin: Schema.Attribute.Relation<
+      'manyToOne',
+      'api::backend-admin.backend-admin'
     >;
     reviewer_role: Schema.Attribute.String;
     to_status: Schema.Attribute.String;

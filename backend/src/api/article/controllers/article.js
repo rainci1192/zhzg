@@ -53,6 +53,16 @@ function roleName(admin) {
   return String(admin?.backend_role?.name || '').trim().toLowerCase();
 }
 
+function uniqueAdmins(items) {
+  const seen = new Set();
+  return (items || []).filter((item) => {
+    const key = String(item?.email || item?.documentId || item?.id || '').trim().toLowerCase();
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 function isSuperAdmin(admin) {
   return roleName(admin) === SUPER_ADMIN_ROLE;
 }
@@ -240,8 +250,7 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
       orderBy: { name: 'asc' },
     });
 
-    const reviewers = allAdmins
-      .filter((item) => LEVEL1_ROLE_NAMES.has(roleName(item)))
+    const reviewers = uniqueAdmins(allAdmins.filter((item) => LEVEL1_ROLE_NAMES.has(roleName(item))))
       .map((item) => ({
         id: item.id,
         documentId: item.documentId,
@@ -280,7 +289,7 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
       populate: ['backend_role'],
       orderBy: { name: 'asc' },
     });
-    const reviewers = allReviewers.filter((item) => LEVEL1_ROLE_NAMES.has(roleName(item)));
+    const reviewers = uniqueAdmins(allReviewers.filter((item) => LEVEL1_ROLE_NAMES.has(roleName(item))));
     if (reviewers.length === 0) {
       return ctx.badRequest('系统中还没有启用的一级审核角色账号，请先配置角色和用户。');
     }
