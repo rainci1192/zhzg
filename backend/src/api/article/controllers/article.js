@@ -227,7 +227,8 @@ function buildTasks(articles, admin, identity) {
       }));
     }
 
-    if (level2 && (status === 'pending_level2' || status === 'pending_leader' || status === 'pending_republish')) {
+    if (level2 && (status === 'pending_level2' || status === 'pending_leader' || status === 'pending_republish') &&
+      (superAdmin || !article.level2_reviewer || assignedReviewerMatches(article, admin, 'level2_reviewer'))) {
       tasks.push(makeTask(article, 'review_level2', status === 'pending_republish' ? '处理修改后的二级审核' : '处理二级审核', admin, {
         action_required: true,
         actions: ['preview', 'approve', 'reject'],
@@ -330,6 +331,14 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
       data,
       populate: ARTICLE_POPULATE,
     });
+    await writeReviewLog(strapi, {
+      article: result,
+      reviewer: admin,
+      action: 'create',
+      fromStatus: '',
+      toStatus: 'draft',
+      comment: '',
+    });
     ctx.body = { data: result };
   },
 
@@ -352,14 +361,28 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
     if (!article.created_by_admin) updateData.created_by_admin = admin.id;
     // Editing a published article creates a new version that must pass the
     // second review before it replaces the published content.
-    if (article.review_status === 'published') {
-      updateData.review_status = 'pending_republish';
+    const wasPublished = article.review_status === 'published';
+    if (wasPublished) {
+      // A published article is withdrawn from the public channel while its
+      // edited version goes through the complete first and second review
+      // flow again.
+      updateData.review_status = 'draft';
       updateData.publishedAt = null;
+      updateData.level1_reviewer = null;
+      updateData.level2_reviewer = null;
       updateData.level2_review_comment = null;
       updateData.level2_review_date = null;
       updateData.rejection_reason = null;
     }
     const result = await updateArticle(strapi, article, updateData);
+    await writeReviewLog(strapi, {
+      article: result,
+      reviewer: admin,
+      action: 'edit',
+      fromStatus: article.review_status,
+      toStatus: result.review_status || (wasPublished ? 'draft' : article.review_status),
+      comment: wasPublished ? '修改已发布文章，重新进入两级审核。' : '',
+    });
     ctx.body = { data: result };
   },
 
@@ -374,6 +397,29 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
     });
 
     const reviewers = uniqueAdmins(allAdmins.filter((item) => LEVEL1_ROLE_NAMES.has(roleName(item))))
+      .map((item) => ({
+        id: item.id,
+        documentId: item.documentId,
+        name: item.name,
+        email: item.email,
+        role: roleName(item),
+        role_display_name: roleDisplayName(item),
+      }));
+
+    ctx.body = { data: reviewers };
+  },
+
+  async listLevel2Reviewers(ctx) {
+    const admin = await getCurrentAdmin(ctx, strapi);
+    if (!admin) return;
+
+    const allAdmins = await strapi.db.query(ADMIN_UID).findMany({
+      where: { is_active: true },
+      populate: ['backend_role'],
+      orderBy: { name: 'asc' },
+    });
+
+    const reviewers = uniqueAdmins(allAdmins.filter((item) => LEVEL2_ROLE_NAMES.has(roleName(item))))
       .map((item) => ({
         id: item.id,
         documentId: item.documentId,
@@ -494,13 +540,30 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
     if (!decision) return ctx.badRequest('审核决定只能是 approve 或 reject。');
     if (decision === 'reject' && !comment) return ctx.badRequest('退回时必须填写原因。');
 
+    let level2Reviewer = null;
+    if (decision === 'approve') {
+      const allReviewers = await strapi.db.query(ADMIN_UID).findMany({
+        where: { is_active: true },
+        populate: ['backend_role'],
+        orderBy: { name: 'asc' },
+      });
+      const reviewers = uniqueAdmins(allReviewers.filter((item) => LEVEL2_ROLE_NAMES.has(roleName(item))));
+      const requested = ctx.request.body?.level2_reviewer_id ?? ctx.request.body?.data?.level2_reviewer_id;
+      level2Reviewer = requested ? await findBackendAdmin(strapi, requested) : null;
+      if (!level2Reviewer && reviewers.length === 1) level2Reviewer = reviewers[0];
+      if (reviewers.length === 0) return ctx.badRequest('系统中还没有启用的二级审核角色账号，请先配置角色和用户。');
+      if (!level2Reviewer || !LEVEL2_ROLE_NAMES.has(roleName(level2Reviewer)) || level2Reviewer.is_active !== true) {
+        return ctx.badRequest('请选择有效的二级审核人员。');
+      }
+    }
+
     const nextStatus = decision === 'approve' ? 'pending_level2' : 'rejected_level1';
     const updated = await updateArticle(strapi, article, {
       review_status: nextStatus,
       level1_reviewer: admin.id,
       level1_review_comment: comment || null,
       level1_review_date: new Date().toISOString(),
-      level2_reviewer: null,
+      level2_reviewer: level2Reviewer?.id || null,
       rejection_reason: decision === 'reject' ? comment : null,
     });
 
@@ -525,6 +588,9 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
     if (!article) return ctx.notFound('文章不存在。');
     if (article.review_status !== 'pending_level2' && article.review_status !== 'pending_leader' && article.review_status !== 'pending_republish') {
       return ctx.badRequest('当前文章不在二级审核状态。');
+    }
+    if (article.level2_reviewer && !isSuperAdmin(admin) && !assignedReviewerMatches(article, admin, 'level2_reviewer')) {
+      return ctx.forbidden('这篇文章已指定其他二级审核人员。');
     }
 
     const decision = normalizeDecision(ctx.request.body);
@@ -628,6 +694,51 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
     const article = await findArticle(strapi, ctx.params.id);
     if (!article) return ctx.notFound('文章不存在。');
     ctx.body = { data: article };
+  },
+
+  async history(ctx) {
+    const admin = await getCurrentAdmin(ctx, strapi);
+    if (!admin) return;
+
+    const limit = Math.min(Math.max(Number(ctx.query?.limit || 100), 1), 200);
+    const logs = await strapi.db.query(REVIEW_LOG_UID).findMany({
+      where: { reviewer_admin: admin.id },
+      populate: ['article', 'reviewer_admin'],
+      orderBy: { review_date: 'desc' },
+      limit,
+    });
+
+    ctx.body = {
+      data: (logs || []).map((log) => ({
+        id: log.id,
+        action: log.action,
+        action_label: {
+          create: '创建文章',
+          edit: '修改文章',
+          submit: '提交一级审核',
+          submit_republish: '提交修改审核',
+          approve_level1: '通过一级审核',
+          reject_level1: '退回一级审核',
+          approve_level2: '通过二级审核',
+          reject_level2: '退回二级审核',
+          approve_republish: '通过修改审核',
+          reject_republish: '退回修改审核',
+          publish: '发布文章',
+          unpublish: '取消发布',
+        }[log.action] || log.action,
+        article: log.article ? {
+          id: log.article.id,
+          documentId: log.article.documentId,
+          title: log.article.title,
+          slug: log.article.slug,
+        } : null,
+        from_status: log.from_status,
+        to_status: log.to_status,
+        comment: log.comment || '',
+        review_date: log.review_date || log.createdAt,
+      })),
+      meta: { total: logs?.length || 0, generatedAt: new Date().toISOString() },
+    };
   },
 
   async tasks(ctx) {

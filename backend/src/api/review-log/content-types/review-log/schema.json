@@ -33,6 +33,8 @@
     "action": {
       "type": "enumeration",
       "enum": [
+        "create",
+        "edit",
         "submit",
         "approve_level1",
         "reject_level1",
@@ -42,11 +44,11 @@
         "approve_admin",
         "reject_admin",
         "approve_leader",
-        "reject_leader"
-        ,"submit_republish"
-        ,"approve_republish"
-        ,"reject_republish"
-        ,"unpublish"
+        "reject_leader",
+        "submit_republish",
+        "approve_republish",
+        "reject_republish",
+        "unpublish"
       ]
     },
     "from_status": {

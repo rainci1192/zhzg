@@ -33,6 +33,26 @@ module.exports = {
       },
     },
     {
+      method: 'GET',
+      path: '/article-workflow/level2-reviewers',
+      handler: 'api::article.article.listLevel2Reviewers',
+      config: {
+        auth: { scope: ['api::article.article.find'] },
+        policies: [],
+        middlewares: [],
+      },
+    },
+    {
+      method: 'GET',
+      path: '/article-workflow/history',
+      handler: 'api::article.article.history',
+      config: {
+        auth: { scope: ['api::article.article.find'] },
+        policies: [],
+        middlewares: [],
+      },
+    },
+    {
       method: 'POST',
       path: '/article-workflow/:id/submit',
       handler: 'api::article.article.submit',

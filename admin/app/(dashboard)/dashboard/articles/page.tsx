@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
 import Image from 'next/image';
 import { api, uploadFile } from '@/lib/api';
-import { Plus, Edit, Trash2, Eye, Send, CheckCircle, XCircle, Clock, MessageSquare } from 'lucide-react';
+import { Plus, Edit, Trash2, Eye, Send, CheckCircle, XCircle, Clock, MessageSquare, User } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
 const WordLikeEditor = dynamic(() => import('@/components/editor/WordLikeEditor'), { ssr: false });
@@ -57,6 +57,9 @@ interface Article {
   summary?: string;
   content?: string;
   review_status: ReviewStatus;
+  createdAt?: string;
+  updatedAt?: string;
+  publishedAt?: string;
   publish_time?: string;
   primary_category?: { id: number; name: string } | null;
   secondary_category?: { id: number; name: string } | null;
@@ -78,6 +81,17 @@ interface Reviewer {
   email: string;
   role?: string;
   role_display_name?: string;
+}
+
+function relationName(relation: AdminRelation | { data?: AdminRelation } | null | undefined) {
+  const value = relation && typeof relation === 'object' && 'data' in relation ? relation.data : relation;
+  return value?.name || value?.email || '未记录';
+}
+
+function formatDate(value?: string) {
+  if (!value) return '—';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? '—' : date.toLocaleString('zh-CN', { hour12: false });
 }
 
 interface UploadedFile {
@@ -119,6 +133,7 @@ export default function ArticlesPage() {
   const [articles, setArticles] = useState<Article[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [level1Reviewers, setLevel1Reviewers] = useState<Reviewer[]>([]);
+  const [level2Reviewers, setLevel2Reviewers] = useState<Reviewer[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingKey, setEditingKey] = useState<string | null>(null);
@@ -126,6 +141,7 @@ export default function ArticlesPage() {
   const [reviewingArticle, setReviewingArticle] = useState<Article | null>(null);
   const [reviewComment, setReviewComment] = useState('');
   const [reviewAction, setReviewAction] = useState<'approve' | 'reject'>('approve');
+  const [selectedLevel2Reviewer, setSelectedLevel2Reviewer] = useState('');
   const [isSubmitModalOpen, setIsSubmitModalOpen] = useState(false);
   const [submittingArticle, setSubmittingArticle] = useState<Article | null>(null);
   const [selectedLevel1Reviewer, setSelectedLevel1Reviewer] = useState('');
@@ -284,10 +300,26 @@ export default function ArticlesPage() {
     }
   };
 
-  const openReviewModal = (article: Article, action: 'approve' | 'reject') => {
+  const openReviewModal = async (article: Article, action: 'approve' | 'reject') => {
     setReviewingArticle(article);
     setReviewAction(action);
     setReviewComment('');
+    setSelectedLevel2Reviewer('');
+    if (action === 'approve' && (article.review_status === 'pending_level1' || article.review_status === 'pending_admin')) {
+      try {
+        const response = (await api.getLevel2Reviewers()) as { data?: Reviewer[] };
+        const reviewers = uniqueReviewers(response.data || []);
+        if (reviewers.length === 0) {
+          alert('当前没有可选的二级审核人员，请先配置二级审核角色用户。');
+          return;
+        }
+        setLevel2Reviewers(reviewers);
+        setSelectedLevel2Reviewer(reviewers.length === 1 ? String(reviewers[0].documentId || reviewers[0].id) : '');
+      } catch (error) {
+        alert(`读取二级审核人员失败：${error instanceof Error ? error.message : '未知错误'}`);
+        return;
+      }
+    }
     setIsReviewModalOpen(true);
   };
 
@@ -295,13 +327,16 @@ export default function ArticlesPage() {
     if (!reviewingArticle) return;
     try {
       if (reviewingArticle.review_status === 'pending_level1' || reviewingArticle.review_status === 'pending_admin') {
-        await api.reviewArticleLevel1(getKey(reviewingArticle), reviewAction, reviewComment);
+        if (reviewAction === 'approve' && !selectedLevel2Reviewer) return alert('请选择二级审核人员。');
+        await api.reviewArticleLevel1(getKey(reviewingArticle), reviewAction, reviewComment, selectedLevel2Reviewer);
       } else {
         await api.reviewArticleLevel2(getKey(reviewingArticle), reviewAction, reviewComment);
       }
       setIsReviewModalOpen(false);
       await fetchArticles();
-      alert(reviewAction === 'approve' ? '审核通过，文章已进入下一阶段。' : '文章已退回发布者。');
+      alert(reviewAction === 'approve'
+        ? (reviewingArticle.review_status === 'pending_level1' || reviewingArticle.review_status === 'pending_admin' ? '一级审核通过，已提交二级审核。' : '二级审核通过。')
+        : '文章已退回发布者。');
     } catch (error) {
       alert(`审核操作失败：${error instanceof Error ? error.message : '未知错误'}`);
     }
@@ -353,7 +388,7 @@ export default function ArticlesPage() {
   const renderActions = (article: Article) => {
     const editable = ['draft', 'rejected_level1', 'rejected_level2', 'rejected_republish', 'rejected_admin', 'rejected_leader', 'unpublished', 'published'].includes(article.review_status);
     const canReviewLevel1 = isLevel1 && (article.review_status === 'pending_level1' || article.review_status === 'pending_admin') && (isSuperAdmin || article.review_status === 'pending_admin' || relationMatches(article.level1_reviewer, user));
-    const canReviewLevel2 = isLevel2 && (article.review_status === 'pending_level2' || article.review_status === 'pending_leader' || article.review_status === 'pending_republish');
+    const canReviewLevel2 = isLevel2 && (article.review_status === 'pending_level2' || article.review_status === 'pending_leader' || article.review_status === 'pending_republish') && (isSuperAdmin || !article.level2_reviewer || relationMatches(article.level2_reviewer, user));
     const canPublish = isPublisher && article.review_status === 'approved_pending_publish' && (isSuperAdmin || relationMatches(article.created_by_admin, user));
 
     return (
@@ -374,13 +409,13 @@ export default function ArticlesPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between"><div><h1 className="text-3xl font-bold text-gray-900">文章管理</h1><p className="text-gray-500 mt-1">共 {articles.length} 条文章</p></div><button onClick={() => openModal()} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-2xl font-medium"><Plus className="w-5 h-5" />新增文章</button></div>
-      {loading ? <div className="text-center py-12 text-gray-400">加载中...</div> : <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden"><table className="w-full"><thead className="bg-gray-50 border-b"><tr><th className="px-6 py-4 text-left text-sm font-medium text-gray-500">标题</th><th className="px-6 py-4 text-left text-sm font-medium text-gray-500">一级分类</th><th className="px-6 py-4 text-left text-sm font-medium text-gray-500">二级分类</th><th className="px-6 py-4 text-left text-sm font-medium text-gray-500">状态</th><th className="px-6 py-4 text-center text-sm font-medium text-gray-500">操作</th></tr></thead><tbody className="divide-y">{articles.map((article) => <tr key={article.id} className="hover:bg-gray-50"><td className="px-6 py-4"><div className="font-medium text-gray-900">{article.title}</div><div className="text-xs text-gray-400">slug: {article.slug}</div></td><td className="px-6 py-4 text-sm">{article.primary_category?.name || '-'}</td><td className="px-6 py-4 text-sm">{article.secondary_category?.name || '不分类'}</td><td className="px-6 py-4">{getStatusBadge(article.review_status)}</td><td className="px-6 py-4">{renderActions(article)}</td></tr>)}{articles.length === 0 && <tr><td colSpan={5} className="p-6 text-center text-gray-400">暂无文章</td></tr>}</tbody></table></div>}
+      {loading ? <div className="text-center py-12 text-gray-400">加载中...</div> : <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-x-auto"><table className="w-full min-w-[1180px]"><thead className="bg-gray-50 border-b"><tr><th className="px-5 py-4 text-left text-sm font-medium text-gray-500">标题</th><th className="px-5 py-4 text-left text-sm font-medium text-gray-500">发布者</th><th className="px-5 py-4 text-left text-sm font-medium text-gray-500">一级分类</th><th className="px-5 py-4 text-left text-sm font-medium text-gray-500">二级分类</th><th className="px-5 py-4 text-left text-sm font-medium text-gray-500">状态</th><th className="px-5 py-4 text-left text-sm font-medium text-gray-500">发布时间</th><th className="px-5 py-4 text-left text-sm font-medium text-gray-500">最后修改</th><th className="px-5 py-4 text-center text-sm font-medium text-gray-500">操作</th></tr></thead><tbody className="divide-y">{articles.map((article) => <tr key={article.id} className="hover:bg-gray-50"><td className="px-5 py-4"><div className="font-medium text-gray-900">{article.title}</div><div className="text-xs text-gray-400">slug: {article.slug}</div></td><td className="px-5 py-4 text-sm"><span className="inline-flex items-center gap-1.5"><User className="h-3.5 w-3.5 text-gray-400" />{relationName(article.created_by_admin)}</span></td><td className="px-5 py-4 text-sm">{article.primary_category?.name || '-'}</td><td className="px-5 py-4 text-sm">{article.secondary_category?.name || '不分类'}</td><td className="px-5 py-4">{getStatusBadge(article.review_status)}</td><td className="px-5 py-4 text-xs text-gray-500">{formatDate(article.publish_time || article.publishedAt)}</td><td className="px-5 py-4 text-xs text-gray-500">{formatDate(article.updatedAt)}</td><td className="px-5 py-4">{renderActions(article)}</td></tr>)}{articles.length === 0 && <tr><td colSpan={8} className="p-6 text-center text-gray-400">暂无文章</td></tr>}</tbody></table></div>}
 
       {isModalOpen && <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"><div className="bg-white rounded-3xl shadow-2xl w-full max-w-5xl mx-4 p-8 max-h-[90vh] overflow-y-auto"><h2 className="text-2xl font-bold mb-6">{editingKey ? '编辑文章' : '新增文章'}</h2><form onSubmit={saveArticle} className="space-y-6"><input className="w-full px-4 py-3 border rounded" placeholder="标题" value={form.title} onChange={(event) => setForm((previous) => ({ ...previous, title: event.target.value }))} required /><textarea className="w-full px-4 py-3 border rounded" placeholder="摘要" rows={2} value={form.summary} onChange={(event) => setForm((previous) => ({ ...previous, summary: event.target.value }))} /><div><label className="block mb-2 font-medium">正文内容</label><WordLikeEditor value={form.content} onChange={(html) => setForm((previous) => ({ ...previous, content: html }))} uploadImage={handleEditorUpload} /></div><div className="grid grid-cols-1 md:grid-cols-2 gap-6"><div><label className="block mb-2 font-medium">一级分类（必选）</label><select value={form.primaryCategoryId} onChange={(event) => setForm((previous) => ({ ...previous, primaryCategoryId: event.target.value, secondaryCategoryId: '' }))} className="w-full px-4 py-3 border rounded"><option value="">请选择一级分类</option>{primaryOptions.map((category) => <option key={category.id} value={String(category.id)}>{category.name}</option>)}</select></div><div><label className="block mb-2 font-medium">二级分类（可选）</label><select value={form.secondaryCategoryId} onChange={(event) => setForm((previous) => ({ ...previous, secondaryCategoryId: event.target.value }))} className="w-full px-4 py-3 border rounded" disabled={!form.primaryCategoryId}><option value="">不分类</option>{secondaryOptions.map((category) => <option key={category.id} value={String(category.id)}>{category.name}</option>)}</select></div></div><div><label className="block mb-2 font-medium">封面图</label>{form.coverPreview && <Image src={form.coverPreview} width={160} height={96} className="w-40 h-24 object-cover rounded mb-2" alt="cover" unoptimized />}<input type="file" accept="image/*" onChange={(event) => setCoverFile(event.target.files?.[0] || null)} /></div><div className="flex justify-end gap-4"><button type="button" onClick={() => setIsModalOpen(false)} className="px-6 py-3 border rounded">取消</button><button type="submit" className="px-6 py-3 bg-blue-600 text-white rounded">保存</button></div></form></div></div>}
 
       {isSubmitModalOpen && submittingArticle && <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"><div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6"><h3 className="text-xl font-bold mb-4">{submittingArticle.review_status === 'rejected_republish' ? '提交二级审核' : '选择一级审核人员'}</h3><p className="text-sm text-gray-600 mb-4">文章：{submittingArticle.title}</p>{submittingArticle.review_status === 'rejected_republish' ? <p className="rounded-lg bg-indigo-50 p-3 text-sm text-indigo-700">修改后的已发布文章将直接进入二级审核。</p> : <select value={selectedLevel1Reviewer} onChange={(event) => setSelectedLevel1Reviewer(event.target.value)} className="w-full px-4 py-3 border rounded-lg mb-6"><option value="">请选择</option>{level1Reviewers.map((reviewer) => { const reviewerKey = String(reviewer.documentId || reviewer.email || reviewer.id); return <option key={reviewerKey} value={reviewerKey}>{reviewer.name}（{reviewer.email}）</option>; })}</select>}<div className="flex justify-end gap-3"><button onClick={() => setIsSubmitModalOpen(false)} className="px-4 py-2 border rounded-lg">取消</button><button onClick={submitForReview} className="px-4 py-2 bg-blue-600 text-white rounded-lg">提交审核</button></div></div></div>}
 
-      {isReviewModalOpen && reviewingArticle && <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"><div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6"><h3 className="text-xl font-bold mb-4">{reviewingArticle.review_status === 'pending_level1' || reviewingArticle.review_status === 'pending_admin' ? '一级审核' : '二级审核'}{reviewAction === 'approve' ? '通过' : '退回'}</h3><p className="text-sm text-gray-600 mb-2">文章标题：</p><p className="font-medium mb-4">{reviewingArticle.title}</p><label className="block text-sm font-medium text-gray-700 mb-2">审核意见 {reviewAction === 'reject' && <span className="text-red-500">*</span>}</label><textarea value={reviewComment} onChange={(event) => setReviewComment(event.target.value)} className="w-full px-4 py-3 border rounded-lg" rows={4} placeholder={reviewAction === 'approve' ? '可选填审核意见' : '请填写退回原因'} /><div className="flex justify-end gap-3 mt-4"><button onClick={() => setIsReviewModalOpen(false)} className="px-4 py-2 border rounded-lg">取消</button><button onClick={handleReview} className={`px-4 py-2 rounded-lg text-white ${reviewAction === 'approve' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}`}>确认{reviewAction === 'approve' ? '通过' : '退回'}</button></div></div></div>}
+      {isReviewModalOpen && reviewingArticle && <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"><div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6"><h3 className="text-xl font-bold mb-4">{reviewingArticle.review_status === 'pending_level1' || reviewingArticle.review_status === 'pending_admin' ? '一级审核' : '二级审核'}{reviewAction === 'approve' ? '通过' : '退回'}</h3><p className="text-sm text-gray-600 mb-2">文章标题：</p><p className="font-medium mb-4">{reviewingArticle.title}</p>{reviewAction === 'approve' && (reviewingArticle.review_status === 'pending_level1' || reviewingArticle.review_status === 'pending_admin') && <div className="mb-4"><label className="mb-2 block text-sm font-medium text-gray-700">指定二级审核人员</label><select value={selectedLevel2Reviewer} onChange={(event) => setSelectedLevel2Reviewer(event.target.value)} className="w-full rounded-lg border px-4 py-3"><option value="">请选择二级审核人员</option>{level2Reviewers.map((reviewer) => { const key = String(reviewer.documentId || reviewer.email || reviewer.id); return <option key={key} value={key}>{reviewer.name}（{reviewer.email}）</option>; })}</select></div>}<label className="block text-sm font-medium text-gray-700 mb-2">审核意见 {reviewAction === 'reject' && <span className="text-red-500">*</span>}</label><textarea value={reviewComment} onChange={(event) => setReviewComment(event.target.value)} className="w-full px-4 py-3 border rounded-lg" rows={4} placeholder={reviewAction === 'approve' ? '可选填审核意见' : '请填写退回原因'} /><div className="flex justify-end gap-3 mt-4"><button onClick={() => setIsReviewModalOpen(false)} className="px-4 py-2 border rounded-lg">取消</button><button onClick={handleReview} className={`px-4 py-2 rounded-lg text-white ${reviewAction === 'approve' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}`}>确认{reviewAction === 'approve' ? '通过并提交二级审核' : '退回'}</button></div></div></div>}
     </div>
   );
 }

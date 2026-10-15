@@ -143,17 +143,21 @@ export const api = {
   },
   getLevel1Reviewers: () =>
     strapiRequest<unknown>('/api/article-workflow/level1-reviewers'),
+  getLevel2Reviewers: () =>
+    strapiRequest<unknown>('/api/article-workflow/level2-reviewers'),
   getWorkflowTasks: () =>
     strapiRequest<unknown>('/api/article-workflow/tasks'),
+  getWorkflowHistory: (limit = 100) =>
+    strapiRequest<unknown>(`/api/article-workflow/history?limit=${limit}`),
   submitArticleForReview: (id: string, level1ReviewerId?: string | number) =>
     strapiRequest<unknown>(`/api/article-workflow/${id}/submit`, {
       method: 'POST',
       body: JSON.stringify(level1ReviewerId ? { level1_reviewer_id: level1ReviewerId } : {}),
     }),
-  reviewArticleLevel1: (id: string, decision: 'approve' | 'reject', comment: string) =>
+  reviewArticleLevel1: (id: string, decision: 'approve' | 'reject', comment: string, level2ReviewerId?: string | number) =>
     strapiRequest<unknown>(`/api/article-workflow/${id}/level1-review`, {
       method: 'POST',
-      body: JSON.stringify({ decision, comment }),
+      body: JSON.stringify({ decision, comment, ...(level2ReviewerId ? { level2_reviewer_id: level2ReviewerId } : {}) }),
     }),
   reviewArticleLevel2: (id: string, decision: 'approve' | 'reject', comment: string) =>
     strapiRequest<unknown>(`/api/article-workflow/${id}/level2-review`, {

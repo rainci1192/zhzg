@@ -1187,6 +1187,8 @@ export interface ApiReviewLogReviewLog extends Struct.CollectionTypeSchema {
   attributes: {
     action: Schema.Attribute.Enumeration<
       [
+        'create',
+        'edit',
         'submit',
         'approve_level1',
         'reject_level1',
