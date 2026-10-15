@@ -536,13 +536,11 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
     const admin = await getCurrentAdmin(ctx, strapi);
     if (!admin) return;
 
-    const allAdmins = isSuperAdmin(admin)
-      ? await strapi.db.query(ADMIN_UID).findMany({
-        where: { is_active: true },
-        populate: ['backend_role'],
-        orderBy: { name: 'asc' },
-      })
-      : [admin];
+    const allAdmins = await strapi.db.query(ADMIN_UID).findMany({
+      where: { is_active: true },
+      populate: ['backend_role'],
+      orderBy: { name: 'asc' },
+    });
 
     ctx.body = {
       data: uniqueAdmins(allAdmins).map((item) => ({

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
 import Image from 'next/image';
 import { api, uploadFile } from '@/lib/api';
-import { Plus, Edit, Trash2, Eye, Send, CheckCircle, XCircle, Clock, MessageSquare, User } from 'lucide-react';
+import { Plus, Edit, Trash2, Eye, Send, CheckCircle, XCircle, Clock, MessageSquare, User, ChevronDown, ChevronUp, Filter, RotateCcw } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useModulePermission } from '@/hooks/useModulePermission';
 
@@ -105,6 +105,47 @@ interface UploadedFile {
 const LEVEL1_ROLES = new Set(['article_level1_reviewer', 'level1_reviewer', 'reviewer_level1']);
 const LEVEL2_ROLES = new Set(['article_level2_reviewer', 'level2_reviewer', 'reviewer_level2']);
 const EDITABLE_STATUSES = new Set(['draft', 'rejected_level1', 'rejected_level2', 'rejected_republish', 'rejected_admin', 'rejected_leader', 'unpublished', 'published']);
+const STATUS_OPTIONS: Array<{ value: ReviewStatus; label: string }> = [
+  { value: 'draft', label: '草稿' },
+  { value: 'pending_level1', label: '待一级审核' },
+  { value: 'rejected_level1', label: '一级审核退回' },
+  { value: 'pending_level2', label: '待二级审核' },
+  { value: 'rejected_level2', label: '二级审核退回' },
+  { value: 'pending_republish', label: '修改待二级审核' },
+  { value: 'rejected_republish', label: '修改审核退回' },
+  { value: 'approved_pending_publish', label: '待发布' },
+  { value: 'published', label: '已发布' },
+  { value: 'unpublished', label: '已取消发布' },
+  { value: 'pending_admin', label: '待一级审核（旧状态）' },
+  { value: 'rejected_admin', label: '一级审核退回（旧状态）' },
+  { value: 'pending_leader', label: '待二级审核（旧状态）' },
+  { value: 'rejected_leader', label: '二级审核退回（旧状态）' },
+  { value: 'approved', label: '待发布（旧状态）' },
+];
+
+type SortField = 'title' | 'created_by_admin.name' | 'primary_category.name' | 'secondary_category.name' | 'review_status' | 'publish_time' | 'updatedAt' | 'createdAt';
+
+interface ArticleFilters {
+  publisherId: string;
+  primaryCategoryId: string;
+  secondaryCategoryId: string;
+  status: string;
+  publishFrom: string;
+  publishTo: string;
+  updatedFrom: string;
+  updatedTo: string;
+}
+
+const EMPTY_FILTERS: ArticleFilters = {
+  publisherId: '',
+  primaryCategoryId: '',
+  secondaryCategoryId: '',
+  status: '',
+  publishFrom: '',
+  publishTo: '',
+  updatedFrom: '',
+  updatedTo: '',
+};
 
 function uniqueReviewers(items: Reviewer[]) {
   const seen = new Set<string>();
@@ -145,6 +186,14 @@ export default function ArticlesPage() {
   const [level1Reviewers, setLevel1Reviewers] = useState<Reviewer[]>([]);
   const [level2Reviewers, setLevel2Reviewers] = useState<Reviewer[]>([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const pageSize = 10;
+  const [filterDraft, setFilterDraft] = useState<ArticleFilters>(EMPTY_FILTERS);
+  const [appliedFilters, setAppliedFilters] = useState<ArticleFilters>(EMPTY_FILTERS);
+  const [filtersOpen, setFiltersOpen] = useState(true);
+  const [sortField, setSortField] = useState<SortField>('createdAt');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
@@ -170,13 +219,40 @@ export default function ArticlesPage() {
 
   const getKey = (article: Article) => article.documentId || String(article.id);
 
-  const fetchArticles = async () => {
+  const fetchArticles = async (
+    targetPage = page,
+    targetFilters = appliedFilters,
+    targetSortField = sortField,
+    targetSortDirection = sortDirection,
+  ) => {
+    setLoading(true);
     try {
-      const response = (await api.getArticles('?populate=*&sort=createdAt:desc')) as { data?: Article[] };
+      const params = new URLSearchParams();
+      params.set('populate', '*');
+      params.set('pagination[page]', String(targetPage));
+      params.set('pagination[pageSize]', String(pageSize));
+      params.set('sort', `${targetSortField}:${targetSortDirection}`);
+      if (targetFilters.publisherId) params.set('filters[created_by_admin][id][$eq]', targetFilters.publisherId);
+      if (targetFilters.primaryCategoryId) params.set('filters[primary_category][id][$eq]', targetFilters.primaryCategoryId);
+      if (targetFilters.secondaryCategoryId) params.set('filters[secondary_category][id][$eq]', targetFilters.secondaryCategoryId);
+      if (targetFilters.status) params.set('filters[review_status][$eq]', targetFilters.status);
+      if (targetFilters.publishFrom) params.set('filters[publish_time][$gte]', `${targetFilters.publishFrom}T00:00:00.000Z`);
+      if (targetFilters.publishTo) params.set('filters[publish_time][$lte]', `${targetFilters.publishTo}T23:59:59.999Z`);
+      if (targetFilters.updatedFrom) params.set('filters[updatedAt][$gte]', `${targetFilters.updatedFrom}T00:00:00.000Z`);
+      if (targetFilters.updatedTo) params.set('filters[updatedAt][$lte]', `${targetFilters.updatedTo}T23:59:59.999Z`);
+
+      const response = (await api.getArticles(`?${params.toString()}`)) as {
+        data?: Article[];
+        meta?: { pagination?: { total?: number } };
+      };
       setArticles(response.data || []);
+      setTotal(Number(response.meta?.pagination?.total || 0));
     } catch (error) {
       console.error('fetchArticles error:', error);
       setArticles([]);
+      setTotal(0);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -191,15 +267,14 @@ export default function ArticlesPage() {
   };
 
   useEffect(() => {
-    (async () => {
-      setLoading(true);
-      await Promise.all([fetchArticles(), fetchCategories()]);
-      setLoading(false);
-    })();
+    void fetchCategories();
   }, []);
 
   useEffect(() => {
-    if (!isSuperAdmin) return;
+    void fetchArticles(page, appliedFilters, sortField, sortDirection);
+  }, [page, appliedFilters, sortField, sortDirection]);
+
+  useEffect(() => {
     void (async () => {
       try {
         const response = (await api.getArticlePublishers()) as { data?: Reviewer[] };
@@ -224,6 +299,50 @@ export default function ArticlesPage() {
       return parentId === primaryId;
     });
   }, [categories, form.primaryCategoryId]);
+
+  const filterSecondaryOptions = useMemo(() => {
+    const primaryId = Number(filterDraft.primaryCategoryId);
+    return categories.filter((category) => {
+      const parentId = category.parentCategory?.id ?? (category as Category & { parent?: { id?: number } }).parent?.id ?? null;
+      return primaryId ? parentId === primaryId : Boolean(parentId) || category.level === 2;
+    });
+  }, [categories, filterDraft.primaryCategoryId]);
+
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+  const applyFilters = () => {
+    if (filterDraft.publishFrom && filterDraft.publishTo && filterDraft.publishFrom > filterDraft.publishTo) {
+      alert('发布时间的开始日期不能晚于结束日期。');
+      return;
+    }
+    if (filterDraft.updatedFrom && filterDraft.updatedTo && filterDraft.updatedFrom > filterDraft.updatedTo) {
+      alert('修改时间的开始日期不能晚于结束日期。');
+      return;
+    }
+    setPage(1);
+    setAppliedFilters({ ...filterDraft });
+  };
+
+  const resetFilters = () => {
+    setFilterDraft(EMPTY_FILTERS);
+    setAppliedFilters(EMPTY_FILTERS);
+    setPage(1);
+  };
+
+  const toggleSort = (field: SortField) => {
+    setPage(1);
+    if (sortField === field) {
+      setSortDirection((current) => current === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  const renderSortIcon = (field: SortField) => {
+    if (sortField !== field) return <span className="ml-1 text-gray-300">↕</span>;
+    return sortDirection === 'asc' ? <ChevronUp className="ml-1 inline h-3.5 w-3.5" /> : <ChevronDown className="ml-1 inline h-3.5 w-3.5" />;
+  };
 
   const openModal = (article?: Article) => {
     if (article) {
@@ -458,8 +577,9 @@ export default function ArticlesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between"><div><h1 className="text-3xl font-bold text-gray-900">文章管理</h1><p className="text-gray-500 mt-1">共 {articles.length} 条文章</p></div><button disabled={!canCreateArticle} onClick={() => { if (canCreateArticle) openModal(); }} className={`flex items-center gap-2 px-6 py-3 rounded-2xl font-medium ${canCreateArticle ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'cursor-not-allowed bg-gray-100 text-gray-400'}`} title={canCreateArticle ? '新增文章' : '当前角色没有创建文章权限'}><Plus className="w-5 h-5" />新增文章</button></div>
-      {loading ? <div className="text-center py-12 text-gray-400">加载中...</div> : <div className="w-full overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-sm"><table className="w-full table-fixed"><thead className="bg-gray-50 border-b"><tr><th className="w-[25%] px-3 py-4 text-left text-sm font-medium text-gray-500">标题</th><th className="w-[11%] px-3 py-4 text-left text-sm font-medium text-gray-500">发布者</th><th className="w-[8%] px-2 py-4 text-left text-sm font-medium text-gray-500">一级分类</th><th className="w-[8%] px-2 py-4 text-left text-sm font-medium text-gray-500">二级分类</th><th className="w-[10%] px-2 py-4 text-left text-sm font-medium text-gray-500">状态</th><th className="w-[12%] px-2 py-4 text-left text-sm font-medium text-gray-500">发布时间</th><th className="w-[12%] px-2 py-4 text-left text-sm font-medium text-gray-500">最后修改</th><th className="w-[14%] px-2 py-4 text-center text-sm font-medium text-gray-500">操作</th></tr></thead><tbody className="divide-y">{articles.map((article) => <tr key={article.id} className="hover:bg-gray-50"><td className="break-words px-3 py-4"><div className="font-medium leading-5 text-gray-900">{article.title}</div><div className="break-all text-xs text-gray-400">slug: {article.slug}</div></td><td className="break-words px-3 py-4 text-sm"><span className="inline-flex max-w-full break-all items-center gap-1.5"><User className="h-3.5 w-3.5 shrink-0 text-gray-400" />{relationName(article.created_by_admin)}</span></td><td className="break-words px-2 py-4 text-sm">{article.primary_category?.name || '-'}</td><td className="break-words px-2 py-4 text-sm">{article.secondary_category?.name || '不分类'}</td><td className="px-2 py-4">{getStatusBadge(article.review_status)}</td><td className="break-words px-2 py-4 text-xs text-gray-500">{formatDate(article.publish_time || article.publishedAt)}</td><td className="break-words px-2 py-4 text-xs text-gray-500">{formatDate(article.updatedAt)}</td><td className="px-2 py-4">{renderActions(article)}</td></tr>)}{articles.length === 0 && <tr><td colSpan={8} className="p-6 text-center text-gray-400">暂无文章</td></tr>}</tbody></table></div>}
+      <div className="flex flex-wrap items-center justify-between gap-4"><div><h1 className="text-3xl font-bold text-gray-900">文章管理</h1><p className="mt-1 text-gray-500">共 {total} 条文章</p></div><div className="flex items-center gap-3"><button type="button" onClick={() => setFiltersOpen((open) => !open)} className={`flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium ${filtersOpen || Object.values(appliedFilters).some(Boolean) ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'}`}><Filter className="h-4 w-4" />筛选显示</button><button disabled={!canCreateArticle} onClick={() => { if (canCreateArticle) openModal(); }} className={`flex items-center gap-2 rounded-2xl px-6 py-3 font-medium ${canCreateArticle ? 'bg-blue-600 text-white hover:bg-blue-700' : 'cursor-not-allowed bg-gray-100 text-gray-400'}`} title={canCreateArticle ? '新增文章' : '当前角色没有创建文章权限'}><Plus className="h-5 w-5" />新增文章</button></div></div>
+      {filtersOpen && <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm"><div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4"><label className="text-sm text-gray-600">发布者<select value={filterDraft.publisherId} onChange={(event) => setFilterDraft((current) => ({ ...current, publisherId: event.target.value }))} className="mt-1.5 w-full rounded-lg border border-gray-200 px-3 py-2.5 text-gray-800"><option value="">全部用户</option>{publishers.map((publisher) => <option key={String(publisher.id)} value={String(publisher.id)}>{publisher.name}（{publisher.email}）</option>)}</select></label><label className="text-sm text-gray-600">一级分类<select value={filterDraft.primaryCategoryId} onChange={(event) => setFilterDraft((current) => ({ ...current, primaryCategoryId: event.target.value, secondaryCategoryId: '' }))} className="mt-1.5 w-full rounded-lg border border-gray-200 px-3 py-2.5 text-gray-800"><option value="">全部分类</option>{primaryOptions.map((category) => <option key={category.id} value={String(category.id)}>{category.name}</option>)}</select></label><label className="text-sm text-gray-600">二级分类<select value={filterDraft.secondaryCategoryId} onChange={(event) => setFilterDraft((current) => ({ ...current, secondaryCategoryId: event.target.value }))} className="mt-1.5 w-full rounded-lg border border-gray-200 px-3 py-2.5 text-gray-800"><option value="">全部分类</option>{filterSecondaryOptions.map((category) => <option key={category.id} value={String(category.id)}>{category.name}</option>)}</select></label><label className="text-sm text-gray-600">状态<select value={filterDraft.status} onChange={(event) => setFilterDraft((current) => ({ ...current, status: event.target.value }))} className="mt-1.5 w-full rounded-lg border border-gray-200 px-3 py-2.5 text-gray-800"><option value="">全部状态</option>{STATUS_OPTIONS.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}</select></label><label className="text-sm text-gray-600">发布时间（开始）<input type="date" value={filterDraft.publishFrom} onChange={(event) => setFilterDraft((current) => ({ ...current, publishFrom: event.target.value }))} className="mt-1.5 w-full rounded-lg border border-gray-200 px-3 py-2.5 text-gray-800" /></label><label className="text-sm text-gray-600">发布时间（结束）<input type="date" value={filterDraft.publishTo} onChange={(event) => setFilterDraft((current) => ({ ...current, publishTo: event.target.value }))} className="mt-1.5 w-full rounded-lg border border-gray-200 px-3 py-2.5 text-gray-800" /></label><label className="text-sm text-gray-600">修改时间（开始）<input type="date" value={filterDraft.updatedFrom} onChange={(event) => setFilterDraft((current) => ({ ...current, updatedFrom: event.target.value }))} className="mt-1.5 w-full rounded-lg border border-gray-200 px-3 py-2.5 text-gray-800" /></label><label className="text-sm text-gray-600">修改时间（结束）<input type="date" value={filterDraft.updatedTo} onChange={(event) => setFilterDraft((current) => ({ ...current, updatedTo: event.target.value }))} className="mt-1.5 w-full rounded-lg border border-gray-200 px-3 py-2.5 text-gray-800" /></label></div><div className="mt-4 flex justify-end gap-3"><button type="button" onClick={resetFilters} className="flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50"><RotateCcw className="h-4 w-4" />重置</button><button type="button" onClick={applyFilters} className="rounded-lg bg-blue-600 px-5 py-2 text-sm font-medium text-white hover:bg-blue-700">应用筛选</button></div></div>}
+      {loading ? <div className="py-12 text-center text-gray-400">加载中...</div> : <><div className="w-full overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-sm"><table className="w-full table-fixed"><thead className="border-b bg-gray-50"><tr><th className="w-[25%] px-3 py-4 text-left text-sm font-medium text-gray-500"><button type="button" onClick={() => toggleSort('title')} className="inline-flex items-center hover:text-blue-600">标题{renderSortIcon('title')}</button></th><th className="w-[11%] px-3 py-4 text-left text-sm font-medium text-gray-500"><button type="button" onClick={() => toggleSort('created_by_admin.name')} className="inline-flex items-center hover:text-blue-600">发布者{renderSortIcon('created_by_admin.name')}</button></th><th className="w-[8%] px-2 py-4 text-left text-sm font-medium text-gray-500"><button type="button" onClick={() => toggleSort('primary_category.name')} className="inline-flex items-center hover:text-blue-600">一级分类{renderSortIcon('primary_category.name')}</button></th><th className="w-[8%] px-2 py-4 text-left text-sm font-medium text-gray-500"><button type="button" onClick={() => toggleSort('secondary_category.name')} className="inline-flex items-center hover:text-blue-600">二级分类{renderSortIcon('secondary_category.name')}</button></th><th className="w-[10%] px-2 py-4 text-left text-sm font-medium text-gray-500"><button type="button" onClick={() => toggleSort('review_status')} className="inline-flex items-center hover:text-blue-600">状态{renderSortIcon('review_status')}</button></th><th className="w-[12%] px-2 py-4 text-left text-sm font-medium text-gray-500"><button type="button" onClick={() => toggleSort('publish_time')} className="inline-flex items-center hover:text-blue-600">发布时间{renderSortIcon('publish_time')}</button></th><th className="w-[12%] px-2 py-4 text-left text-sm font-medium text-gray-500"><button type="button" onClick={() => toggleSort('updatedAt')} className="inline-flex items-center hover:text-blue-600">最后修改{renderSortIcon('updatedAt')}</button></th><th className="w-[14%] px-2 py-4 text-center text-sm font-medium text-gray-500">操作</th></tr></thead><tbody className="divide-y">{articles.map((article) => <tr key={article.id} className="hover:bg-gray-50"><td className="break-words px-3 py-4"><div className="font-medium leading-5 text-gray-900">{article.title}</div><div className="break-all text-xs text-gray-400">slug: {article.slug}</div></td><td className="break-words px-3 py-4 text-sm"><span className="inline-flex max-w-full break-all items-center gap-1.5"><User className="h-3.5 w-3.5 shrink-0 text-gray-400" />{relationName(article.created_by_admin)}</span></td><td className="break-words px-2 py-4 text-sm">{article.primary_category?.name || '-'}</td><td className="break-words px-2 py-4 text-sm">{article.secondary_category?.name || '不分类'}</td><td className="px-2 py-4">{getStatusBadge(article.review_status)}</td><td className="break-words px-2 py-4 text-xs text-gray-500">{formatDate(article.publish_time || article.publishedAt)}</td><td className="break-words px-2 py-4 text-xs text-gray-500">{formatDate(article.updatedAt)}</td><td className="px-2 py-4">{renderActions(article)}</td></tr>)}{articles.length === 0 && <tr><td colSpan={8} className="p-6 text-center text-gray-400">暂无符合条件的文章</td></tr>}</tbody></table></div><div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-100 bg-white px-4 py-3 text-sm text-gray-600"><span>第 {page} / {totalPages} 页，每页 {pageSize} 篇，共 {total} 篇</span><div className="flex items-center gap-2"><button type="button" disabled={page <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))} className="rounded-lg border border-gray-200 px-3 py-1.5 disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-300">上一页</button><button type="button" disabled={page >= totalPages} onClick={() => setPage((current) => Math.min(totalPages, current + 1))} className="rounded-lg border border-gray-200 px-3 py-1.5 disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-300">下一页</button></div></div></>}
 
       {isModalOpen && <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"><div className="bg-white rounded-3xl shadow-2xl w-full max-w-5xl mx-4 p-8 max-h-[90vh] overflow-y-auto"><h2 className="text-2xl font-bold mb-6">{editingKey ? '编辑文章' : '新增文章'}</h2><form onSubmit={saveArticle} className="space-y-6"><div><label className="mb-2 block font-medium">发布者</label>{isSuperAdmin ? <select value={form.publisherId} onChange={(event) => { const selected = publishers.find((publisher) => String(publisher.documentId || publisher.id) === event.target.value); setForm((previous) => ({ ...previous, publisherId: event.target.value, publisherLabel: selected ? `${selected.name}（${selected.email}）` : '' })); }} className="w-full rounded border px-4 py-3"><option value="">请选择发布者</option>{publishers.map((publisher) => { const key = String(publisher.documentId || publisher.id); return <option key={key} value={key}>{publisher.name}（{publisher.email}）</option>; })}</select> : <input value={form.publisherLabel || user?.name || user?.email || ''} readOnly disabled className="w-full cursor-not-allowed rounded border bg-gray-50 px-4 py-3 text-gray-500" />}<p className="mt-1 text-xs text-gray-400">普通用户只能使用本人账号发布；超级管理员可以指定其他有效后台用户。</p></div><input className="w-full px-4 py-3 border rounded" placeholder="标题" value={form.title} onChange={(event) => setForm((previous) => ({ ...previous, title: event.target.value }))} required /><textarea className="w-full px-4 py-3 border rounded" placeholder="摘要" rows={2} value={form.summary} onChange={(event) => setForm((previous) => ({ ...previous, summary: event.target.value }))} /><div><label className="block mb-2 font-medium">正文内容</label><WordLikeEditor value={form.content} onChange={(html) => setForm((previous) => ({ ...previous, content: html }))} uploadImage={handleEditorUpload} /></div><div className="grid grid-cols-1 md:grid-cols-2 gap-6"><div><label className="block mb-2 font-medium">一级分类（必选）</label><select value={form.primaryCategoryId} onChange={(event) => setForm((previous) => ({ ...previous, primaryCategoryId: event.target.value, secondaryCategoryId: '' }))} className="w-full px-4 py-3 border rounded"><option value="">请选择一级分类</option>{primaryOptions.map((category) => <option key={category.id} value={String(category.id)}>{category.name}</option>)}</select></div><div><label className="block mb-2 font-medium">二级分类（可选）</label><select value={form.secondaryCategoryId} onChange={(event) => setForm((previous) => ({ ...previous, secondaryCategoryId: event.target.value }))} className="w-full px-4 py-3 border rounded" disabled={!form.primaryCategoryId}><option value="">不分类</option>{secondaryOptions.map((category) => <option key={category.id} value={String(category.id)}>{category.name}</option>)}</select></div></div><div><label className="block mb-2 font-medium">封面图</label>{form.coverPreview && <Image src={form.coverPreview} width={160} height={96} className="w-40 h-24 object-cover rounded mb-2" alt="cover" unoptimized />}<input type="file" accept="image/*" onChange={(event) => setCoverFile(event.target.files?.[0] || null)} /></div><div className="flex justify-end gap-4"><button type="button" onClick={() => setIsModalOpen(false)} className="px-6 py-3 border rounded">取消</button><button type="submit" className="px-6 py-3 bg-blue-600 text-white rounded">保存</button></div></form></div></div>}
 
