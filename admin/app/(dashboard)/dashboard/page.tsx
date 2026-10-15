@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { Bell, CheckCircle, Clock, Edit, Eye, History, Send, XCircle } from 'lucide-react';
 
-type CountResponse = { meta?: { pagination?: { total?: number } } };
 type Counts = {
   published: number | null;
   pending: number | null;
@@ -43,11 +42,6 @@ const emptyCounts: Counts = {
   categories: null,
   banners: null,
 };
-
-function totalFrom(response: unknown): number | null {
-  const total = (response as CountResponse)?.meta?.pagination?.total;
-  return typeof total === 'number' ? total : null;
-}
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -91,22 +85,24 @@ export default function DashboardPage() {
 
     async function load() {
       const requests = await Promise.allSettled([
-        api.getArticles('?filters[review_status][$eq]=published&pagination[pageSize]=1'),
-        api.getArticles(
-          '?filters[review_status][$in][0]=pending_level1&filters[review_status][$in][1]=pending_level2&filters[review_status][$in][2]=pending_admin&filters[review_status][$in][3]=pending_leader&filters[review_status][$in][4]=pending_republish&pagination[pageSize]=1'
-        ),
+        api.getWorkflowStats(),
         api.getCategories('?pagination[pageSize]=1'),
         api.getBanners('?pagination[pageSize]=1'),
       ]);
       if (!active) return;
-      const values = requests.map((result) =>
-        result.status === 'fulfilled' ? totalFrom(result.value) : null
-      );
+      const stats = requests[0].status === 'fulfilled'
+        ? (requests[0].value as { data?: { published?: number; pending?: number } }).data
+        : undefined;
+      const totalFrom = (index: number) => {
+        if (requests[index].status !== 'fulfilled') return null;
+        const total = (requests[index].value as { meta?: { pagination?: { total?: number } } }).meta?.pagination?.total;
+        return typeof total === 'number' ? total : null;
+      };
       setCounts({
-        published: values[0],
-        pending: values[1],
-        categories: values[2],
-        banners: values[3],
+        published: typeof stats?.published === 'number' ? stats.published : null,
+        pending: typeof stats?.pending === 'number' ? stats.pending : null,
+        categories: totalFrom(1),
+        banners: totalFrom(2),
       });
       setLoading(false);
     }

@@ -554,6 +554,110 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
     };
   },
 
+  // Admin article lists must include draft and published Strapi documents.
+  // The generated REST find endpoint defaults to the published content view,
+  // which hides documents whose Strapi `publishedAt` is null even when the
+  // custom workflow status says `published`.
+  async adminList(ctx) {
+    const admin = await getCurrentAdmin(ctx, strapi);
+    if (!admin) return;
+
+    const query = ctx.query || {};
+    const page = Math.max(1, Number(query.pagination?.page || 1));
+    const pageSize = Math.min(100, Math.max(1, Number(query.pagination?.pageSize || 10)));
+    const filters = query.filters || {};
+    const where = {};
+
+    const relationFilter = (name) => {
+      const relation = filters[name];
+      const id = relation?.id?.$eq;
+      if (id !== undefined && id !== '') where[name] = { id: Number(id) || id };
+    };
+    relationFilter('created_by_admin');
+    relationFilter('primary_category');
+    relationFilter('secondary_category');
+
+    const status = filters.review_status?.$eq;
+    if (status) where.review_status = status;
+    for (const field of ['publish_time', 'updatedAt']) {
+      const range = filters[field];
+      if (range && (range.$gte || range.$lte)) {
+        where[field] = {};
+        if (range.$gte) where[field].$gte = range.$gte;
+        if (range.$lte) where[field].$lte = range.$lte;
+      }
+    }
+
+    const queriedRows = await strapi.db.query(ARTICLE_UID).findMany({
+      where,
+      populate: ARTICLE_POPULATE,
+      orderBy: { createdAt: 'desc' },
+    });
+    // Strapi 5 can keep draft and published variants under one documentId.
+    // The admin list represents a document once, using its most recently
+    // updated variant (which is also the current custom-workflow state).
+    const documents = new Map();
+    for (const row of queriedRows || []) {
+      const key = String(row.documentId || row.id);
+      const current = documents.get(key);
+      if (!current || String(row.updatedAt || '') > String(current.updatedAt || '')) {
+        documents.set(key, row);
+      }
+    }
+    const rows = Array.from(documents.values());
+
+    const sortPath = String(query.sort || 'createdAt:desc').split(':');
+    const sortField = sortPath[0];
+    const sortDirection = sortPath[1] === 'asc' ? 1 : -1;
+    const sortableFields = new Set([
+      'title', 'created_by_admin.name', 'primary_category.name',
+      'secondary_category.name', 'review_status', 'publish_time', 'updatedAt', 'createdAt',
+    ]);
+    const pathValue = (record, path) => path.split('.').reduce((value, key) => value?.[key], record);
+    const safeSortField = sortableFields.has(sortField) ? sortField : 'createdAt';
+    rows.sort((left, right) => {
+      const a = pathValue(left, safeSortField);
+      const b = pathValue(right, safeSortField);
+      if (a == null && b == null) return 0;
+      if (a == null) return 1;
+      if (b == null) return -1;
+      const aValue = a instanceof Date ? a.getTime() : String(a).toLocaleLowerCase();
+      const bValue = b instanceof Date ? b.getTime() : String(b).toLocaleLowerCase();
+      const result = typeof aValue === 'number' && typeof bValue === 'number'
+        ? aValue - bValue
+        : String(aValue).localeCompare(String(bValue), 'zh-CN', { numeric: true });
+      return result * sortDirection;
+    });
+
+    const total = rows.length;
+    const pageCount = Math.ceil(total / pageSize);
+    const safePage = pageCount > 0 ? Math.min(page, pageCount) : 1;
+    ctx.body = {
+      data: rows.slice((safePage - 1) * pageSize, safePage * pageSize),
+      meta: { pagination: { page: safePage, pageSize, pageCount, total } },
+    };
+  },
+
+  async stats(ctx) {
+    const admin = await getCurrentAdmin(ctx, strapi);
+    if (!admin) return;
+
+    const rows = await strapi.db.query(ARTICLE_UID).findMany({
+      select: ['id', 'documentId', 'review_status', 'updatedAt'],
+      orderBy: { updatedAt: 'desc' },
+    });
+    const latestByDocument = new Map();
+    for (const row of rows || []) {
+      const key = String(row.documentId || row.id);
+      if (!latestByDocument.has(key)) latestByDocument.set(key, row);
+    }
+    const articles = Array.from(latestByDocument.values());
+    const published = articles.filter((article) => article.review_status === 'published').length;
+    const pendingStatuses = new Set(['pending_level1', 'pending_level2', 'pending_admin', 'pending_leader', 'pending_republish']);
+    const pending = articles.filter((article) => pendingStatuses.has(article.review_status)).length;
+    ctx.body = { data: { published, pending } };
+  },
+
   async submit(ctx) {
     const admin = await getCurrentAdmin(ctx, strapi);
     if (!admin) return;
@@ -777,6 +881,7 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
     const updated = await updateArticle(strapi, article, {
       review_status: 'published',
       publish_time: new Date().toISOString(),
+      publishedAt: new Date().toISOString(),
     });
 
     await writeReviewLog(strapi, {

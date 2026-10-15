@@ -97,6 +97,13 @@ function formatDate(value?: string) {
   return Number.isNaN(date.getTime()) ? '—' : date.toLocaleString('zh-CN', { hour12: false });
 }
 
+function localDateBoundary(value: string, endOfDay = false) {
+  if (!value) return '';
+  const [year, month, day] = value.split('-').map(Number);
+  const date = new Date(year, month - 1, day, endOfDay ? 23 : 0, endOfDay ? 59 : 0, endOfDay ? 59 : 0, endOfDay ? 999 : 0);
+  return date.toISOString();
+}
+
 interface UploadedFile {
   id: number;
   url: string;
@@ -236,12 +243,12 @@ export default function ArticlesPage() {
       if (targetFilters.primaryCategoryId) params.set('filters[primary_category][id][$eq]', targetFilters.primaryCategoryId);
       if (targetFilters.secondaryCategoryId) params.set('filters[secondary_category][id][$eq]', targetFilters.secondaryCategoryId);
       if (targetFilters.status) params.set('filters[review_status][$eq]', targetFilters.status);
-      if (targetFilters.publishFrom) params.set('filters[publish_time][$gte]', `${targetFilters.publishFrom}T00:00:00.000Z`);
-      if (targetFilters.publishTo) params.set('filters[publish_time][$lte]', `${targetFilters.publishTo}T23:59:59.999Z`);
-      if (targetFilters.updatedFrom) params.set('filters[updatedAt][$gte]', `${targetFilters.updatedFrom}T00:00:00.000Z`);
-      if (targetFilters.updatedTo) params.set('filters[updatedAt][$lte]', `${targetFilters.updatedTo}T23:59:59.999Z`);
+      if (targetFilters.publishFrom) params.set('filters[publish_time][$gte]', localDateBoundary(targetFilters.publishFrom));
+      if (targetFilters.publishTo) params.set('filters[publish_time][$lte]', localDateBoundary(targetFilters.publishTo, true));
+      if (targetFilters.updatedFrom) params.set('filters[updatedAt][$gte]', localDateBoundary(targetFilters.updatedFrom));
+      if (targetFilters.updatedTo) params.set('filters[updatedAt][$lte]', localDateBoundary(targetFilters.updatedTo, true));
 
-      const response = (await api.getArticles(`?${params.toString()}`)) as {
+      const response = (await api.getWorkflowArticles(`?${params.toString()}`)) as {
         data?: Article[];
         meta?: { pagination?: { total?: number } };
       };

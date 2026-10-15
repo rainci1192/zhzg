@@ -131,6 +131,8 @@ export const api = {
 
   // articles（关联字段自动 normalize）
   getArticles: (q = '') => strapiRequest<unknown>(`/api/articles${q}`),
+  getWorkflowArticles: (q = '') => strapiRequest<unknown>(`/api/article-workflow/list${q}`),
+  getWorkflowStats: () => strapiRequest<unknown>('/api/article-workflow/stats'),
   getArticle: (id: string) =>
     strapiRequest<unknown>(`/api/article-workflow/${encodeURIComponent(id)}/preview`),
   createArticle: (data: unknown) => {
