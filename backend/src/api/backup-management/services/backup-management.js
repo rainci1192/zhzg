@@ -64,7 +64,12 @@ async function walkFiles(directory, prefix = '') {
 
 module.exports = createCoreService('api::backup-management.backup-management', ({ strapi }) => {
   const appRoot = path.resolve(__dirname, '../../../../');
-  const dataRoot = path.resolve(process.env.BACKUP_STORAGE_DIR || path.join(appRoot, 'backups'));
+  // Keep backup files outside the entire project tree. Some development
+  // watchers monitor the repository root (not only backend/), and writing an
+  // archive there can restart Strapi while the backup request is being polled.
+  const projectRoot = path.resolve(appRoot, '..');
+  const defaultBackupRoot = path.resolve(projectRoot, '..', `${path.basename(projectRoot)}-backups`);
+  const dataRoot = path.resolve(process.env.BACKUP_STORAGE_DIR || defaultBackupRoot);
   const settingsFile = path.join(dataRoot, 'settings.json');
   const lockDir = path.join(dataRoot, '.backup-running');
   let activeRun = null;
@@ -183,6 +188,16 @@ module.exports = createCoreService('api::backup-management.backup-management', (
       return { client: 'sqlite', file: 'database.sqlite', restoreSupported: false };
     }
     throw new Error(`暂不支持数据库类型 ${client} 的备份。`);
+  }
+
+  async function validateBackupTool() {
+    const client = dbClient();
+    const command = client === 'postgres' || client === 'postgresql'
+      ? (process.env.PG_DUMP_PATH || 'pg_dump')
+      : client === 'mysql' || client === 'mysql2'
+        ? (process.env.MYSQLDUMP_PATH || 'mysqldump')
+        : null;
+    if (command) await runCommand(command, ['--version'], { env: { ...process.env } });
   }
 
   async function copyUploads(folder, includeMedia) {
@@ -406,6 +421,9 @@ module.exports = createCoreService('api::backup-management.backup-management', (
       if (activeRun || await lockIsActive()) {
         throw new Error('已有备份任务正在运行，请稍后刷新查看结果。');
       }
+      // Fail synchronously when the database client is missing. This lets the
+      // UI report the actual issue before creating any files or starting a job.
+      await validateBackupTool();
       activeRun = (async () => runBackup('manual', actor, await readSettings()))()
         .catch((error) => { strapi.log.error(`手动备份失败：${error.message}`); })
         .finally(() => { activeRun = null; });
