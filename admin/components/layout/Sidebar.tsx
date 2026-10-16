@@ -465,7 +465,9 @@ export default function Sidebar() {
     if (userRole === 'super_admin') return true;
 
     // 检查旧的权限系统
-    if (item.href && !canAccessPath(item.href)) return false;
+    // The logs module's fine-grained permission is also enforced by the API;
+    // do not require a legacy role flag when its explicit module grant exists.
+    if (item.href && item.href !== '/dashboard/logs' && !canAccessPath(item.href)) return false;
 
     // 检查新的细化权限
     if (item.module) {

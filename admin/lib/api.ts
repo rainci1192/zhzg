@@ -153,6 +153,8 @@ export const api = {
     strapiRequest<unknown>('/api/article-workflow/tasks'),
   getWorkflowHistory: (limit = 100) =>
     strapiRequest<unknown>(`/api/article-workflow/history?limit=${limit}`),
+  getOperationLogs: (query = '') =>
+    strapiRequest<unknown>(`/api/operation-logs${query}`),
   submitArticleForReview: (id: string, level1ReviewerId?: string | number) =>
     strapiRequest<unknown>(`/api/article-workflow/${id}/submit`, {
       method: 'POST',

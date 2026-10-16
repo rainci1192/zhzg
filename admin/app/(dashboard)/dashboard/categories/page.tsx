@@ -106,11 +106,6 @@ export default function CategoriesPage() {
       alert('请输入分类名称');
       return;
     }
-    if (!form.slug.trim()) {
-      alert('请输入 slug');
-      return;
-    }
-
     if (form.level === 2 && !form.parentId) {
       alert('二级分类必须选择父级');
       return;
@@ -118,7 +113,6 @@ export default function CategoriesPage() {
 
     const payload: Record<string, unknown> = {
       name: form.name.trim(),
-      slug: form.slug.trim(),
       level: form.level,
       sort_order: Number(form.sort_order) || 0,
       is_visible: form.is_visible,
@@ -187,12 +181,7 @@ export default function CategoriesPage() {
               onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
             />
 
-            <input
-              className="border rounded px-3 py-2"
-              placeholder="slug（如：news-research-updates）"
-              value={form.slug}
-              onChange={(e) => setForm((p) => ({ ...p, slug: e.target.value }))}
-            />
+            <p className="text-sm text-gray-500">访问标识由系统根据分类名称自动生成英文内容，并自动检查是否重复。</p>
 
             <select
               className="border rounded px-3 py-2"

@@ -402,11 +402,6 @@ export default function ArticlesPage() {
     if (!form.primaryCategoryId) return alert('请选择一级分类');
 
     try {
-      const generateSlug = (title: string) => {
-        const slug = title.trim().toLowerCase().replace(/[\s\u3000]+/g, '-').replace(/[^a-z0-9_-]/g, '').replace(/-+/g, '-').replace(/^-|-$/g, '');
-        return slug || `article-${Date.now()}`;
-      };
-
       let coverId = form.coverId;
       if (coverFile) {
         const uploaded = (await uploadFile(coverFile)) as UploadedFile[];
@@ -415,7 +410,6 @@ export default function ArticlesPage() {
 
       const payload: Record<string, unknown> = {
         title: form.title,
-        slug: generateSlug(form.title),
         summary: form.summary,
         content: form.content,
         primary_category: Number(form.primaryCategoryId),

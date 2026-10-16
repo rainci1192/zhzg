@@ -357,18 +357,7 @@ export default function StudentDocumentsManagement() {
                   />
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Slug *</label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.slug}
-                    onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="例如：student-handbook-2024"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">用于 URL，只能包含小写字母、数字和连字符</p>
-                </div>
+                <p className="text-sm text-gray-500">访问标识由系统根据标题自动生成英文内容，并检查唯一性。</p>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">内容</label>

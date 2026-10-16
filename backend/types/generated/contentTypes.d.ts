@@ -932,6 +932,55 @@ export interface ApiLinkLink extends Struct.CollectionTypeSchema {
   };
 }
 
+export interface ApiOperationLogOperationLog
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'operation_logs_v2';
+  info: {
+    description: '\u81EA\u5B9A\u4E49\u540E\u53F0\u7BA1\u7406\u64CD\u4F5C\u5BA1\u8BA1\u65E5\u5FD7';
+    displayName: 'Operation Log';
+    pluralName: 'operation-logs';
+    singularName: 'operation-log';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    action: Schema.Attribute.String & Schema.Attribute.Required;
+    actor: Schema.Attribute.Relation<
+      'manyToOne',
+      'api::backend-admin.backend-admin'
+    >;
+    actor_email: Schema.Attribute.Email;
+    actor_name: Schema.Attribute.String;
+    actor_role: Schema.Attribute.String;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    details: Schema.Attribute.JSON;
+    ip_address: Schema.Attribute.String;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::operation-log.operation-log'
+    > &
+      Schema.Attribute.Private;
+    method: Schema.Attribute.String;
+    module: Schema.Attribute.String & Schema.Attribute.Required;
+    path: Schema.Attribute.String;
+    publishedAt: Schema.Attribute.DateTime;
+    result: Schema.Attribute.Enumeration<['success', 'failed']> &
+      Schema.Attribute.DefaultTo<'success'>;
+    status_code: Schema.Attribute.Integer;
+    target_id: Schema.Attribute.String;
+    target_label: Schema.Attribute.String;
+    target_type: Schema.Attribute.String;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    user_agent: Schema.Attribute.Text;
+  };
+}
+
 export interface ApiPagePage extends Struct.CollectionTypeSchema {
   collectionName: 'pages';
   info: {
@@ -1976,6 +2025,7 @@ declare module '@strapi/strapi' {
       'api::download-file.download-file': ApiDownloadFileDownloadFile;
       'api::leader.leader': ApiLeaderLeader;
       'api::link.link': ApiLinkLink;
+      'api::operation-log.operation-log': ApiOperationLogOperationLog;
       'api::page.page': ApiPagePage;
       'api::permission-action.permission-action': ApiPermissionActionPermissionAction;
       'api::permission-module.permission-module': ApiPermissionModulePermissionModule;

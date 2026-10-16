@@ -21,5 +21,6 @@ module.exports = [
   'strapi::body',
   'strapi::session',
   'strapi::favicon',
+  'global::operation-audit',
   'strapi::public',
 ];

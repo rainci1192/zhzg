@@ -118,8 +118,8 @@ export default function PagesManagement() {
   const savePage = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!form.slug.trim() || !form.title.trim()) {
-      alert('Slug 和标题不能为空');
+    if (!form.title.trim()) {
+      alert('标题不能为空');
       return;
     }
 
@@ -131,7 +131,6 @@ export default function PagesManagement() {
       }
 
       const payload: Record<string, unknown> = {
-        slug: form.slug,
         title: form.title,
         subtitle: form.subtitle,
         content: form.content,
@@ -255,18 +254,7 @@ export default function PagesManagement() {
             <h2 className="text-2xl font-bold mb-6">{editingKey ? '编辑页面' : '新增页面'}</h2>
 
             <form onSubmit={savePage} className="space-y-6">
-              <div>
-                <label className="block mb-2 font-medium">Slug（URL 标识）</label>
-                <input
-                  className="w-full px-4 py-3 border rounded"
-                  placeholder="例如：about-intro"
-                  value={form.slug}
-                  onChange={(e) => setForm((p) => ({ ...p, slug: e.target.value }))}
-                  required
-                  disabled={!!editingKey}
-                />
-                <p className="text-sm text-gray-500 mt-1">只能包含小写字母、数字、连字符</p>
-              </div>
+              <p className="text-sm text-gray-500">URL 访问标识由系统根据页面标题自动生成英文内容，并检查唯一性。</p>
 
               <input
                 className="w-full px-4 py-3 border rounded"

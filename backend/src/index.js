@@ -2,6 +2,8 @@
 
 module.exports = {
   register({ strapi }) {
+    require('./utils/slug-lifecycle')(strapi);
+
     // 注册自定义路由
     strapi.server.routes([
       {
@@ -71,6 +73,41 @@ module.exports = {
   },
 
   async bootstrap({ strapi }) {
+    try {
+      const moduleUid = 'api::permission-module.permission-module';
+      const actionUid = 'api::permission-action.permission-action';
+      let logsModule = await strapi.db.query(moduleUid).findOne({ where: { name: 'logs' } });
+      if (!logsModule) {
+        logsModule = await strapi.db.query(moduleUid).create({
+          data: {
+            name: 'logs',
+            display_name: '操作日志',
+            description: '查看后台用户操作和审计记录',
+            category: 'system',
+            sort_order: 90,
+            is_active: true,
+            publishedAt: new Date().toISOString(),
+          },
+        });
+      }
+      let viewAction = await strapi.db.query(actionUid).findOne({ where: { name: 'view' } });
+      if (!viewAction) {
+        viewAction = await strapi.db.query(actionUid).create({
+          data: {
+            name: 'view',
+            display_name: '查看',
+            description: '查看操作日志列表和详情',
+            color: 'blue',
+            icon: 'Eye',
+            sort_order: 1,
+            publishedAt: new Date().toISOString(),
+          },
+        });
+      }
+    } catch (error) {
+      strapi.log.warn(`操作日志权限模块初始化失败: ${error.message}`);
+    }
+
     // Create the two workflow roles once, so an existing installation does not
     // need to recreate them by hand after the patch is installed. Existing
     // roles and their custom permissions are left untouched.
