@@ -1,9 +1,5 @@
 'use strict';
 
-/**
- * banner router
- */
+const createRbacCoreRouter = require('../../../utils/create-rbac-core-router');
 
-const { createCoreRouter } = require('@strapi/strapi').factories;
-
-module.exports = createCoreRouter('api::banner.banner');
+module.exports = createRbacCoreRouter('api::banner.banner', 'banners');

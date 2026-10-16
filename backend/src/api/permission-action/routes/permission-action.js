@@ -1,9 +1,5 @@
 'use strict';
 
-/**
- * permission-action router
- */
+const createRbacCoreRouter = require('../../../utils/create-rbac-core-router');
 
-const { createCoreRouter } = require('@strapi/strapi').factories;
-
-module.exports = createCoreRouter('api::permission-action.permission-action');
+module.exports = createRbacCoreRouter('api::permission-action.permission-action', 'roles');

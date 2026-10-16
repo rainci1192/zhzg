@@ -1,9 +1,5 @@
 'use strict';
 
-/**
- * backend-role router
- */
+const createRbacCoreRouter = require('../../../utils/create-rbac-core-router');
 
-const { createCoreRouter } = require('@strapi/strapi').factories;
-
-module.exports = createCoreRouter('api::backend-role.backend-role');
+module.exports = createRbacCoreRouter('api::backend-role.backend-role', 'roles');

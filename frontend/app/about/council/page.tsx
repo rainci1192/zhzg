@@ -1,3 +1,4 @@
+import { sanitizeRichHtml } from '@/lib/sanitize-html';
 import AboutSingleLayout from '@/components/about/AboutSingleLayout';
 import Link from 'next/link';
 
@@ -130,7 +131,7 @@ export default async function AboutCouncil() {
       {/* 理事会说明 */}
       <div
         className="prose prose-gray max-w-none text-[21px] leading-10 md:text-[22px] md:leading-[2.2]"
-        dangerouslySetInnerHTML={{ __html: article.content_html || '' }}
+        dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(article.content_html || '') }}
       />
 
       {/* 理事会成员单位 */}

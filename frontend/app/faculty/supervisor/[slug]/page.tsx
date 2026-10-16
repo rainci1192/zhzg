@@ -1,3 +1,4 @@
+import { sanitizeRichHtml } from '@/lib/sanitize-html';
 // app/faculty/supervisor/[slug]/page.tsx
 import { notFound } from 'next/navigation';
 import Header from '@/components/layout/Header';
@@ -138,7 +139,7 @@ export default async function SupervisorDetail({
                 个人简介
               </h2>
               <div className="prose prose-gray max-w-none leading-relaxed"
-                dangerouslySetInnerHTML={{ __html: supervisor.bio }} />
+                dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(supervisor.bio) }} />
             </div>
           )}
 

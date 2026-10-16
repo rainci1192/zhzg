@@ -1,9 +1,5 @@
 'use strict';
 
-/**
- * link router
- */
+const createRbacCoreRouter = require('../../../utils/create-rbac-core-router');
 
-const { createCoreRouter } = require('@strapi/strapi').factories;
-
-module.exports = createCoreRouter('api::link.link');
+module.exports = createRbacCoreRouter('api::link.link', 'links');

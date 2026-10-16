@@ -1,9 +1,5 @@
 'use strict';
 
-/**
- * research-institution router
- */
+const createRbacCoreRouter = require('../../../utils/create-rbac-core-router');
 
-const { createCoreRouter } = require('@strapi/strapi').factories;
-
-module.exports = createCoreRouter('api::research-institution.research-institution');
+module.exports = createRbacCoreRouter('api::research-institution.research-institution', 'research_institutions');

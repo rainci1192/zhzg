@@ -104,6 +104,7 @@ async function hasArticleAction(strapi, admin, actionName) {
   if (!roleId) {
     const legacyPermissions = admin.backend_role?.permissions;
     if (Array.isArray(legacyPermissions)) {
+      if (actionName === 'view') return legacyPermissions.includes('manage_articles') || legacyPermissions.includes('manage_review');
       if (actionName === 'review') return legacyPermissions.includes('manage_review');
       return ['create', 'update', 'delete', 'publish', 'unpublish'].includes(actionName)
         && legacyPermissions.includes('manage_articles');
@@ -132,9 +133,11 @@ async function hasArticleAction(strapi, admin, actionName) {
   if (articleGrants.length === 0) {
     const legacyPermissions = admin.backend_role?.permissions;
     if (!Array.isArray(legacyPermissions)) {
+      if (actionName === 'view') return ['editor', 'admin'].includes(roleName(admin)) || isLevel1(admin) || isLevel2(admin);
       if (actionName === 'review') return isLevel1(admin) || isLevel2(admin);
       return ['editor', 'admin'].includes(roleName(admin));
     }
+    if (actionName === 'view') return legacyPermissions.includes('manage_articles') || legacyPermissions.includes('manage_review');
     if (actionName === 'review') return legacyPermissions.includes('manage_review');
     return ['create', 'update', 'delete', 'publish', 'unpublish'].includes(actionName)
       && legacyPermissions.includes('manage_articles');
@@ -144,6 +147,29 @@ async function hasArticleAction(strapi, admin, actionName) {
     const actions = grant.allowed_actions?.data || grant.allowed_actions || [];
     return actions.some((action) => (action?.name || action?.data?.name) === actionName);
   });
+}
+
+async function getArticleDataScope(strapi, admin) {
+  const roleId = relationId(admin?.backend_role);
+  if (!roleId) return 'all';
+  const module = await strapi.db.query('api::permission-module.permission-module').findOne({ where: { name: 'articles' } });
+  if (!module) return 'all';
+  const grants = await strapi.db.query('api::role-permission.role-permission').findMany({
+    where: { backend_role: Number(roleId) || roleId, permission_module: module.id },
+    select: ['data_scope'],
+  });
+  if (!grants?.length) return 'all';
+  return grants.every((grant) => !grant.data_scope || grant.data_scope === 'all') ? 'all' : 'own';
+}
+
+function articleAccessFilter(admin) {
+  return {
+    $or: [
+      { created_by_admin: { id: admin.id } },
+      { level1_reviewer: { id: admin.id } },
+      { level2_reviewer: { id: admin.id } },
+    ],
+  };
 }
 
 const EDITABLE_STATUSES = new Set([
@@ -502,6 +528,7 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
   async listLevel1Reviewers(ctx) {
     const admin = await getCurrentAdmin(ctx, strapi);
     if (!admin) return;
+    if (!(await hasArticleAction(strapi, admin, 'update'))) return ctx.forbidden('当前角色没有提交文章审核的权限。');
 
     const allAdmins = await strapi.db.query(ADMIN_UID).findMany({
       where: { is_active: true },
@@ -525,6 +552,7 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
   async listLevel2Reviewers(ctx) {
     const admin = await getCurrentAdmin(ctx, strapi);
     if (!admin) return;
+    if (!(await hasArticleAction(strapi, admin, 'review'))) return ctx.forbidden('当前角色没有审核文章的权限。');
 
     const allAdmins = await strapi.db.query(ADMIN_UID).findMany({
       where: { is_active: true },
@@ -548,6 +576,7 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
   async listPublishers(ctx) {
     const admin = await getCurrentAdmin(ctx, strapi);
     if (!admin) return;
+    if (!isSuperAdmin(admin)) return ctx.forbidden('只有超级管理员可以指定其他文章发布者。');
 
     const allAdmins = await strapi.db.query(ADMIN_UID).findMany({
       where: { is_active: true },
@@ -574,6 +603,7 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
   async adminList(ctx) {
     const admin = await getCurrentAdmin(ctx, strapi);
     if (!admin) return;
+    if (!(await hasArticleAction(strapi, admin, 'view'))) return ctx.forbidden('当前角色没有查看文章的权限。');
 
     const query = ctx.query || {};
     const page = Math.max(1, Number(query.pagination?.page || 1));
@@ -599,6 +629,13 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
         if (range.$gte) where[field].$gte = range.$gte;
         if (range.$lte) where[field].$lte = range.$lte;
       }
+    }
+
+    const dataScope = await getArticleDataScope(strapi, admin);
+    if (!isSuperAdmin(admin) && dataScope === 'own') {
+      const requestedFilters = { ...where };
+      for (const key of Object.keys(where)) delete where[key];
+      where.$and = [requestedFilters, articleAccessFilter(admin)];
     }
 
     const queriedRows = await strapi.db.query(ARTICLE_UID).findMany({
@@ -654,8 +691,10 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
   async stats(ctx) {
     const admin = await getCurrentAdmin(ctx, strapi);
     if (!admin) return;
+    if (!(await hasArticleAction(strapi, admin, 'view'))) return ctx.forbidden('当前角色没有查看文章的权限。');
 
     const rows = await strapi.db.query(ARTICLE_UID).findMany({
+      ...(isSuperAdmin(admin) || (await getArticleDataScope(strapi, admin)) === 'all' ? {} : { where: articleAccessFilter(admin) }),
       select: ['id', 'documentId', 'review_status', 'updatedAt'],
       orderBy: { updatedAt: 'desc' },
     });
@@ -967,14 +1006,22 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
   async preview(ctx) {
     const admin = await getCurrentAdmin(ctx, strapi);
     if (!admin) return;
+    if (!(await hasArticleAction(strapi, admin, 'view'))) return ctx.forbidden('当前角色没有查看文章的权限。');
     const article = await findArticle(strapi, ctx.params.id);
     if (!article) return ctx.notFound('文章不存在。');
+    if (!isSuperAdmin(admin) && (await getArticleDataScope(strapi, admin)) === 'own' &&
+      !ownerMatches(article, admin, ctx.state.user) &&
+      !assignedReviewerMatches(article, admin, 'level1_reviewer') &&
+      !assignedReviewerMatches(article, admin, 'level2_reviewer')) {
+      return ctx.forbidden('当前角色不能预览这篇文章。');
+    }
     ctx.body = { data: article };
   },
 
   async history(ctx) {
     const admin = await getCurrentAdmin(ctx, strapi);
     if (!admin) return;
+    if (!(await hasArticleAction(strapi, admin, 'view'))) return ctx.forbidden('当前角色没有查看文章历史的权限。');
 
     const limit = Math.min(Math.max(Number(ctx.query?.limit || 100), 1), 200);
     const logs = await strapi.db.query(REVIEW_LOG_UID).findMany({
@@ -1020,6 +1067,7 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
   async tasks(ctx) {
     const admin = await getCurrentAdmin(ctx, strapi);
     if (!admin) return;
+    if (!(await hasArticleAction(strapi, admin, 'view'))) return ctx.forbidden('当前角色没有查看文章工作任务的权限。');
 
     const articles = await strapi.db.query(ARTICLE_UID).findMany({
       populate: ARTICLE_POPULATE,

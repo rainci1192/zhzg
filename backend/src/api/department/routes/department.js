@@ -1,9 +1,5 @@
 'use strict';
 
-/**
- * department router
- */
+const createRbacCoreRouter = require('../../../utils/create-rbac-core-router');
 
-const { createCoreRouter } = require('@strapi/strapi').factories;
-
-module.exports = createCoreRouter('api::department.department');
+module.exports = createRbacCoreRouter('api::department.department', 'departments');

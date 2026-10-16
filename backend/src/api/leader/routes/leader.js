@@ -1,9 +1,5 @@
 'use strict';
 
-/**
- * leader router
- */
+const createRbacCoreRouter = require('../../../utils/create-rbac-core-router');
 
-const { createCoreRouter } = require('@strapi/strapi').factories;
-
-module.exports = createCoreRouter('api::leader.leader');
+module.exports = createRbacCoreRouter('api::leader.leader', 'leaders');

@@ -49,8 +49,10 @@ function requestTarget(parts, body, resourceLabel) {
 }
 
 function getIp(ctx) {
-  const forwarded = String(ctx.get('x-forwarded-for') || '').split(',')[0].trim();
-  return (forwarded || ctx.request.ip || '').slice(0, 64);
+  // Koa only considers forwarding headers when the server is explicitly
+  // configured to trust a proxy. Do not accept arbitrary client-supplied
+  // X-Forwarded-For values as audit evidence.
+  return String(ctx.request.ip || '').slice(0, 64);
 }
 
 module.exports = (_config, { strapi }) => async (ctx, next) => {

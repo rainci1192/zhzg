@@ -1,3 +1,4 @@
+import { sanitizeRichHtml } from '@/lib/sanitize-html';
 // app/students/document/[slug]/page.tsx
 import { notFound } from 'next/navigation';
 import Header from '@/components/layout/Header';
@@ -54,7 +55,7 @@ export default async function StudentDocumentDetail({
           {document.content && (
             <div
               className="prose prose-gray max-w-none text-lg leading-relaxed mb-8"
-              dangerouslySetInnerHTML={{ __html: document.content }}
+              dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(document.content) }}
             />
           )}
 

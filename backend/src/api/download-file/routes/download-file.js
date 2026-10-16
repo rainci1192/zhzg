@@ -1,9 +1,5 @@
 'use strict';
 
-/**
- * download-file router
- */
+const createRbacCoreRouter = require('../../../utils/create-rbac-core-router');
 
-const { createCoreRouter } = require('@strapi/strapi').factories;
-
-module.exports = createCoreRouter('api::download-file.download-file');
+module.exports = createRbacCoreRouter('api::download-file.download-file', 'download_files');

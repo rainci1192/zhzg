@@ -1,3 +1,4 @@
+import { sanitizeRichHtml } from '@/lib/sanitize-html';
 import { notFound } from 'next/navigation';
 import Image from 'next/image';
 import AboutSingleLayout from '@/components/about/AboutSingleLayout';
@@ -78,7 +79,7 @@ export default async function AboutIntro() {
 
       <div
         className="article-content max-w-none"
-        dangerouslySetInnerHTML={{ __html: page.content || '' }}
+        dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(page.content || '') }}
       />
 
       {coverImage && (

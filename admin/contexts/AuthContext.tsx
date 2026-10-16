@@ -9,7 +9,7 @@ import {
 } from 'react';
 import { adminLogin } from '@/lib/api';
 import { strapiFetch } from '@/lib/strapi-fetch';
-import { clearPermissionsCache, fetchRoles } from '@/lib/permissions';
+import { clearPermissionsCache } from '@/lib/permissions';
 
 const STRAPI_URL = process.env.NEXT_PUBLIC_STRAPI_URL || 'http://localhost:1337';
 
@@ -109,11 +109,6 @@ async function fetchCurrentAdmin(): Promise<User> {
   const roleName = typeof role?.name === 'string' ? role.name : '';
   if (!Number.isFinite(roleId) || roleId <= 0 || !roleName) {
     throw new Error('此后台账号尚未分配有效角色，请联系管理员。');
-  }
-
-  const roles = await fetchRoles();
-  if (!roles.some((item) => item.id === roleId && item.name === roleName)) {
-    throw new Error('无法读取此账号对应的角色权限，请联系管理员检查 Strapi 角色配置。');
   }
 
   const avatar = unwrapRelation(profile.avatar);

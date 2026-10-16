@@ -1,9 +1,5 @@
 'use strict';
 
-/**
- * council-member router
- */
+const createRbacCoreRouter = require('../../../utils/create-rbac-core-router');
 
-const { createCoreRouter } = require('@strapi/strapi').factories;
-
-module.exports = createCoreRouter('api::council-member.council-member');
+module.exports = createRbacCoreRouter('api::council-member.council-member', 'partners');

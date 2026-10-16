@@ -1,3 +1,4 @@
+import { sanitizeRichHtml } from '@/lib/sanitize-html';
 // app/documents/policies/[slug]/page.tsx
 import { notFound } from 'next/navigation';
 import Header from '@/components/layout/Header';
@@ -57,7 +58,7 @@ export default async function ResearchTransferDetail({
           {transfer.content && (
             <div
               className="prose prose-gray max-w-none text-lg leading-relaxed mb-8"
-              dangerouslySetInnerHTML={{ __html: transfer.content }}
+              dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(transfer.content) }}
             />
           )}
 

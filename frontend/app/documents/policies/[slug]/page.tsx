@@ -1,3 +1,4 @@
+import { sanitizeRichHtml } from '@/lib/sanitize-html';
 // app/documents/policies/[slug]/page.tsx
 import { notFound } from 'next/navigation';
 import Header from '@/components/layout/Header';
@@ -54,7 +55,7 @@ export default async function PolicyDocumentDetail({
           {doc.content && (
             <div
               className="prose prose-gray max-w-none text-lg leading-relaxed mb-8"
-              dangerouslySetInnerHTML={{ __html: doc.content }}
+              dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(doc.content) }}
             />
           )}
 

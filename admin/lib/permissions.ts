@@ -296,6 +296,7 @@ export const PATH_MODULE_MAP: Record<string, string> = {
   '/dashboard/student-showcases': 'student_showcases',
   '/dashboard/policy-documents': 'policy_documents',
   '/dashboard/download-files': 'download_files',
+  '/dashboard/attachments': 'download_files',
   '/dashboard/banners': 'banners',
   '/dashboard/links': 'links',
   '/dashboard/settings': 'settings',

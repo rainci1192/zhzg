@@ -1,3 +1,4 @@
+import { sanitizeRichHtml } from '@/lib/sanitize-html';
 import { notFound } from 'next/navigation';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
@@ -54,7 +55,7 @@ export default async function InstitutionDetail({ params }: { params: Promise<{ 
 
               <div
                 className="prose prose-gray max-w-none text-[20px] leading-9 md:text-[21px] md:leading-10"
-                dangerouslySetInnerHTML={{ __html: inst.summary || '<p>暂无详细介绍。</p>' }}
+                dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(inst.summary || '<p>暂无详细介绍。</p>') }}
               />
 
               {mediaUrl(inst.cover_image) && (

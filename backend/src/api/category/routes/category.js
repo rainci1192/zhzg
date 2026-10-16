@@ -1,9 +1,5 @@
 'use strict';
 
-/**
- * category router
- */
+const createRbacCoreRouter = require('../../../utils/create-rbac-core-router');
 
-const { createCoreRouter } = require('@strapi/strapi').factories;
-
-module.exports = createCoreRouter('api::category.category');
+module.exports = createRbacCoreRouter('api::category.category', 'categories');

@@ -1,9 +1,5 @@
 'use strict';
 
-/**
- * student-showcase router
- */
+const createRbacCoreRouter = require('../../../utils/create-rbac-core-router');
 
-const { createCoreRouter } = require('@strapi/strapi').factories;
-
-module.exports = createCoreRouter('api::student-showcase.student-showcase');
+module.exports = createRbacCoreRouter('api::student-showcase.student-showcase', 'student_showcases');

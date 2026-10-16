@@ -1,0 +1,1996 @@
+diff --git a/admin/app/(dashboard)/dashboard/articles/page.tsx b/admin/app/(dashboard)/dashboard/articles/page.tsx
+index d12dcbc..1fce7d1 100644
+--- a/admin/app/(dashboard)/dashboard/articles/page.tsx
++++ b/admin/app/(dashboard)/dashboard/articles/page.tsx
+@@ -87,7 +87,9 @@ interface Reviewer {
+ }
+ 
+ function relationName(relation: AdminRelation | { data?: AdminRelation } | null | undefined) {
+-  const value = relation && typeof relation === 'object' && 'data' in relation ? relation.data : relation;
++  const value: AdminRelation | null | undefined = relation && typeof relation === 'object' && 'data' in relation
++    ? relation.data
++    : relation as AdminRelation | null | undefined;
+   return value?.name || value?.email || '未记录';
+ }
+ 
+diff --git a/admin/app/(dashboard)/dashboard/page.tsx b/admin/app/(dashboard)/dashboard/page.tsx
+index 827d6ad..59628f0 100644
+--- a/admin/app/(dashboard)/dashboard/page.tsx
++++ b/admin/app/(dashboard)/dashboard/page.tsx
+@@ -1,5 +1,7 @@
+ 'use client';
+ 
++import { sanitizeRichHtml } from '@/lib/sanitize-html';
++
+ import { useEffect, useState } from 'react';
+ import { useRouter } from 'next/navigation';
+ import { api } from '@/lib/api';
+@@ -215,7 +217,7 @@ export default function DashboardPage() {
+         {historyLoading ? <div className="p-8 text-center text-gray-400">正在加载历史记录…</div> : history.length === 0 ? <div className="p-8 text-center text-gray-400">暂无历史操作记录</div> : <div className="divide-y divide-gray-100">{history.slice(0, 12).map((item) => <div key={item.id} className="flex flex-wrap items-center justify-between gap-4 px-6 py-4"><div className="flex min-w-0 items-start gap-3"><div className="mt-0.5 h-2.5 w-2.5 rounded-full bg-blue-500" /><div className="min-w-0"><div className="font-medium text-gray-900">{item.action_label}</div><div className="truncate text-sm text-gray-600">{item.article?.title || '文章已删除或不可用'}</div>{item.comment && <div className="mt-1 text-xs text-gray-400">备注：{item.comment}</div>}</div></div><time className="shrink-0 text-xs text-gray-400">{item.review_date ? new Date(item.review_date).toLocaleString('zh-CN', { hour12: false }) : '—'}</time></div>)}</div>}
+         {history.length > 12 && <div className="border-t border-gray-100 px-6 py-3 text-center text-sm text-gray-500">展示最近 12 条，共 {history.length} 条</div>}
+       </section>
+-      {preview && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"><div className="max-h-[85vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white p-6"><h2 className="text-2xl font-bold text-gray-900">{preview.title}</h2>{preview.summary && <p className="mt-2 text-gray-500">{preview.summary}</p>}<div className="prose mt-6 max-w-none" dangerouslySetInnerHTML={{ __html: preview.content || '<p>暂无正文</p>' }} /><div className="mt-6 text-right"><button onClick={() => setPreview(null)} className="rounded-xl bg-gray-100 px-4 py-2 text-sm text-gray-700">关闭预览</button></div></div></div>}
++      {preview && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"><div className="max-h-[85vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white p-6"><h2 className="text-2xl font-bold text-gray-900">{preview.title}</h2>{preview.summary && <p className="mt-2 text-gray-500">{preview.summary}</p>}<div className="prose mt-6 max-w-none" dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(preview.content || '<p>暂无正文</p>') }} /><div className="mt-6 text-right"><button onClick={() => setPreview(null)} className="rounded-xl bg-gray-100 px-4 py-2 text-sm text-gray-700">关闭预览</button></div></div></div>}
+       {!loading && Object.values(counts).some((value) => value === null) && (
+         <p role="alert" className="text-sm text-amber-700">
+           部分统计暂时无法获取，请检查登录状态和 Strapi 接口权限。
+diff --git a/admin/app/(dashboard)/dashboard/partners/_components/CouncilArticleEditor.tsx b/admin/app/(dashboard)/dashboard/partners/_components/CouncilArticleEditor.tsx
+index 42cca6c..37ba3fa 100644
+--- a/admin/app/(dashboard)/dashboard/partners/_components/CouncilArticleEditor.tsx
++++ b/admin/app/(dashboard)/dashboard/partners/_components/CouncilArticleEditor.tsx
+@@ -1,5 +1,7 @@
+ 'use client';
+ 
++import { sanitizeRichHtml } from '@/lib/sanitize-html';
++
+ import { strapiFetch } from '@/lib/strapi-fetch';
+ 
+ import { useState, useEffect } from 'react';
+@@ -162,7 +164,7 @@ export default function CouncilArticleEditor() {
+           <p className="text-sm font-medium text-gray-700 mb-2">预览效果</p>
+           <div
+             className="border border-gray-200 rounded-lg p-4 prose prose-gray max-w-none text-sm bg-gray-50"
+-            dangerouslySetInnerHTML={{ __html: content }}
++            dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(content) }}
+           />
+         </div>
+       )}
+diff --git a/admin/app/(dashboard)/dashboard/review/page.tsx b/admin/app/(dashboard)/dashboard/review/page.tsx
+index 83b07b6..880c81d 100644
+--- a/admin/app/(dashboard)/dashboard/review/page.tsx
++++ b/admin/app/(dashboard)/dashboard/review/page.tsx
+@@ -1,5 +1,7 @@
+ 'use client';
+ 
++import { sanitizeRichHtml } from '@/lib/sanitize-html';
++
+ import { useEffect, useState } from 'react';
+ import { api } from '@/lib/api';
+ import { useAuth } from '@/contexts/AuthContext';
+@@ -93,7 +95,7 @@ export default function ReviewPage() {
+     <div>
+       <h1 className="text-2xl font-bold mb-4">审核中心</h1>
+       {loading ? <div>加载中...</div> : <table className="w-full bg-white rounded-xl border"><thead className="bg-gray-50"><tr><th className="p-3 text-left">标题</th><th className="p-3 text-left">状态</th><th className="p-3 text-center">操作</th></tr></thead><tbody>{list.map((article) => <tr key={article.id} className="border-t"><td className="p-3"><button onClick={async () => { const res = (await api.getArticle(article.documentId)) as { data?: Article }; setPreview(res.data || null); }} className="text-blue-600 hover:underline">{article.title}</button></td><td className="p-3">{statusLabel(article.review_status)}</td><td className="p-3 text-center space-x-2">{canReview(article) && <><button onClick={() => void review(article, 'approve')} className="px-3 py-1 bg-green-600 text-white rounded">通过</button><button onClick={() => void review(article, 'reject')} className="px-3 py-1 bg-red-600 text-white rounded">退回</button></>}</td></tr>)}{list.length === 0 && <tr><td colSpan={3} className="p-6 text-center text-gray-400">暂无待审核内容</td></tr>}</tbody></table>}
+-      {preview && <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"><div className="bg-white max-w-3xl w-full rounded-xl p-6"><h2 className="text-xl font-bold mb-2">{preview.title}</h2>{preview.summary && <p className="text-gray-600 mb-4">{preview.summary}</p>}<div className="prose max-w-none" dangerouslySetInnerHTML={{ __html: preview.content || '' }} /><div className="text-right mt-6"><button onClick={() => setPreview(null)} className="px-4 py-2 bg-gray-200 rounded">关闭</button></div></div></div>}
++      {preview && <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"><div className="bg-white max-w-3xl w-full rounded-xl p-6"><h2 className="text-xl font-bold mb-2">{preview.title}</h2>{preview.summary && <p className="text-gray-600 mb-4">{preview.summary}</p>}<div className="prose max-w-none" dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(preview.content || '') }} /><div className="text-right mt-6"><button onClick={() => setPreview(null)} className="px-4 py-2 bg-gray-200 rounded">关闭</button></div></div></div>}
+     </div>
+   );
+ }
+diff --git a/admin/contexts/AuthContext.tsx b/admin/contexts/AuthContext.tsx
+index 3e030ba..00ef616 100644
+--- a/admin/contexts/AuthContext.tsx
++++ b/admin/contexts/AuthContext.tsx
+@@ -9,7 +9,7 @@ import {
+ } from 'react';
+ import { adminLogin } from '@/lib/api';
+ import { strapiFetch } from '@/lib/strapi-fetch';
+-import { clearPermissionsCache, fetchRoles } from '@/lib/permissions';
++import { clearPermissionsCache } from '@/lib/permissions';
+ 
+ const STRAPI_URL = process.env.NEXT_PUBLIC_STRAPI_URL || 'http://localhost:1337';
+ 
+@@ -111,11 +111,6 @@ async function fetchCurrentAdmin(): Promise<User> {
+     throw new Error('此后台账号尚未分配有效角色，请联系管理员。');
+   }
+ 
+-  const roles = await fetchRoles();
+-  if (!roles.some((item) => item.id === roleId && item.name === roleName)) {
+-    throw new Error('无法读取此账号对应的角色权限，请联系管理员检查 Strapi 角色配置。');
+-  }
+-
+   const avatar = unwrapRelation(profile.avatar);
+   const avatarUrl = typeof avatar?.url === 'string' ? avatar.url : undefined;
+ 
+diff --git a/admin/lib/permissions.ts b/admin/lib/permissions.ts
+index 9c27434..715b897 100644
+--- a/admin/lib/permissions.ts
++++ b/admin/lib/permissions.ts
+@@ -296,6 +296,7 @@ export const PATH_MODULE_MAP: Record<string, string> = {
+   '/dashboard/student-showcases': 'student_showcases',
+   '/dashboard/policy-documents': 'policy_documents',
+   '/dashboard/download-files': 'download_files',
++  '/dashboard/attachments': 'download_files',
+   '/dashboard/banners': 'banners',
+   '/dashboard/links': 'links',
+   '/dashboard/settings': 'settings',
+diff --git a/admin/lib/sanitize-html.ts b/admin/lib/sanitize-html.ts
+new file mode 100644
+index 0000000..63acfce
+--- /dev/null
++++ b/admin/lib/sanitize-html.ts
+@@ -0,0 +1,25 @@
++import sanitizeHtml from 'sanitize-html';
++
++const OPTIONS: sanitizeHtml.IOptions = {
++  allowedTags: [...sanitizeHtml.defaults.allowedTags, 'figure', 'figcaption', 'img', 'iframe', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'u', 's', 'sub', 'sup'],
++  allowedAttributes: {
++    ...sanitizeHtml.defaults.allowedAttributes,
++    a: [...(sanitizeHtml.defaults.allowedAttributes.a || []), 'rel'],
++    img: ['src', 'alt', 'title', 'width', 'height', 'loading'],
++    iframe: ['src', 'title', 'width', 'height', 'allow', 'allowfullscreen', 'loading', 'referrerpolicy', 'sandbox'],
++    th: ['colspan', 'rowspan', 'scope'],
++    td: ['colspan', 'rowspan'],
++  },
++  allowedSchemes: ['http', 'https', 'mailto', 'tel'],
++  allowedIframeHostnames: ['www.youtube.com', 'youtube.com', 'www.youtube-nocookie.com', 'player.vimeo.com'],
++  allowIframeRelativeUrls: false,
++  transformTags: {
++    a: (tagName, attributes) => ({ tagName, attribs: { ...attributes, rel: 'noopener noreferrer' } }),
++    iframe: (tagName, attributes) => ({ tagName, attribs: { ...attributes, sandbox: 'allow-scripts allow-same-origin allow-presentation', referrerpolicy: 'strict-origin-when-cross-origin' } }),
++  },
++};
++
++/** Sanitize CMS rich text before inserting it into the admin preview DOM. */
++export function sanitizeRichHtml(value: unknown): string {
++  return sanitizeHtml(typeof value === 'string' ? value : '', OPTIONS);
++}
+diff --git a/admin/package-lock.json b/admin/package-lock.json
+index d51a19c..2500d3c 100644
+--- a/admin/package-lock.json
++++ b/admin/package-lock.json
+@@ -20,6 +20,7 @@
+         "next": "16.2.3",
+         "react": "19.2.4",
+         "react-dom": "19.2.4",
++        "sanitize-html": "2.13.0",
+         "zod": "^4.3.6"
+       },
+       "devDependencies": {
+@@ -27,6 +28,7 @@
+         "@types/node": "^20",
+         "@types/react": "^19",
+         "@types/react-dom": "^19",
++        "@types/sanitize-html": "2.13.0",
+         "eslint": "^9",
+         "eslint-config-next": "16.2.3",
+         "tailwindcss": "^4",
+@@ -2411,6 +2413,70 @@
+         "node": ">=14.0.0"
+       }
+     },
++    "node_modules/@tailwindcss/oxide-wasm32-wasi/node_modules/@emnapi/core": {
++      "version": "1.8.1",
++      "dev": true,
++      "inBundle": true,
++      "license": "MIT",
++      "optional": true,
++      "dependencies": {
++        "@emnapi/wasi-threads": "1.1.0",
++        "tslib": "^2.4.0"
++      }
++    },
++    "node_modules/@tailwindcss/oxide-wasm32-wasi/node_modules/@emnapi/runtime": {
++      "version": "1.8.1",
++      "dev": true,
++      "inBundle": true,
++      "license": "MIT",
++      "optional": true,
++      "dependencies": {
++        "tslib": "^2.4.0"
++      }
++    },
++    "node_modules/@tailwindcss/oxide-wasm32-wasi/node_modules/@emnapi/wasi-threads": {
++      "version": "1.1.0",
++      "dev": true,
++      "inBundle": true,
++      "license": "MIT",
++      "optional": true,
++      "dependencies": {
++        "tslib": "^2.4.0"
++      }
++    },
++    "node_modules/@tailwindcss/oxide-wasm32-wasi/node_modules/@napi-rs/wasm-runtime": {
++      "version": "1.1.1",
++      "dev": true,
++      "inBundle": true,
++      "license": "MIT",
++      "optional": true,
++      "dependencies": {
++        "@emnapi/core": "^1.7.1",
++        "@emnapi/runtime": "^1.7.1",
++        "@tybys/wasm-util": "^0.10.1"
++      },
++      "funding": {
++        "type": "github",
++        "url": "https://github.com/sponsors/Brooooooklyn"
++      }
++    },
++    "node_modules/@tailwindcss/oxide-wasm32-wasi/node_modules/@tybys/wasm-util": {
++      "version": "0.10.1",
++      "dev": true,
++      "inBundle": true,
++      "license": "MIT",
++      "optional": true,
++      "dependencies": {
++        "tslib": "^2.4.0"
++      }
++    },
++    "node_modules/@tailwindcss/oxide-wasm32-wasi/node_modules/tslib": {
++      "version": "2.8.1",
++      "dev": true,
++      "inBundle": true,
++      "license": "0BSD",
++      "optional": true
++    },
+     "node_modules/@tailwindcss/oxide-win32-arm64-msvc": {
+       "version": "4.2.2",
+       "resolved": "https://registry.npmjs.org/@tailwindcss/oxide-win32-arm64-msvc/-/oxide-win32-arm64-msvc-4.2.2.tgz",
+@@ -3062,6 +3128,16 @@
+         "@types/react": "^19.2.0"
+       }
+     },
++    "node_modules/@types/sanitize-html": {
++      "version": "2.13.0",
++      "resolved": "https://registry.npmjs.org/@types/sanitize-html/-/sanitize-html-2.13.0.tgz",
++      "integrity": "sha512-X31WxbvW9TjIhZZNyNBZ/p5ax4ti7qsNDBDEnH4zAgmEh35YnFD1UiS6z9Cd34kKm0LslFW0KPmTQzu/oGtsqQ==",
++      "dev": true,
++      "license": "MIT",
++      "dependencies": {
++        "htmlparser2": "^8.0.0"
++      }
++    },
+     "node_modules/@types/unist": {
+       "version": "3.0.3",
+       "resolved": "https://registry.npmjs.org/@types/unist/-/unist-3.0.3.tgz",
+@@ -4448,6 +4524,15 @@
+       "dev": true,
+       "license": "MIT"
+     },
++    "node_modules/deepmerge": {
++      "version": "4.3.1",
++      "resolved": "https://registry.npmjs.org/deepmerge/-/deepmerge-4.3.1.tgz",
++      "integrity": "sha512-3sUqbMEc77XqpdNO7FRyRog+eW3ph+GYCbj+rK+uYyRMuwsVy0rMiVtPn+QJlKFvWP/1PYpapqYn0Me2knFn+A==",
++      "license": "MIT",
++      "engines": {
++        "node": ">=0.10.0"
++      }
++    },
+     "node_modules/define-data-property": {
+       "version": "1.1.4",
+       "resolved": "https://registry.npmjs.org/define-data-property/-/define-data-property-1.1.4.tgz",
+@@ -4538,6 +4623,61 @@
+         "node": ">=0.10.0"
+       }
+     },
++    "node_modules/dom-serializer": {
++      "version": "2.0.0",
++      "resolved": "https://registry.npmjs.org/dom-serializer/-/dom-serializer-2.0.0.tgz",
++      "integrity": "sha512-wIkAryiqt/nV5EQKqQpo3SToSOV9J0DnbJqwK7Wv/Trc92zIAYZ4FlMu+JPFW1DfGFt81ZTCGgDEabffXeLyJg==",
++      "license": "MIT",
++      "dependencies": {
++        "domelementtype": "^2.3.0",
++        "domhandler": "^5.0.2",
++        "entities": "^4.2.0"
++      },
++      "funding": {
++        "url": "https://github.com/cheeriojs/dom-serializer?sponsor=1"
++      }
++    },
++    "node_modules/domelementtype": {
++      "version": "2.3.0",
++      "resolved": "https://registry.npmjs.org/domelementtype/-/domelementtype-2.3.0.tgz",
++      "integrity": "sha512-OLETBj6w0OsagBwdXnPdN0cnMfF9opN69co+7ZrbfPGrdpPVNBUj02spi6B1N7wChLQiPn4CSH/zJvXw56gmHw==",
++      "funding": [
++        {
++          "type": "github",
++          "url": "https://github.com/sponsors/fb55"
++        }
++      ],
++      "license": "BSD-2-Clause"
++    },
++    "node_modules/domhandler": {
++      "version": "5.0.3",
++      "resolved": "https://registry.npmjs.org/domhandler/-/domhandler-5.0.3.tgz",
++      "integrity": "sha512-cgwlv/1iFQiFnU96XXgROh8xTeetsnJiDsTc7TYCLFd9+/WNkIqPTxiM/8pSd8VIrhXGTf1Ny1q1hquVqDJB5w==",
++      "license": "BSD-2-Clause",
++      "dependencies": {
++        "domelementtype": "^2.3.0"
++      },
++      "engines": {
++        "node": ">= 4"
++      },
++      "funding": {
++        "url": "https://github.com/fb55/domhandler?sponsor=1"
++      }
++    },
++    "node_modules/domutils": {
++      "version": "3.2.2",
++      "resolved": "https://registry.npmjs.org/domutils/-/domutils-3.2.2.tgz",
++      "integrity": "sha512-6kZKyUajlDuqlHKVX1w7gyslj9MPIXzIFiz/rGu35uC1wMi+kMhQwGhl4lt9unC9Vb9INnY9Z3/ZA3+FhASLaw==",
++      "license": "BSD-2-Clause",
++      "dependencies": {
++        "dom-serializer": "^2.0.0",
++        "domelementtype": "^2.3.0",
++        "domhandler": "^5.0.3"
++      },
++      "funding": {
++        "url": "https://github.com/fb55/domutils?sponsor=1"
++      }
++    },
+     "node_modules/dunder-proto": {
+       "version": "1.0.1",
+       "resolved": "https://registry.npmjs.org/dunder-proto/-/dunder-proto-1.0.1.tgz",
+@@ -5935,6 +6075,25 @@
+         "url": "https://github.com/sponsors/wooorm"
+       }
+     },
++    "node_modules/htmlparser2": {
++      "version": "8.0.2",
++      "resolved": "https://registry.npmjs.org/htmlparser2/-/htmlparser2-8.0.2.tgz",
++      "integrity": "sha512-GYdjWKDkbRLkZ5geuHs5NY1puJ+PXwP7+fHPRz06Eirsb9ugf6d8kkXav6ADhcODhFFPMIXyxkxSuMf3D6NCFA==",
++      "funding": [
++        "https://github.com/fb55/htmlparser2?sponsor=1",
++        {
++          "type": "github",
++          "url": "https://github.com/sponsors/fb55"
++        }
++      ],
++      "license": "MIT",
++      "dependencies": {
++        "domelementtype": "^2.3.0",
++        "domhandler": "^5.0.3",
++        "domutils": "^3.0.1",
++        "entities": "^4.4.0"
++      }
++    },
+     "node_modules/ignore": {
+       "version": "5.3.2",
+       "resolved": "https://registry.npmjs.org/ignore/-/ignore-5.3.2.tgz",
+@@ -6269,6 +6428,15 @@
+         "url": "https://github.com/sponsors/sindresorhus"
+       }
+     },
++    "node_modules/is-plain-object": {
++      "version": "5.1.0",
++      "resolved": "https://registry.npmjs.org/is-plain-object/-/is-plain-object-5.1.0.tgz",
++      "integrity": "sha512-bUi/yjmtKYcRVUtWRGr0UA6xEFh2I6zWUwMrUXB3s7bmYCaZ8a+0ZsTRkrawh/mzlSD1Y0Ph8bp/U+TvBpWDNw==",
++      "license": "MIT",
++      "engines": {
++        "node": ">=0.10.0"
++      }
++    },
+     "node_modules/is-regex": {
+       "version": "1.2.1",
+       "resolved": "https://registry.npmjs.org/is-regex/-/is-regex-1.2.1.tgz",
+@@ -8207,6 +8375,12 @@
+         "node": ">=6"
+       }
+     },
++    "node_modules/parse-srcset": {
++      "version": "1.0.2",
++      "resolved": "https://registry.npmjs.org/parse-srcset/-/parse-srcset-1.0.2.tgz",
++      "integrity": "sha512-/2qh0lav6CmI15FzA3i/2Bzk2zCgQhGMkvhOhKNcBVQ1ldgpbfiNTVslmooUmWJcADi1f1kIeynbDRVzNlfR6Q==",
++      "license": "MIT"
++    },
+     "node_modules/path-exists": {
+       "version": "4.0.0",
+       "resolved": "https://registry.npmjs.org/path-exists/-/path-exists-4.0.0.tgz",
+@@ -8267,7 +8441,6 @@
+       "version": "8.5.9",
+       "resolved": "https://registry.npmjs.org/postcss/-/postcss-8.5.9.tgz",
+       "integrity": "sha512-7a70Nsot+EMX9fFU3064K/kdHWZqGVY+BADLyXc8Dfv+mTLLVl6JzJpPaCZ2kQL9gIJvKXSLMHhqdRRjwQeFtw==",
+-      "dev": true,
+       "funding": [
+         {
+           "type": "opencollective",
+@@ -8931,6 +9104,20 @@
+         "url": "https://github.com/sponsors/ljharb"
+       }
+     },
++    "node_modules/sanitize-html": {
++      "version": "2.13.0",
++      "resolved": "https://registry.npmjs.org/sanitize-html/-/sanitize-html-2.13.0.tgz",
++      "integrity": "sha512-Xff91Z+4Mz5QiNSLdLWwjgBDm5b1RU6xBT0+12rapjiaR7SwfRdjw8f+6Rir2MXKLrDicRFHdb51hGOAxmsUIA==",
++      "license": "MIT",
++      "dependencies": {
++        "deepmerge": "^4.2.2",
++        "escape-string-regexp": "^4.0.0",
++        "htmlparser2": "^8.0.0",
++        "is-plain-object": "^5.0.0",
++        "parse-srcset": "^1.0.2",
++        "postcss": "^8.3.11"
++      }
++    },
+     "node_modules/scheduler": {
+       "version": "0.27.0",
+       "resolved": "https://registry.npmjs.org/scheduler/-/scheduler-0.27.0.tgz",
+diff --git a/admin/package.json b/admin/package.json
+index 5c51616..cc61ffe 100644
+--- a/admin/package.json
++++ b/admin/package.json
+@@ -21,6 +21,7 @@
+     "next": "16.2.3",
+     "react": "19.2.4",
+     "react-dom": "19.2.4",
++    "sanitize-html": "2.13.0",
+     "zod": "^4.3.6"
+   },
+   "devDependencies": {
+@@ -28,6 +29,7 @@
+     "@types/node": "^20",
+     "@types/react": "^19",
+     "@types/react-dom": "^19",
++    "@types/sanitize-html": "2.13.0",
+     "eslint": "^9",
+     "eslint-config-next": "16.2.3",
+     "tailwindcss": "^4",
+diff --git a/backend/.env.example b/backend/.env.example
+index 78c956e..c538f26 100644
+--- a/backend/.env.example
++++ b/backend/.env.example
+@@ -1,8 +1,13 @@
++# Copy to .env, generate unique random secrets, and never commit the real .env.
+ HOST=0.0.0.0
+ PORT=1337
+-APP_KEYS="toBeModified1,toBeModified2"
+-API_TOKEN_SALT=tobemodified
+-ADMIN_JWT_SECRET=tobemodified
+-TRANSFER_TOKEN_SALT=tobemodified
+-JWT_SECRET=tobemodified
+-ENCRYPTION_KEY=tobemodified
++APP_KEYS="replace-with-random-key-1,replace-with-random-key-2"
++API_TOKEN_SALT=replace-with-a-unique-random-value
++ADMIN_JWT_SECRET=replace-with-a-unique-random-value
++TRANSFER_TOKEN_SALT=replace-with-a-unique-random-value
++JWT_SECRET=replace-with-a-unique-random-value
++ENCRYPTION_KEY=replace-with-a-unique-random-value
++
++# Production: explicitly set the public website/admin origins, comma-separated.
++# Example: CORS_ORIGINS=https://www.example.edu.cn,https://admin.example.edu.cn
++CORS_ORIGINS=http://localhost:3000,http://localhost:3001
+diff --git a/backend/config/database.js b/backend/config/database.js
+index 202d239..d1eb3ac 100644
+--- a/backend/config/database.js
++++ b/backend/config/database.js
+@@ -2,6 +2,16 @@ const path = require('path');
+ 
+ module.exports = ({ env }) => {
+   const client = env('DATABASE_CLIENT', 'sqlite');
++  const isProduction = env('NODE_ENV', 'development') === 'production';
++  const databaseUrl = env('DATABASE_URL', '');
++  const usesDatabaseUrl = ['postgres', 'postgresql'].includes(String(client).toLowerCase()) && Boolean(databaseUrl);
++  const databasePassword = env('DATABASE_PASSWORD', isProduction ? '' : 'strapi');
++  if (isProduction && !usesDatabaseUrl && !databasePassword) {
++    throw new Error('生产环境必须设置 DATABASE_PASSWORD 或 DATABASE_URL，拒绝使用空数据库密码启动。');
++  }
++  if (isProduction && !usesDatabaseUrl && databasePassword === 'strapi') {
++    throw new Error('生产环境不能使用示例数据库密码 strapi，请设置强密码或 DATABASE_URL。');
++  }
+ 
+   const connections = {
+     mysql: {
+@@ -10,7 +20,7 @@ module.exports = ({ env }) => {
+         port: env.int('DATABASE_PORT', 3306),
+         database: env('DATABASE_NAME', 'strapi'),
+         user: env('DATABASE_USERNAME', 'strapi'),
+-        password: env('DATABASE_PASSWORD', 'strapi'),
++        password: databasePassword,
+         ssl: env.bool('DATABASE_SSL', false) && {
+           key: env('DATABASE_SSL_KEY', undefined),
+           cert: env('DATABASE_SSL_CERT', undefined),
+@@ -24,12 +34,12 @@ module.exports = ({ env }) => {
+     },
+     postgres: {
+       connection: {
+-        connectionString: env('DATABASE_URL'),
++        connectionString: databaseUrl || undefined,
+         host: env('DATABASE_HOST', 'localhost'),
+         port: env.int('DATABASE_PORT', 5432),
+         database: env('DATABASE_NAME', 'strapi'),
+         user: env('DATABASE_USERNAME', 'strapi'),
+-        password: env('DATABASE_PASSWORD', 'strapi'),
++        password: databasePassword,
+         ssl: env.bool('DATABASE_SSL', false) && {
+           key: env('DATABASE_SSL_KEY', undefined),
+           cert: env('DATABASE_SSL_CERT', undefined),
+diff --git a/backend/config/middlewares.js b/backend/config/middlewares.js
+index 290e710..9d82fbe 100644
+--- a/backend/config/middlewares.js
++++ b/backend/config/middlewares.js
+@@ -1,3 +1,8 @@
++const configuredOrigins = String(process.env.CORS_ORIGINS || '')
++  .split(',')
++  .map((origin) => origin.trim())
++  .filter(Boolean);
++
+ module.exports = [
+   'strapi::logger',
+   'strapi::errors',
+@@ -5,14 +10,16 @@ module.exports = [
+   {
+     name: 'strapi::cors',
+     config: {
+-      origin: [
+-        'http://localhost:3000',      // 前台网站
+-        'http://localhost:3001',      // 自定义后台
++      // In production, explicitly list the public website and admin origins
++      // in CORS_ORIGINS (comma-separated). Keep local defaults for development.
++      origin: configuredOrigins.length ? configuredOrigins : [
++        'http://localhost:3000',
++        'http://localhost:3001',
++        'http://127.0.0.1:3000',
+         'http://127.0.0.1:3001',
+-        'http://192.168.50.69:3001'   // 你的本机网络地址（如果有）
+       ],
+       credentials: true,
+-      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
++      methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+       headers: ['Content-Type', 'Authorization', 'X-Requested-With'],
+     },
+   },
+diff --git a/backend/config/server.js b/backend/config/server.js
+index 9557258..2d9b5a3 100644
+--- a/backend/config/server.js
++++ b/backend/config/server.js
+@@ -1,16 +1,31 @@
+ const cronTasks = require('./cron-tasks');
+ 
+-module.exports = ({ env }) => ({
+-  host: env('HOST', '0.0.0.0'),
+-  port: env.int('PORT', 1337),
+-  app: {
+-    keys: env.array('APP_KEYS'),
+-  },
+-  webhooks: {
+-    populateRelations: env.bool('WEBHOOKS_POPULATE_RELATIONS', false),
+-  },
+-  cron: {
+-    enabled: true,
+-    tasks: cronTasks,
+-  },
+-});
++module.exports = ({ env }) => {
++  const isProduction = env('NODE_ENV', 'development') === 'production';
++  if (isProduction) {
++    const secretNames = ['APP_KEYS', 'API_TOKEN_SALT', 'ADMIN_JWT_SECRET', 'TRANSFER_TOKEN_SALT', 'JWT_SECRET', 'ENCRYPTION_KEY'];
++    const placeholders = /^(?:tobemodified|replace-with|changeme|change-me|secret|default)/i;
++    for (const name of secretNames) {
++      const value = String(env(name, '') || '').trim();
++      const parts = name === 'APP_KEYS' ? value.split(',').map((part) => part.trim()) : [value];
++      if (!value || parts.some((part) => part.length < 32 || placeholders.test(part))) {
++        throw new Error(`生产环境必须为 ${name} 配置足够长度的唯一随机密钥。`);
++      }
++    }
++  }
++
++  return {
++    host: env('HOST', '0.0.0.0'),
++    port: env.int('PORT', 1337),
++    app: {
++      keys: env.array('APP_KEYS'),
++    },
++    webhooks: {
++      populateRelations: env.bool('WEBHOOKS_POPULATE_RELATIONS', false),
++    },
++    cron: {
++      enabled: true,
++      tasks: cronTasks,
++    },
++  };
++};
+diff --git a/backend/package-lock.json b/backend/package-lock.json
+index e0cc71e..912e820 100644
+--- a/backend/package-lock.json
++++ b/backend/package-lock.json
+@@ -12,6 +12,7 @@
+         "@strapi/plugin-users-permissions": "5.42.0",
+         "@strapi/strapi": "5.42.0",
+         "pg": "8.20.0",
++        "pinyin-pro": "3.29.5",
+         "react": "^18.0.0",
+         "react-dom": "^18.0.0",
+         "react-router-dom": "^6.0.0",
+@@ -15601,6 +15602,12 @@
+         "node": ">=6"
+       }
+     },
++    "node_modules/pinyin-pro": {
++      "version": "3.29.5",
++      "resolved": "https://registry.npmjs.org/pinyin-pro/-/pinyin-pro-3.29.5.tgz",
++      "integrity": "sha512-Fk5YoRmtdHqJWqAuzYVG/NzvzeCbaG+ZEwbY6Nbps3QAIrvQQEtcm49frcyCM8i2b5najnzPDtYqrHRYTTiuwQ==",
++      "license": "MIT"
++    },
+     "node_modules/pirates": {
+       "version": "4.0.7",
+       "resolved": "https://registry.npmjs.org/pirates/-/pirates-4.0.7.tgz",
+diff --git a/backend/src/api/article/controllers/article.js b/backend/src/api/article/controllers/article.js
+index 2f5093c..f15f453 100644
+--- a/backend/src/api/article/controllers/article.js
++++ b/backend/src/api/article/controllers/article.js
+@@ -104,6 +104,7 @@ async function hasArticleAction(strapi, admin, actionName) {
+   if (!roleId) {
+     const legacyPermissions = admin.backend_role?.permissions;
+     if (Array.isArray(legacyPermissions)) {
++      if (actionName === 'view') return legacyPermissions.includes('manage_articles') || legacyPermissions.includes('manage_review');
+       if (actionName === 'review') return legacyPermissions.includes('manage_review');
+       return ['create', 'update', 'delete', 'publish', 'unpublish'].includes(actionName)
+         && legacyPermissions.includes('manage_articles');
+@@ -132,9 +133,11 @@ async function hasArticleAction(strapi, admin, actionName) {
+   if (articleGrants.length === 0) {
+     const legacyPermissions = admin.backend_role?.permissions;
+     if (!Array.isArray(legacyPermissions)) {
++      if (actionName === 'view') return ['editor', 'admin'].includes(roleName(admin)) || isLevel1(admin) || isLevel2(admin);
+       if (actionName === 'review') return isLevel1(admin) || isLevel2(admin);
+       return ['editor', 'admin'].includes(roleName(admin));
+     }
++    if (actionName === 'view') return legacyPermissions.includes('manage_articles') || legacyPermissions.includes('manage_review');
+     if (actionName === 'review') return legacyPermissions.includes('manage_review');
+     return ['create', 'update', 'delete', 'publish', 'unpublish'].includes(actionName)
+       && legacyPermissions.includes('manage_articles');
+@@ -146,6 +149,29 @@ async function hasArticleAction(strapi, admin, actionName) {
+   });
+ }
+ 
++async function getArticleDataScope(strapi, admin) {
++  const roleId = relationId(admin?.backend_role);
++  if (!roleId) return 'all';
++  const module = await strapi.db.query('api::permission-module.permission-module').findOne({ where: { name: 'articles' } });
++  if (!module) return 'all';
++  const grants = await strapi.db.query('api::role-permission.role-permission').findMany({
++    where: { backend_role: Number(roleId) || roleId, permission_module: module.id },
++    select: ['data_scope'],
++  });
++  if (!grants?.length) return 'all';
++  return grants.every((grant) => !grant.data_scope || grant.data_scope === 'all') ? 'all' : 'own';
++}
++
++function articleAccessFilter(admin) {
++  return {
++    $or: [
++      { created_by_admin: { id: admin.id } },
++      { level1_reviewer: { id: admin.id } },
++      { level2_reviewer: { id: admin.id } },
++    ],
++  };
++}
++
+ const EDITABLE_STATUSES = new Set([
+   'draft',
+   'rejected_level1',
+@@ -502,6 +528,7 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
+   async listLevel1Reviewers(ctx) {
+     const admin = await getCurrentAdmin(ctx, strapi);
+     if (!admin) return;
++    if (!(await hasArticleAction(strapi, admin, 'update'))) return ctx.forbidden('当前角色没有提交文章审核的权限。');
+ 
+     const allAdmins = await strapi.db.query(ADMIN_UID).findMany({
+       where: { is_active: true },
+@@ -525,6 +552,7 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
+   async listLevel2Reviewers(ctx) {
+     const admin = await getCurrentAdmin(ctx, strapi);
+     if (!admin) return;
++    if (!(await hasArticleAction(strapi, admin, 'review'))) return ctx.forbidden('当前角色没有审核文章的权限。');
+ 
+     const allAdmins = await strapi.db.query(ADMIN_UID).findMany({
+       where: { is_active: true },
+@@ -548,6 +576,7 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
+   async listPublishers(ctx) {
+     const admin = await getCurrentAdmin(ctx, strapi);
+     if (!admin) return;
++    if (!isSuperAdmin(admin)) return ctx.forbidden('只有超级管理员可以指定其他文章发布者。');
+ 
+     const allAdmins = await strapi.db.query(ADMIN_UID).findMany({
+       where: { is_active: true },
+@@ -574,6 +603,7 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
+   async adminList(ctx) {
+     const admin = await getCurrentAdmin(ctx, strapi);
+     if (!admin) return;
++    if (!(await hasArticleAction(strapi, admin, 'view'))) return ctx.forbidden('当前角色没有查看文章的权限。');
+ 
+     const query = ctx.query || {};
+     const page = Math.max(1, Number(query.pagination?.page || 1));
+@@ -601,6 +631,13 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
+       }
+     }
+ 
++    const dataScope = await getArticleDataScope(strapi, admin);
++    if (!isSuperAdmin(admin) && dataScope === 'own') {
++      const requestedFilters = { ...where };
++      for (const key of Object.keys(where)) delete where[key];
++      where.$and = [requestedFilters, articleAccessFilter(admin)];
++    }
++
+     const queriedRows = await strapi.db.query(ARTICLE_UID).findMany({
+       where,
+       populate: ARTICLE_POPULATE,
+@@ -654,8 +691,10 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
+   async stats(ctx) {
+     const admin = await getCurrentAdmin(ctx, strapi);
+     if (!admin) return;
++    if (!(await hasArticleAction(strapi, admin, 'view'))) return ctx.forbidden('当前角色没有查看文章的权限。');
+ 
+     const rows = await strapi.db.query(ARTICLE_UID).findMany({
++      ...(isSuperAdmin(admin) || (await getArticleDataScope(strapi, admin)) === 'all' ? {} : { where: articleAccessFilter(admin) }),
+       select: ['id', 'documentId', 'review_status', 'updatedAt'],
+       orderBy: { updatedAt: 'desc' },
+     });
+@@ -967,14 +1006,22 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
+   async preview(ctx) {
+     const admin = await getCurrentAdmin(ctx, strapi);
+     if (!admin) return;
++    if (!(await hasArticleAction(strapi, admin, 'view'))) return ctx.forbidden('当前角色没有查看文章的权限。');
+     const article = await findArticle(strapi, ctx.params.id);
+     if (!article) return ctx.notFound('文章不存在。');
++    if (!isSuperAdmin(admin) && (await getArticleDataScope(strapi, admin)) === 'own' &&
++      !ownerMatches(article, admin, ctx.state.user) &&
++      !assignedReviewerMatches(article, admin, 'level1_reviewer') &&
++      !assignedReviewerMatches(article, admin, 'level2_reviewer')) {
++      return ctx.forbidden('当前角色不能预览这篇文章。');
++    }
+     ctx.body = { data: article };
+   },
+ 
+   async history(ctx) {
+     const admin = await getCurrentAdmin(ctx, strapi);
+     if (!admin) return;
++    if (!(await hasArticleAction(strapi, admin, 'view'))) return ctx.forbidden('当前角色没有查看文章历史的权限。');
+ 
+     const limit = Math.min(Math.max(Number(ctx.query?.limit || 100), 1), 200);
+     const logs = await strapi.db.query(REVIEW_LOG_UID).findMany({
+@@ -1020,6 +1067,7 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
+   async tasks(ctx) {
+     const admin = await getCurrentAdmin(ctx, strapi);
+     if (!admin) return;
++    if (!(await hasArticleAction(strapi, admin, 'view'))) return ctx.forbidden('当前角色没有查看文章工作任务的权限。');
+ 
+     const articles = await strapi.db.query(ARTICLE_UID).findMany({
+       populate: ARTICLE_POPULATE,
+diff --git a/backend/src/api/article/routes/article.js b/backend/src/api/article/routes/article.js
+index 4d843fa..be00322 100644
+--- a/backend/src/api/article/routes/article.js
++++ b/backend/src/api/article/routes/article.js
+@@ -1,9 +1,5 @@
+ 'use strict';
+ 
+-/**
+- * article router
+- */
++const createRbacCoreRouter = require('../../../utils/create-rbac-core-router');
+ 
+-const { createCoreRouter } = require('@strapi/strapi').factories;
+-
+-module.exports = createCoreRouter('api::article.article');
++module.exports = createRbacCoreRouter('api::article.article', 'articles');
+diff --git a/backend/src/api/attachment/routes/attachment.js b/backend/src/api/attachment/routes/attachment.js
+index 72d5028..0e74f5e 100644
+--- a/backend/src/api/attachment/routes/attachment.js
++++ b/backend/src/api/attachment/routes/attachment.js
+@@ -1,9 +1,5 @@
+ 'use strict';
+ 
+-/**
+- * attachment router
+- */
++const createRbacCoreRouter = require('../../../utils/create-rbac-core-router');
+ 
+-const { createCoreRouter } = require('@strapi/strapi').factories;
+-
+-module.exports = createCoreRouter('api::attachment.attachment');
++module.exports = createRbacCoreRouter('api::attachment.attachment', 'download_files');
+diff --git a/backend/src/api/backend-admin/controllers/backend-admin.js b/backend/src/api/backend-admin/controllers/backend-admin.js
+index 1db3b6f..f555178 100644
+--- a/backend/src/api/backend-admin/controllers/backend-admin.js
++++ b/backend/src/api/backend-admin/controllers/backend-admin.js
+@@ -6,15 +6,69 @@
+ 
+ const { createCoreController } = require('@strapi/strapi').factories;
+ 
++// Lightweight per-process protection for local/single-instance deployments.
++// Production deployments with multiple workers should also rate-limit this
++// endpoint at the reverse proxy or shared edge gateway.
++const LOGIN_WINDOW_MS = 15 * 60 * 1000;
++const LOGIN_MAX_ATTEMPTS = 5;
++const loginAttempts = new Map();
++
++function loginKeys(ctx, email) {
++  const ip = String(ctx.request.ip || ctx.ip || 'unknown').slice(0, 100);
++  return [`ip:${ip}`, `account:${email}`];
++}
++
++function checkLoginLimit(keys) {
++  const now = Date.now();
++  let retryMs = 0;
++  for (const key of keys) {
++    const recent = (loginAttempts.get(key) || []).filter((timestamp) => now - timestamp < LOGIN_WINDOW_MS);
++    loginAttempts.set(key, recent);
++    if (recent.length >= LOGIN_MAX_ATTEMPTS) {
++      retryMs = Math.max(retryMs, LOGIN_WINDOW_MS - (now - recent[0]));
++    }
++  }
++  return retryMs;
++}
++
++function recordLoginFailure(keys) {
++  const now = Date.now();
++  for (const key of keys) {
++    const recent = (loginAttempts.get(key) || []).filter((timestamp) => now - timestamp < LOGIN_WINDOW_MS);
++    recent.push(now);
++    loginAttempts.set(key, recent);
++  }
++  if (loginAttempts.size > 5000) {
++    for (const [key, timestamps] of loginAttempts) {
++      const recent = timestamps.filter((timestamp) => now - timestamp < LOGIN_WINDOW_MS);
++      if (recent.length) loginAttempts.set(key, recent);
++      else loginAttempts.delete(key);
++    }
++    while (loginAttempts.size > 5000) loginAttempts.delete(loginAttempts.keys().next().value);
++  }
++}
++
++function clearLoginAttempts(keys) {
++  for (const key of keys) loginAttempts.delete(key);
++}
++
+ module.exports = createCoreController('api::backend-admin.backend-admin', ({ strapi }) => ({
+   async login(ctx) {
+     const body = ctx.request.body || {};
+     const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
+     const password = typeof body.password === 'string' ? body.password : '';
+ 
+-    if (!email || !password || password.length > 1024) {
++    if (!email || email.length > 254 || !password || password.length > 1024) {
+       return ctx.badRequest('请输入有效的邮箱和密码。');
+     }
++    const throttlingKeys = loginKeys(ctx, email);
++    const retryMs = checkLoginLimit(throttlingKeys);
++    if (retryMs > 0) {
++      ctx.set('Retry-After', String(Math.ceil(retryMs / 1000)));
++      ctx.status = 429;
++      ctx.body = { error: { message: '登录尝试过于频繁，请稍后再试。' } };
++      return;
++    }
+ 
+     // Backend Admin records are account records, not public content. The
+     // content type currently has Draft & Publish enabled, so users created
+@@ -27,6 +81,7 @@ module.exports = createCoreController('api::backend-admin.backend-admin', ({ str
+ 
+     // Use the same response for unknown, disabled, and invalid-password accounts.
+     if (!admin || admin.is_active !== true || !admin.backend_role) {
++      recordLoginFailure(throttlingKeys);
+       return ctx.unauthorized('邮箱或密码错误，或账号尚未启用。');
+     }
+ 
+@@ -55,6 +110,7 @@ module.exports = createCoreController('api::backend-admin.backend-admin', ({ str
+     });
+ 
+     if (user?.blocked === true) {
++      recordLoginFailure(throttlingKeys);
+       return ctx.unauthorized('邮箱或密码错误，或账号尚未启用。');
+     }
+ 
+@@ -71,9 +127,12 @@ module.exports = createCoreController('api::backend-admin.backend-admin', ({ str
+         : false;
+ 
+     if (!backendPasswordValid && !legacyUsersPermissionsPasswordValid) {
++      recordLoginFailure(throttlingKeys);
+       return ctx.unauthorized('邮箱或密码错误，或账号尚未启用。');
+     }
+ 
++    clearLoginAttempts(throttlingKeys);
++
+     if (!user) {
+       const userRole = await strapi.db.query('plugin::users-permissions.role').findOne({
+         where: { type: 'authenticated' },
+diff --git a/backend/src/api/backend-admin/routes/backend-admin.js b/backend/src/api/backend-admin/routes/backend-admin.js
+index c4d8be8..cf4d692 100644
+--- a/backend/src/api/backend-admin/routes/backend-admin.js
++++ b/backend/src/api/backend-admin/routes/backend-admin.js
+@@ -1,9 +1,5 @@
+ 'use strict';
+ 
+-/**
+- * backend-admin router
+- */
++const createRbacCoreRouter = require('../../../utils/create-rbac-core-router');
+ 
+-const { createCoreRouter } = require('@strapi/strapi').factories;
+-
+-module.exports = createCoreRouter('api::backend-admin.backend-admin');
++module.exports = createRbacCoreRouter('api::backend-admin.backend-admin', 'users');
+diff --git a/backend/src/api/backend-role/routes/backend-role.js b/backend/src/api/backend-role/routes/backend-role.js
+index 2c3e7af..ed3676f 100644
+--- a/backend/src/api/backend-role/routes/backend-role.js
++++ b/backend/src/api/backend-role/routes/backend-role.js
+@@ -1,9 +1,5 @@
+ 'use strict';
+ 
+-/**
+- * backend-role router
+- */
++const createRbacCoreRouter = require('../../../utils/create-rbac-core-router');
+ 
+-const { createCoreRouter } = require('@strapi/strapi').factories;
+-
+-module.exports = createCoreRouter('api::backend-role.backend-role');
++module.exports = createRbacCoreRouter('api::backend-role.backend-role', 'roles');
+diff --git a/backend/src/api/banner/routes/banner.js b/backend/src/api/banner/routes/banner.js
+index a472879..ee2f4c8 100644
+--- a/backend/src/api/banner/routes/banner.js
++++ b/backend/src/api/banner/routes/banner.js
+@@ -1,9 +1,5 @@
+ 'use strict';
+ 
+-/**
+- * banner router
+- */
++const createRbacCoreRouter = require('../../../utils/create-rbac-core-router');
+ 
+-const { createCoreRouter } = require('@strapi/strapi').factories;
+-
+-module.exports = createCoreRouter('api::banner.banner');
++module.exports = createRbacCoreRouter('api::banner.banner', 'banners');
+diff --git a/backend/src/api/category/routes/category.js b/backend/src/api/category/routes/category.js
+index 9b5f2e1..350da6c 100644
+--- a/backend/src/api/category/routes/category.js
++++ b/backend/src/api/category/routes/category.js
+@@ -1,9 +1,5 @@
+ 'use strict';
+ 
+-/**
+- * category router
+- */
++const createRbacCoreRouter = require('../../../utils/create-rbac-core-router');
+ 
+-const { createCoreRouter } = require('@strapi/strapi').factories;
+-
+-module.exports = createCoreRouter('api::category.category');
++module.exports = createRbacCoreRouter('api::category.category', 'categories');
+diff --git a/backend/src/api/council-intro/routes/council-intro.js b/backend/src/api/council-intro/routes/council-intro.js
+index 4f6a46a..fef48db 100644
+--- a/backend/src/api/council-intro/routes/council-intro.js
++++ b/backend/src/api/council-intro/routes/council-intro.js
+@@ -1,9 +1,5 @@
+ 'use strict';
+ 
+-/**
+- * council-intro router
+- */
++const createRbacCoreRouter = require('../../../utils/create-rbac-core-router');
+ 
+-const { createCoreRouter } = require('@strapi/strapi').factories;
+-
+-module.exports = createCoreRouter('api::council-intro.council-intro');
++module.exports = createRbacCoreRouter('api::council-intro.council-intro', 'partners');
+diff --git a/backend/src/api/council-member/routes/council-member.js b/backend/src/api/council-member/routes/council-member.js
+index 744a31c..89ba49d 100644
+--- a/backend/src/api/council-member/routes/council-member.js
++++ b/backend/src/api/council-member/routes/council-member.js
+@@ -1,9 +1,5 @@
+ 'use strict';
+ 
+-/**
+- * council-member router
+- */
++const createRbacCoreRouter = require('../../../utils/create-rbac-core-router');
+ 
+-const { createCoreRouter } = require('@strapi/strapi').factories;
+-
+-module.exports = createCoreRouter('api::council-member.council-member');
++module.exports = createRbacCoreRouter('api::council-member.council-member', 'partners');
+diff --git a/backend/src/api/department/routes/department.js b/backend/src/api/department/routes/department.js
+index 553e039..8b1e13a 100644
+--- a/backend/src/api/department/routes/department.js
++++ b/backend/src/api/department/routes/department.js
+@@ -1,9 +1,5 @@
+ 'use strict';
+ 
+-/**
+- * department router
+- */
++const createRbacCoreRouter = require('../../../utils/create-rbac-core-router');
+ 
+-const { createCoreRouter } = require('@strapi/strapi').factories;
+-
+-module.exports = createCoreRouter('api::department.department');
++module.exports = createRbacCoreRouter('api::department.department', 'departments');
+diff --git a/backend/src/api/download-file/routes/download-file.js b/backend/src/api/download-file/routes/download-file.js
+index 6057308..09ad8da 100644
+--- a/backend/src/api/download-file/routes/download-file.js
++++ b/backend/src/api/download-file/routes/download-file.js
+@@ -1,9 +1,5 @@
+ 'use strict';
+ 
+-/**
+- * download-file router
+- */
++const createRbacCoreRouter = require('../../../utils/create-rbac-core-router');
+ 
+-const { createCoreRouter } = require('@strapi/strapi').factories;
+-
+-module.exports = createCoreRouter('api::download-file.download-file');
++module.exports = createRbacCoreRouter('api::download-file.download-file', 'download_files');
+diff --git a/backend/src/api/leader/routes/leader.js b/backend/src/api/leader/routes/leader.js
+index 1a5a21d..6f14f98 100644
+--- a/backend/src/api/leader/routes/leader.js
++++ b/backend/src/api/leader/routes/leader.js
+@@ -1,9 +1,5 @@
+ 'use strict';
+ 
+-/**
+- * leader router
+- */
++const createRbacCoreRouter = require('../../../utils/create-rbac-core-router');
+ 
+-const { createCoreRouter } = require('@strapi/strapi').factories;
+-
+-module.exports = createCoreRouter('api::leader.leader');
++module.exports = createRbacCoreRouter('api::leader.leader', 'leaders');
+diff --git a/backend/src/api/link/routes/link.js b/backend/src/api/link/routes/link.js
+index 332203b..0a61b65 100644
+--- a/backend/src/api/link/routes/link.js
++++ b/backend/src/api/link/routes/link.js
+@@ -1,9 +1,5 @@
+ 'use strict';
+ 
+-/**
+- * link router
+- */
++const createRbacCoreRouter = require('../../../utils/create-rbac-core-router');
+ 
+-const { createCoreRouter } = require('@strapi/strapi').factories;
+-
+-module.exports = createCoreRouter('api::link.link');
++module.exports = createRbacCoreRouter('api::link.link', 'links');
+diff --git a/backend/src/api/page/routes/page.js b/backend/src/api/page/routes/page.js
+index 258307a..c5de0ac 100644
+--- a/backend/src/api/page/routes/page.js
++++ b/backend/src/api/page/routes/page.js
+@@ -1,9 +1,5 @@
+ 'use strict';
+ 
+-/**
+- * page router
+- */
++const createRbacCoreRouter = require('../../../utils/create-rbac-core-router');
+ 
+-const { createCoreRouter } = require('@strapi/strapi').factories;
+-
+-module.exports = createCoreRouter('api::page.page');
++module.exports = createRbacCoreRouter('api::page.page', 'pages');
+diff --git a/backend/src/api/permission-action/routes/permission-action.js b/backend/src/api/permission-action/routes/permission-action.js
+index f99d48e..8a35664 100644
+--- a/backend/src/api/permission-action/routes/permission-action.js
++++ b/backend/src/api/permission-action/routes/permission-action.js
+@@ -1,9 +1,5 @@
+ 'use strict';
+ 
+-/**
+- * permission-action router
+- */
++const createRbacCoreRouter = require('../../../utils/create-rbac-core-router');
+ 
+-const { createCoreRouter } = require('@strapi/strapi').factories;
+-
+-module.exports = createCoreRouter('api::permission-action.permission-action');
++module.exports = createRbacCoreRouter('api::permission-action.permission-action', 'roles');
+diff --git a/backend/src/api/permission-module/routes/permission-module.js b/backend/src/api/permission-module/routes/permission-module.js
+index 43b521e..0f76954 100644
+--- a/backend/src/api/permission-module/routes/permission-module.js
++++ b/backend/src/api/permission-module/routes/permission-module.js
+@@ -1,9 +1,5 @@
+ 'use strict';
+ 
+-/**
+- * permission-module router
+- */
++const createRbacCoreRouter = require('../../../utils/create-rbac-core-router');
+ 
+-const { createCoreRouter } = require('@strapi/strapi').factories;
+-
+-module.exports = createCoreRouter('api::permission-module.permission-module');
++module.exports = createRbacCoreRouter('api::permission-module.permission-module', 'roles');
+diff --git a/backend/src/api/policy-document/routes/policy-document.js b/backend/src/api/policy-document/routes/policy-document.js
+index e165174..4034496 100644
+--- a/backend/src/api/policy-document/routes/policy-document.js
++++ b/backend/src/api/policy-document/routes/policy-document.js
+@@ -1,9 +1,5 @@
+ 'use strict';
+ 
+-/**
+- * policy-document router
+- */
++const createRbacCoreRouter = require('../../../utils/create-rbac-core-router');
+ 
+-const { createCoreRouter } = require('@strapi/strapi').factories;
+-
+-module.exports = createCoreRouter('api::policy-document.policy-document');
++module.exports = createRbacCoreRouter('api::policy-document.policy-document', 'policy_documents');
+diff --git a/backend/src/api/research-institution/routes/research-institution.js b/backend/src/api/research-institution/routes/research-institution.js
+index 8c8c736..4c34075 100644
+--- a/backend/src/api/research-institution/routes/research-institution.js
++++ b/backend/src/api/research-institution/routes/research-institution.js
+@@ -1,9 +1,5 @@
+ 'use strict';
+ 
+-/**
+- * research-institution router
+- */
++const createRbacCoreRouter = require('../../../utils/create-rbac-core-router');
+ 
+-const { createCoreRouter } = require('@strapi/strapi').factories;
+-
+-module.exports = createCoreRouter('api::research-institution.research-institution');
++module.exports = createRbacCoreRouter('api::research-institution.research-institution', 'research_institutions');
+diff --git a/backend/src/api/research-transfer/routes/research-transfer.js b/backend/src/api/research-transfer/routes/research-transfer.js
+index aa197ae..0520678 100644
+--- a/backend/src/api/research-transfer/routes/research-transfer.js
++++ b/backend/src/api/research-transfer/routes/research-transfer.js
+@@ -1,9 +1,5 @@
+ 'use strict';
+ 
+-/**
+- * research-transfer router
+- */
++const createRbacCoreRouter = require('../../../utils/create-rbac-core-router');
+ 
+-const { createCoreRouter } = require('@strapi/strapi').factories;
+-
+-module.exports = createCoreRouter('api::research-transfer.research-transfer');
++module.exports = createRbacCoreRouter('api::research-transfer.research-transfer', 'research_transfers');
+diff --git a/backend/src/api/role-permission/routes/role-permission.js b/backend/src/api/role-permission/routes/role-permission.js
+index 9e72608..c12c147 100644
+--- a/backend/src/api/role-permission/routes/role-permission.js
++++ b/backend/src/api/role-permission/routes/role-permission.js
+@@ -1,9 +1,5 @@
+ 'use strict';
+ 
+-/**
+- * role-permission router
+- */
++const createRbacCoreRouter = require('../../../utils/create-rbac-core-router');
+ 
+-const { createCoreRouter } = require('@strapi/strapi').factories;
+-
+-module.exports = createCoreRouter('api::role-permission.role-permission');
++module.exports = createRbacCoreRouter('api::role-permission.role-permission', 'roles');
+diff --git a/backend/src/api/site-config/routes/site-config.js b/backend/src/api/site-config/routes/site-config.js
+index de631b7..a208498 100644
+--- a/backend/src/api/site-config/routes/site-config.js
++++ b/backend/src/api/site-config/routes/site-config.js
+@@ -1,9 +1,5 @@
+ 'use strict';
+ 
+-/**
+- * site-config router
+- */
++const createRbacCoreRouter = require('../../../utils/create-rbac-core-router');
+ 
+-const { createCoreRouter } = require('@strapi/strapi').factories;
+-
+-module.exports = createCoreRouter('api::site-config.site-config');
++module.exports = createRbacCoreRouter('api::site-config.site-config', 'settings');
+diff --git a/backend/src/api/student-document/routes/student-document.js b/backend/src/api/student-document/routes/student-document.js
+index 199960b..a0e46fa 100644
+--- a/backend/src/api/student-document/routes/student-document.js
++++ b/backend/src/api/student-document/routes/student-document.js
+@@ -1,9 +1,5 @@
+ 'use strict';
+ 
+-/**
+- * student-document router
+- */
++const createRbacCoreRouter = require('../../../utils/create-rbac-core-router');
+ 
+-const { createCoreRouter } = require('@strapi/strapi').factories;
+-
+-module.exports = createCoreRouter('api::student-document.student-document');
++module.exports = createRbacCoreRouter('api::student-document.student-document', 'student_documents');
+diff --git a/backend/src/api/student-showcase/routes/student-showcase.js b/backend/src/api/student-showcase/routes/student-showcase.js
+index a066b3c..61bb354 100644
+--- a/backend/src/api/student-showcase/routes/student-showcase.js
++++ b/backend/src/api/student-showcase/routes/student-showcase.js
+@@ -1,9 +1,5 @@
+ 'use strict';
+ 
+-/**
+- * student-showcase router
+- */
++const createRbacCoreRouter = require('../../../utils/create-rbac-core-router');
+ 
+-const { createCoreRouter } = require('@strapi/strapi').factories;
+-
+-module.exports = createCoreRouter('api::student-showcase.student-showcase');
++module.exports = createRbacCoreRouter('api::student-showcase.student-showcase', 'student_showcases');
+diff --git a/backend/src/api/supervisor/routes/supervisor.js b/backend/src/api/supervisor/routes/supervisor.js
+index 41114c0..0fda729 100644
+--- a/backend/src/api/supervisor/routes/supervisor.js
++++ b/backend/src/api/supervisor/routes/supervisor.js
+@@ -1,9 +1,5 @@
+ 'use strict';
+ 
+-/**
+- * supervisor router
+- */
++const createRbacCoreRouter = require('../../../utils/create-rbac-core-router');
+ 
+-const { createCoreRouter } = require('@strapi/strapi').factories;
+-
+-module.exports = createCoreRouter('api::supervisor.supervisor');
++module.exports = createRbacCoreRouter('api::supervisor.supervisor', 'supervisors');
+diff --git a/backend/src/extensions/upload/strapi-server.js b/backend/src/extensions/upload/strapi-server.js
+new file mode 100644
+index 0000000..f55bbf4
+--- /dev/null
++++ b/backend/src/extensions/upload/strapi-server.js
+@@ -0,0 +1,53 @@
++'use strict';
++
++function protectContentApiRoutes(routes) {
++  if (!Array.isArray(routes)) return routes;
++  return routes.map((route) => {
++    const method = String(route.method || '').toUpperCase();
++    if (!['POST', 'DELETE'].includes(method)) return route;
++    const config = route.config || {};
++    const policies = Array.isArray(config.policies) ? config.policies : [];
++    if (policies.some((policy) => (typeof policy === 'string' ? policy : policy?.name) === 'global::backend-upload-rbac')) return route;
++    return {
++      ...route,
++      config: {
++        ...config,
++        policies: [...policies, {
++          name: 'global::backend-upload-rbac',
++          config: { action: method === 'DELETE' ? 'delete' : 'create' },
++        }],
++      },
++    };
++  });
++}
++
++function protectRouteFactoryResult(result) {
++  if (Array.isArray(result)) return protectContentApiRoutes(result);
++  if (result && Array.isArray(result.routes)) {
++    return { ...result, routes: protectContentApiRoutes(result.routes) };
++  }
++  return result;
++}
++
++module.exports = (plugin) => {
++  const originalRoutes = plugin.routes?.['content-api'];
++  if (typeof originalRoutes === 'function') {
++    const wrappedRoutes = (...args) => protectRouteFactoryResult(originalRoutes(...args));
++    // Strapi's route factory exposes a .routes accessor for compatibility with
++    // plugin extensions; preserve it while returning the protected route set.
++    Object.defineProperty(wrappedRoutes, 'routes', {
++      enumerable: true,
++      get: () => protectContentApiRoutes(originalRoutes.routes),
++      set: (value) => { originalRoutes.routes = value; },
++    });
++    plugin.routes['content-api'] = wrappedRoutes;
++  } else if (Array.isArray(originalRoutes)) {
++    plugin.routes['content-api'] = protectContentApiRoutes(originalRoutes);
++  } else if (originalRoutes && Array.isArray(originalRoutes.routes)) {
++    plugin.routes['content-api'] = {
++      ...originalRoutes,
++      routes: protectContentApiRoutes(originalRoutes.routes),
++    };
++  }
++  return plugin;
++};
+diff --git a/backend/src/middlewares/operation-audit.js b/backend/src/middlewares/operation-audit.js
+index 7080514..8b367e7 100644
+--- a/backend/src/middlewares/operation-audit.js
++++ b/backend/src/middlewares/operation-audit.js
+@@ -49,8 +49,10 @@ function requestTarget(parts, body, resourceLabel) {
+ }
+ 
+ function getIp(ctx) {
+-  const forwarded = String(ctx.get('x-forwarded-for') || '').split(',')[0].trim();
+-  return (forwarded || ctx.request.ip || '').slice(0, 64);
++  // Koa only considers forwarding headers when the server is explicitly
++  // configured to trust a proxy. Do not accept arbitrary client-supplied
++  // X-Forwarded-For values as audit evidence.
++  return String(ctx.request.ip || '').slice(0, 64);
+ }
+ 
+ module.exports = (_config, { strapi }) => async (ctx, next) => {
+diff --git a/backend/src/policies/backend-rbac.js b/backend/src/policies/backend-rbac.js
+new file mode 100644
+index 0000000..cf28f80
+--- /dev/null
++++ b/backend/src/policies/backend-rbac.js
+@@ -0,0 +1,185 @@
++'use strict';
++
++const ADMIN_UID = 'api::backend-admin.backend-admin';
++const ROLE_PERMISSION_UID = 'api::role-permission.role-permission';
++const MODULE_UID = 'api::permission-module.permission-module';
++
++const ACTION_ALIASES = {
++  update: ['update', 'edit'],
++  edit: ['edit', 'update'],
++};
++
++function relation(value) {
++  return value?.data || value || null;
++}
++
++function hasOwn(object, key) {
++  return Object.prototype.hasOwnProperty.call(object || {}, key);
++}
++
++function relationKey(value) {
++  if (value === null) return null;
++  if (Array.isArray(value)) return relationKey(value[0]);
++  if (!value || typeof value !== 'object') return value;
++  if (value.connect !== undefined) return relationKey(value.connect);
++  return value.documentId ?? value.id ?? value.data?.documentId ?? value.data?.id;
++}
++
++function isPrivilegedRole(role) {
++  return ['super_admin', 'superadmin', 'super-administrator'].includes(String(role?.name || '').toLowerCase());
++}
++
++async function findByKey(strapi, uid, key, populate = []) {
++  if (key === null || key === undefined || key === '') return null;
++  const where = /^\d+$/.test(String(key)) ? { id: Number(key) } : { documentId: String(key) };
++  return strapi.db.query(uid).findOne({ where, populate });
++}
++
++async function protectPrivilegeBoundary(strapi, policyContext, config, actor) {
++  const uid = String(config.uid || '');
++  const data = policyContext.request.body?.data || {};
++  const isWrite = ['create', 'update', 'delete'].includes(config.action);
++  if (!isWrite) return true;
++  const superAdmin = isPrivilegedRole(relation(actor.backend_role));
++
++  // Only a super administrator may change the permission catalog, edit
++  // system roles, change role grants, or assign backend roles to accounts.
++  if (uid === 'api::permission-module.permission-module' || uid === 'api::permission-action.permission-action') {
++    return superAdmin;
++  }
++
++  if (uid === 'api::backend-role.backend-role') {
++    const existing = config.action === 'create'
++      ? null
++      : await findByKey(strapi, uid, policyContext.params?.id);
++    if (!superAdmin && (existing?.is_system || String(existing?.id) === String(relation(actor.backend_role)?.id) || ['super_admin', 'superadmin', 'super-administrator'].includes(String(existing?.name || '').toLowerCase()))) return false;
++    if (!superAdmin && (data.is_system === true || ['super_admin', 'superadmin', 'super-administrator'].includes(String(data.name || '').toLowerCase()))) return false;
++  }
++
++  if (uid === 'api::backend-admin.backend-admin' && hasOwn(data, 'backend_role')) {
++    if (!superAdmin) return false;
++    const target = config.action === 'create'
++      ? null
++      : await findByKey(strapi, uid, policyContext.params?.id);
++    const currentEmail = String(policyContext.state?.user?.email || '').trim().toLowerCase();
++    if (target && String(target.email || '').trim().toLowerCase() === currentEmail) return false;
++    const roleKey = relationKey(data.backend_role);
++    const role = await findByKey(strapi, 'api::backend-role.backend-role', roleKey);
++    if (!role) return false;
++  }
++
++  if (uid === 'api::role-permission.role-permission') {
++    const existing = config.action === 'create'
++      ? null
++      : await findByKey(strapi, uid, policyContext.params?.id, ['backend_role']);
++    const currentRole = relation(existing?.backend_role);
++    const requestedRoleKey = hasOwn(data, 'backend_role') ? relationKey(data.backend_role) : currentRole?.documentId ?? currentRole?.id;
++    const targetRole = await findByKey(strapi, 'api::backend-role.backend-role', requestedRoleKey);
++    if (!targetRole) return false;
++    if (!superAdmin && (targetRole.is_system || String(targetRole.id) === String(relation(actor.backend_role)?.id))) return false;
++  }
++
++  return true;
++}
++
++async function findBackendAdmin(strapi, identity) {
++  const email = String(identity?.email || '').trim().toLowerCase();
++  if (!email) return null;
++  return strapi.db.query(ADMIN_UID).findOne({
++    where: { email: { $eqi: email } },
++    populate: ['backend_role'],
++  });
++}
++
++async function hasActions(strapi, roleId, moduleId, actions, enforceScope = false, moduleName = '') {
++  const grants = await strapi.db.query(ROLE_PERMISSION_UID).findMany({
++    where: { backend_role: roleId, permission_module: moduleId },
++    populate: ['allowed_actions'],
++  });
++  const granted = new Set();
++  for (const grant of grants || []) {
++    const allowed = relation(grant.allowed_actions);
++    for (const item of (Array.isArray(allowed) ? allowed : allowed ? [allowed] : [])) {
++      if (item?.name) granted.add(String(item.name));
++    }
++  }
++  const allowed = actions.every((action) => (ACTION_ALIASES[action] || [action]).some((name) => granted.has(name)));
++  if (!allowed) return false;
++  if (enforceScope && moduleName !== 'articles' && (grants || []).some((grant) => grant.data_scope && grant.data_scope !== 'all')) {
++    // These content types do not have a consistent owner/department relation.
++    // Until a module-specific scope adapter is configured, fail closed instead
++    // of trusting the front-end filter and accidentally exposing all records.
++    return false;
++  }
++  return true;
++}
++
++module.exports = async (policyContext, config = {}) => {
++  const { strapi } = policyContext;
++  const action = String(config.action || '').trim();
++  const moduleName = String(config.moduleName || '').trim();
++  if (!action || !moduleName) return false;
++
++  const admin = await findBackendAdmin(strapi, policyContext.state?.user);
++  if (!admin) {
++    // Public website content is read-only. Do not let ordinary Users &
++    // Permissions accounts or API identities mutate CMS-managed records.
++    return config.publicRead === true && action === 'view' && ['GET', 'HEAD'].includes(policyContext.request.method);
++  }
++  if (admin.is_active !== true) return false;
++
++  const role = relation(admin.backend_role);
++  if (!role) return false;
++  if (isPrivilegedRole(role)) return true;
++
++  if (action === 'view' && config.uid === 'api::backend-admin.backend-admin') {
++    const usersModule = await strapi.db.query(MODULE_UID).findOne({ where: { name: 'users', is_active: true } });
++    const mayViewAllUsers = usersModule && await hasActions(strapi, role.id, usersModule.id, ['view']);
++    if (!mayViewAllUsers && policyContext.request.method === 'GET') {
++      const id = policyContext.params?.id;
++      if (id) return String(id) === String(admin.id) || String(id) === String(admin.documentId);
++      policyContext.query = {
++        ...(policyContext.query || {}),
++        filters: { ...(policyContext.query?.filters || {}), email: { $eqi: admin.email } },
++      };
++      return true;
++    }
++  }
++
++  // Permission module/action records are display metadata. Let an active
++  // backend user read these catalogs so permission UIs can resolve relations.
++  if (action === 'view' && ['api::permission-module.permission-module', 'api::permission-action.permission-action'].includes(config.uid)) {
++    return true;
++  }
++
++  if (action === 'view' && config.uid === 'api::role-permission.role-permission') {
++    const canManageRoles = await strapi.db.query(MODULE_UID).findOne({ where: { name: 'roles', is_active: true } });
++    const mayViewAllRoleGrants = canManageRoles && await hasActions(strapi, role.id, canManageRoles.id, ['view']);
++    if (!mayViewAllRoleGrants) {
++      // All admin accounts may load their own permission grants; querying a
++      // different role still requires the explicit roles.view permission.
++      policyContext.query = {
++        ...(policyContext.query || {}),
++        filters: {
++          ...(policyContext.query?.filters || {}),
++          backend_role: { id: { $eq: role.id } },
++        },
++      };
++      return true;
++    }
++  }
++
++  const module = await strapi.db.query(MODULE_UID).findOne({ where: { name: moduleName, is_active: true } });
++  if (!module) return false;
++
++  const data = policyContext.request.body?.data;
++  const requiredActions = [action];
++  if (action === 'update' && data && hasOwn(data, 'publishedAt')) {
++    requiredActions.push(data.publishedAt ? 'publish' : 'unpublish');
++  } else if (action === 'create' && data?.publishedAt) {
++    requiredActions.push('publish');
++  }
++
++  if (!(await hasActions(strapi, role.id, module.id, requiredActions, true, moduleName))) return false;
++  return protectPrivilegeBoundary(strapi, policyContext, config, admin);
++};
+diff --git a/backend/src/policies/backend-upload-rbac.js b/backend/src/policies/backend-upload-rbac.js
+new file mode 100644
+index 0000000..3a6d8c4
+--- /dev/null
++++ b/backend/src/policies/backend-upload-rbac.js
+@@ -0,0 +1,43 @@
++'use strict';
++
++const ADMIN_UID = 'api::backend-admin.backend-admin';
++const ROLE_PERMISSION_UID = 'api::role-permission.role-permission';
++const CONTENT_MODULES = new Set([
++  'articles', 'categories', 'pages', 'leaders', 'departments', 'research_institutions',
++  'research_transfers', 'supervisors', 'partners', 'student_documents', 'student_showcases',
++  'policy_documents', 'download_files', 'banners', 'links', 'settings',
++]);
++
++module.exports = async (policyContext, config = {}) => {
++  const method = policyContext.request.method;
++  if (['GET', 'HEAD'].includes(method)) return true;
++
++  const email = String(policyContext.state?.user?.email || '').trim().toLowerCase();
++  if (!email) return false;
++  const admin = await policyContext.strapi.db.query(ADMIN_UID).findOne({
++    where: { email: { $eqi: email } },
++    populate: ['backend_role'],
++  });
++  if (!admin || admin.is_active !== true) return false;
++  const role = admin.backend_role?.data || admin.backend_role;
++  if (!role) return false;
++  if (['super_admin', 'superadmin', 'super-administrator'].includes(String(role.name || '').toLowerCase())) return true;
++  // Deleting from Strapi's media library can break unrelated pages, so keep
++  // permanent media deletion exclusive to super administrators.
++  if (method === 'DELETE') return false;
++
++  const grants = await policyContext.strapi.db.query(ROLE_PERMISSION_UID).findMany({
++    where: { backend_role: role.id },
++    populate: ['permission_module', 'allowed_actions'],
++  });
++  const action = config.action || 'create';
++  const acceptedActions = ['create', 'update', 'edit'];
++  return (grants || []).some((grant) => {
++    const module = grant.permission_module?.data || grant.permission_module;
++    const actionsValue = grant.allowed_actions?.data || grant.allowed_actions;
++    const actions = Array.isArray(actionsValue) ? actionsValue : actionsValue ? [actionsValue] : [];
++    return CONTENT_MODULES.has(String(module?.name || '')) && actions.some((item) =>
++      acceptedActions.includes(String(item?.name || ''))
++    );
++  });
++};
+diff --git a/backend/src/utils/create-rbac-core-router.js b/backend/src/utils/create-rbac-core-router.js
+new file mode 100644
+index 0000000..67d8a6f
+--- /dev/null
++++ b/backend/src/utils/create-rbac-core-router.js
+@@ -0,0 +1,34 @@
++'use strict';
++
++const { createCoreRouter } = require('@strapi/strapi').factories;
++
++const CORE_ACTIONS = {
++  find: 'view',
++  findOne: 'view',
++  create: 'create',
++  update: 'update',
++  delete: 'delete',
++};
++
++/**
++ * Add server-side custom-role authorization to Strapi's generated CRUD routes.
++ * The website's anonymous reads still pass through the normal Users &
++ * Permissions role checks. Writes require an active custom backend account.
++ */
++module.exports = function createRbacCoreRouter(uid, moduleName) {
++  const config = {};
++  for (const [handler, action] of Object.entries(CORE_ACTIONS)) {
++    config[handler] = {
++      policies: [{
++        name: 'global::backend-rbac',
++        config: {
++          moduleName,
++          action,
++          uid,
++          publicRead: !['users', 'roles'].includes(moduleName),
++        },
++      }],
++    };
++  }
++  return createCoreRouter(uid, { config });
++};
+diff --git a/frontend/app/about/council/page.tsx b/frontend/app/about/council/page.tsx
+index 65d7bd6..55027d5 100644
+--- a/frontend/app/about/council/page.tsx
++++ b/frontend/app/about/council/page.tsx
+@@ -1,3 +1,4 @@
++import { sanitizeRichHtml } from '@/lib/sanitize-html';
+ import AboutSingleLayout from '@/components/about/AboutSingleLayout';
+ import Link from 'next/link';
+ 
+@@ -130,7 +131,7 @@ export default async function AboutCouncil() {
+       {/* 理事会说明 */}
+       <div
+         className="prose prose-gray max-w-none text-[21px] leading-10 md:text-[22px] md:leading-[2.2]"
+-        dangerouslySetInnerHTML={{ __html: article.content_html || '' }}
++        dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(article.content_html || '') }}
+       />
+ 
+       {/* 理事会成员单位 */}
+diff --git a/frontend/app/about/intro/page.tsx b/frontend/app/about/intro/page.tsx
+index 1833b9a..10304da 100644
+--- a/frontend/app/about/intro/page.tsx
++++ b/frontend/app/about/intro/page.tsx
+@@ -1,3 +1,4 @@
++import { sanitizeRichHtml } from '@/lib/sanitize-html';
+ import { notFound } from 'next/navigation';
+ import Image from 'next/image';
+ import AboutSingleLayout from '@/components/about/AboutSingleLayout';
+@@ -78,7 +79,7 @@ export default async function AboutIntro() {
+ 
+       <div
+         className="article-content max-w-none"
+-        dangerouslySetInnerHTML={{ __html: page.content || '' }}
++        dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(page.content || '') }}
+       />
+ 
+       {coverImage && (
+diff --git a/frontend/app/article/[slug]/page.tsx b/frontend/app/article/[slug]/page.tsx
+index 3d085ca..c31a4b5 100644
+--- a/frontend/app/article/[slug]/page.tsx
++++ b/frontend/app/article/[slug]/page.tsx
+@@ -1,3 +1,4 @@
++import { sanitizeRichHtml } from '@/lib/sanitize-html';
+ import type { Metadata } from 'next';
+ import { notFound, redirect } from 'next/navigation';
+ import Link from 'next/link';
+@@ -290,7 +291,7 @@ export default async function ArticlePage({
+         {/* ✅ 核心修改：简化 className，使用 article-content 类 */}
+         <div
+           className="article-content prose max-w-none"
+-          dangerouslySetInnerHTML={{ __html: article.content || '<p>暂无内容</p>' }}
++          dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(article.content || '<p>暂无内容</p>') }}
+         />
+ 
+         {coverImage && (
+diff --git a/frontend/app/documents/policies/[slug]/page.tsx b/frontend/app/documents/policies/[slug]/page.tsx
+index 55531be..57fc2a0 100644
+--- a/frontend/app/documents/policies/[slug]/page.tsx
++++ b/frontend/app/documents/policies/[slug]/page.tsx
+@@ -1,3 +1,4 @@
++import { sanitizeRichHtml } from '@/lib/sanitize-html';
+ // app/documents/policies/[slug]/page.tsx
+ import { notFound } from 'next/navigation';
+ import Header from '@/components/layout/Header';
+@@ -54,7 +55,7 @@ export default async function PolicyDocumentDetail({
+           {doc.content && (
+             <div
+               className="prose prose-gray max-w-none text-lg leading-relaxed mb-8"
+-              dangerouslySetInnerHTML={{ __html: doc.content }}
++              dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(doc.content) }}
+             />
+           )}
+ 
+diff --git a/frontend/app/faculty/supervisor/[slug]/page.tsx b/frontend/app/faculty/supervisor/[slug]/page.tsx
+index df2676a..f2108c4 100644
+--- a/frontend/app/faculty/supervisor/[slug]/page.tsx
++++ b/frontend/app/faculty/supervisor/[slug]/page.tsx
+@@ -1,3 +1,4 @@
++import { sanitizeRichHtml } from '@/lib/sanitize-html';
+ // app/faculty/supervisor/[slug]/page.tsx
+ import { notFound } from 'next/navigation';
+ import Header from '@/components/layout/Header';
+@@ -138,7 +139,7 @@ export default async function SupervisorDetail({
+                 个人简介
+               </h2>
+               <div className="prose prose-gray max-w-none leading-relaxed"
+-                dangerouslySetInnerHTML={{ __html: supervisor.bio }} />
++                dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(supervisor.bio) }} />
+             </div>
+           )}
+ 
+diff --git a/frontend/app/research/institutions/[slug]/page.tsx b/frontend/app/research/institutions/[slug]/page.tsx
+index 89c064f..7d42c07 100644
+--- a/frontend/app/research/institutions/[slug]/page.tsx
++++ b/frontend/app/research/institutions/[slug]/page.tsx
+@@ -1,3 +1,4 @@
++import { sanitizeRichHtml } from '@/lib/sanitize-html';
+ import { notFound } from 'next/navigation';
+ import Header from '@/components/layout/Header';
+ import Footer from '@/components/layout/Footer';
+@@ -54,7 +55,7 @@ export default async function InstitutionDetail({ params }: { params: Promise<{
+ 
+               <div
+                 className="prose prose-gray max-w-none text-[20px] leading-9 md:text-[21px] md:leading-10"
+-                dangerouslySetInnerHTML={{ __html: inst.summary || '<p>暂无详细介绍。</p>' }}
++                dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(inst.summary || '<p>暂无详细介绍。</p>') }}
+               />
+ 
+               {mediaUrl(inst.cover_image) && (
+diff --git a/frontend/app/research/transfer/[slug]/page.tsx b/frontend/app/research/transfer/[slug]/page.tsx
+index 5a7dcea..b749e50 100644
+--- a/frontend/app/research/transfer/[slug]/page.tsx
++++ b/frontend/app/research/transfer/[slug]/page.tsx
+@@ -1,3 +1,4 @@
++import { sanitizeRichHtml } from '@/lib/sanitize-html';
+ // app/documents/policies/[slug]/page.tsx
+ import { notFound } from 'next/navigation';
+ import Header from '@/components/layout/Header';
+@@ -57,7 +58,7 @@ export default async function ResearchTransferDetail({
+           {transfer.content && (
+             <div
+               className="prose prose-gray max-w-none text-lg leading-relaxed mb-8"
+-              dangerouslySetInnerHTML={{ __html: transfer.content }}
++              dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(transfer.content) }}
+             />
+           )}
+ 
+diff --git a/frontend/app/students/document/[slug]/page.tsx b/frontend/app/students/document/[slug]/page.tsx
+index cd373f8..2a5c643 100644
+--- a/frontend/app/students/document/[slug]/page.tsx
++++ b/frontend/app/students/document/[slug]/page.tsx
+@@ -1,3 +1,4 @@
++import { sanitizeRichHtml } from '@/lib/sanitize-html';
+ // app/students/document/[slug]/page.tsx
+ import { notFound } from 'next/navigation';
+ import Header from '@/components/layout/Header';
+@@ -54,7 +55,7 @@ export default async function StudentDocumentDetail({
+           {document.content && (
+             <div
+               className="prose prose-gray max-w-none text-lg leading-relaxed mb-8"
+-              dangerouslySetInnerHTML={{ __html: document.content }}
++              dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(document.content) }}
+             />
+           )}
+ 
+diff --git a/frontend/lib/sanitize-html.ts b/frontend/lib/sanitize-html.ts
+new file mode 100644
+index 0000000..8a73f72
+--- /dev/null
++++ b/frontend/lib/sanitize-html.ts
+@@ -0,0 +1,25 @@
++import sanitizeHtml from 'sanitize-html';
++
++const OPTIONS: sanitizeHtml.IOptions = {
++  allowedTags: [...sanitizeHtml.defaults.allowedTags, 'figure', 'figcaption', 'img', 'iframe', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'u', 's', 'sub', 'sup'],
++  allowedAttributes: {
++    ...sanitizeHtml.defaults.allowedAttributes,
++    a: [...(sanitizeHtml.defaults.allowedAttributes.a || []), 'rel'],
++    img: ['src', 'alt', 'title', 'width', 'height', 'loading'],
++    iframe: ['src', 'title', 'width', 'height', 'allow', 'allowfullscreen', 'loading', 'referrerpolicy', 'sandbox'],
++    th: ['colspan', 'rowspan', 'scope'],
++    td: ['colspan', 'rowspan'],
++  },
++  allowedSchemes: ['http', 'https', 'mailto', 'tel'],
++  allowedIframeHostnames: ['www.youtube.com', 'youtube.com', 'www.youtube-nocookie.com', 'player.vimeo.com'],
++  allowIframeRelativeUrls: false,
++  transformTags: {
++    a: (tagName, attributes) => ({ tagName, attribs: { ...attributes, rel: 'noopener noreferrer' } }),
++    iframe: (tagName, attributes) => ({ tagName, attribs: { ...attributes, sandbox: 'allow-scripts allow-same-origin allow-presentation', referrerpolicy: 'strict-origin-when-cross-origin' } }),
++  },
++};
++
++/** Sanitize CMS rich text before inserting it into the public website DOM. */
++export function sanitizeRichHtml(value: unknown): string {
++  return sanitizeHtml(typeof value === 'string' ? value : '', OPTIONS);
++}
+diff --git a/frontend/package-lock.json b/frontend/package-lock.json
+index c844135..df6cd62 100644
+--- a/frontend/package-lock.json
++++ b/frontend/package-lock.json
+@@ -13,12 +13,14 @@
+         "next": "^15.0.0",
+         "react": "^18.3.1",
+         "react-dom": "^18.3.1",
++        "sanitize-html": "2.13.0",
+         "swiper": "^11.0.0"
+       },
+       "devDependencies": {
+         "@types/node": "^20.10.6",
+         "@types/react": "^18.2.46",
+         "@types/react-dom": "^18.2.18",
++        "@types/sanitize-html": "2.13.0",
+         "autoprefixer": "^10.4.16",
+         "eslint": "^8.56.0",
+         "eslint-config-next": "^15.0.0",
+@@ -980,6 +982,16 @@
+         "@types/react": "^18.0.0"
+       }
+     },
++    "node_modules/@types/sanitize-html": {
++      "version": "2.13.0",
++      "resolved": "https://registry.npmjs.org/@types/sanitize-html/-/sanitize-html-2.13.0.tgz",
++      "integrity": "sha512-X31WxbvW9TjIhZZNyNBZ/p5ax4ti7qsNDBDEnH4zAgmEh35YnFD1UiS6z9Cd34kKm0LslFW0KPmTQzu/oGtsqQ==",
++      "dev": true,
++      "license": "MIT",
++      "dependencies": {
++        "htmlparser2": "^8.0.0"
++      }
++    },
+     "node_modules/@typescript-eslint/eslint-plugin": {
+       "version": "8.57.2",
+       "resolved": "https://registry.npmmirror.com/@typescript-eslint/eslint-plugin/-/eslint-plugin-8.57.2.tgz",
+@@ -2289,6 +2301,15 @@
+       "dev": true,
+       "license": "MIT"
+     },
++    "node_modules/deepmerge": {
++      "version": "4.3.1",
++      "resolved": "https://registry.npmjs.org/deepmerge/-/deepmerge-4.3.1.tgz",
++      "integrity": "sha512-3sUqbMEc77XqpdNO7FRyRog+eW3ph+GYCbj+rK+uYyRMuwsVy0rMiVtPn+QJlKFvWP/1PYpapqYn0Me2knFn+A==",
++      "license": "MIT",
++      "engines": {
++        "node": ">=0.10.0"
++      }
++    },
+     "node_modules/define-data-property": {
+       "version": "1.1.4",
+       "resolved": "https://registry.npmmirror.com/define-data-property/-/define-data-property-1.1.4.tgz",
+@@ -2360,6 +2381,61 @@
+         "node": ">=6.0.0"
+       }
+     },
++    "node_modules/dom-serializer": {
++      "version": "2.0.0",
++      "resolved": "https://registry.npmjs.org/dom-serializer/-/dom-serializer-2.0.0.tgz",
++      "integrity": "sha512-wIkAryiqt/nV5EQKqQpo3SToSOV9J0DnbJqwK7Wv/Trc92zIAYZ4FlMu+JPFW1DfGFt81ZTCGgDEabffXeLyJg==",
++      "license": "MIT",
++      "dependencies": {
++        "domelementtype": "^2.3.0",
++        "domhandler": "^5.0.2",
++        "entities": "^4.2.0"
++      },
++      "funding": {
++        "url": "https://github.com/cheeriojs/dom-serializer?sponsor=1"
++      }
++    },
++    "node_modules/domelementtype": {
++      "version": "2.3.0",
++      "resolved": "https://registry.npmjs.org/domelementtype/-/domelementtype-2.3.0.tgz",
++      "integrity": "sha512-OLETBj6w0OsagBwdXnPdN0cnMfF9opN69co+7ZrbfPGrdpPVNBUj02spi6B1N7wChLQiPn4CSH/zJvXw56gmHw==",
++      "funding": [
++        {
++          "type": "github",
++          "url": "https://github.com/sponsors/fb55"
++        }
++      ],
++      "license": "BSD-2-Clause"
++    },
++    "node_modules/domhandler": {
++      "version": "5.0.3",
++      "resolved": "https://registry.npmjs.org/domhandler/-/domhandler-5.0.3.tgz",
++      "integrity": "sha512-cgwlv/1iFQiFnU96XXgROh8xTeetsnJiDsTc7TYCLFd9+/WNkIqPTxiM/8pSd8VIrhXGTf1Ny1q1hquVqDJB5w==",
++      "license": "BSD-2-Clause",
++      "dependencies": {
++        "domelementtype": "^2.3.0"
++      },
++      "engines": {
++        "node": ">= 4"
++      },
++      "funding": {
++        "url": "https://github.com/fb55/domhandler?sponsor=1"
++      }
++    },
++    "node_modules/domutils": {
++      "version": "3.2.2",
++      "resolved": "https://registry.npmjs.org/domutils/-/domutils-3.2.2.tgz",
++      "integrity": "sha512-6kZKyUajlDuqlHKVX1w7gyslj9MPIXzIFiz/rGu35uC1wMi+kMhQwGhl4lt9unC9Vb9INnY9Z3/ZA3+FhASLaw==",
++      "license": "BSD-2-Clause",
++      "dependencies": {
++        "dom-serializer": "^2.0.0",
++        "domelementtype": "^2.3.0",
++        "domhandler": "^5.0.3"
++      },
++      "funding": {
++        "url": "https://github.com/fb55/domutils?sponsor=1"
++      }
++    },
+     "node_modules/dotenv": {
+       "version": "17.4.1",
+       "resolved": "https://registry.npmmirror.com/dotenv/-/dotenv-17.4.1.tgz",
+@@ -2401,6 +2477,18 @@
+       "dev": true,
+       "license": "MIT"
+     },
++    "node_modules/entities": {
++      "version": "4.5.0",
++      "resolved": "https://registry.npmjs.org/entities/-/entities-4.5.0.tgz",
++      "integrity": "sha512-V0hjH4dGPh9Ao5p0MoRY6BVqtwCjhz6vI5LT8AJ55H+4g9/4vbHx1I54fS0XuclLhDHArPQCiMjDxjaL8fPxhw==",
++      "license": "BSD-2-Clause",
++      "engines": {
++        "node": ">=0.12"
++      },
++      "funding": {
++        "url": "https://github.com/fb55/entities?sponsor=1"
++      }
++    },
+     "node_modules/es-abstract": {
+       "version": "1.24.1",
+       "resolved": "https://registry.npmmirror.com/es-abstract/-/es-abstract-1.24.1.tgz",
+@@ -2593,7 +2681,6 @@
+       "version": "4.0.0",
+       "resolved": "https://registry.npmmirror.com/escape-string-regexp/-/escape-string-regexp-4.0.0.tgz",
+       "integrity": "sha512-TtpcNJ3XAzx3Gq8sWRzJaVajRs0uVxA2YAkdb1jm2YkPz4G6egUFAyA3n5vtEIZefPk5Wa4UXbKuS5fKkJWdgA==",
+-      "dev": true,
+       "license": "MIT",
+       "engines": {
+         "node": ">=10"
+@@ -3531,6 +3618,25 @@
+         "node": ">= 0.4"
+       }
+     },
++    "node_modules/htmlparser2": {
++      "version": "8.0.2",
++      "resolved": "https://registry.npmjs.org/htmlparser2/-/htmlparser2-8.0.2.tgz",
++      "integrity": "sha512-GYdjWKDkbRLkZ5geuHs5NY1puJ+PXwP7+fHPRz06Eirsb9ugf6d8kkXav6ADhcODhFFPMIXyxkxSuMf3D6NCFA==",
++      "funding": [
++        "https://github.com/fb55/htmlparser2?sponsor=1",
++        {
++          "type": "github",
++          "url": "https://github.com/sponsors/fb55"
++        }
++      ],
++      "license": "MIT",
++      "dependencies": {
++        "domelementtype": "^2.3.0",
++        "domhandler": "^5.0.3",
++        "domutils": "^3.0.1",
++        "entities": "^4.4.0"
++      }
++    },
+     "node_modules/ignore": {
+       "version": "5.3.2",
+       "resolved": "https://registry.npmmirror.com/ignore/-/ignore-5.3.2.tgz",
+@@ -3877,6 +3983,15 @@
+         "node": ">=8"
+       }
+     },
++    "node_modules/is-plain-object": {
++      "version": "5.1.0",
++      "resolved": "https://registry.npmjs.org/is-plain-object/-/is-plain-object-5.1.0.tgz",
++      "integrity": "sha512-bUi/yjmtKYcRVUtWRGr0UA6xEFh2I6zWUwMrUXB3s7bmYCaZ8a+0ZsTRkrawh/mzlSD1Y0Ph8bp/U+TvBpWDNw==",
++      "license": "MIT",
++      "engines": {
++        "node": ">=0.10.0"
++      }
++    },
+     "node_modules/is-regex": {
+       "version": "1.2.1",
+       "resolved": "https://registry.npmmirror.com/is-regex/-/is-regex-1.2.1.tgz",
+@@ -4690,6 +4805,12 @@
+         "node": ">=6"
+       }
+     },
++    "node_modules/parse-srcset": {
++      "version": "1.0.2",
++      "resolved": "https://registry.npmjs.org/parse-srcset/-/parse-srcset-1.0.2.tgz",
++      "integrity": "sha512-/2qh0lav6CmI15FzA3i/2Bzk2zCgQhGMkvhOhKNcBVQ1ldgpbfiNTVslmooUmWJcADi1f1kIeynbDRVzNlfR6Q==",
++      "license": "MIT"
++    },
+     "node_modules/path-exists": {
+       "version": "4.0.0",
+       "resolved": "https://registry.npmmirror.com/path-exists/-/path-exists-4.0.0.tgz",
+@@ -5222,6 +5343,20 @@
+         "url": "https://github.com/sponsors/ljharb"
+       }
+     },
++    "node_modules/sanitize-html": {
++      "version": "2.13.0",
++      "resolved": "https://registry.npmjs.org/sanitize-html/-/sanitize-html-2.13.0.tgz",
++      "integrity": "sha512-Xff91Z+4Mz5QiNSLdLWwjgBDm5b1RU6xBT0+12rapjiaR7SwfRdjw8f+6Rir2MXKLrDicRFHdb51hGOAxmsUIA==",
++      "license": "MIT",
++      "dependencies": {
++        "deepmerge": "^4.2.2",
++        "escape-string-regexp": "^4.0.0",
++        "htmlparser2": "^8.0.0",
++        "is-plain-object": "^5.0.0",
++        "parse-srcset": "^1.0.2",
++        "postcss": "^8.3.11"
++      }
++    },
+     "node_modules/scheduler": {
+       "version": "0.23.2",
+       "resolved": "https://registry.npmmirror.com/scheduler/-/scheduler-0.23.2.tgz",
+diff --git a/frontend/package.json b/frontend/package.json
+index 423cc26..07984e5 100644
+--- a/frontend/package.json
++++ b/frontend/package.json
+@@ -14,12 +14,14 @@
+     "next": "^15.0.0",
+     "react": "^18.3.1",
+     "react-dom": "^18.3.1",
++    "sanitize-html": "2.13.0",
+     "swiper": "^11.0.0"
+   },
+   "devDependencies": {
+     "@types/node": "^20.10.6",
+     "@types/react": "^18.2.46",
+     "@types/react-dom": "^18.2.18",
++    "@types/sanitize-html": "2.13.0",
+     "autoprefixer": "^10.4.16",
+     "eslint": "^8.56.0",
+     "eslint-config-next": "^15.0.0",

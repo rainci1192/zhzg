@@ -1,9 +1,5 @@
 'use strict';
 
-/**
- * page router
- */
+const createRbacCoreRouter = require('../../../utils/create-rbac-core-router');
 
-const { createCoreRouter } = require('@strapi/strapi').factories;
-
-module.exports = createCoreRouter('api::page.page');
+module.exports = createRbacCoreRouter('api::page.page', 'pages');

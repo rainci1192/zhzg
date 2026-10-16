@@ -1,5 +1,7 @@
 'use client';
 
+import { sanitizeRichHtml } from '@/lib/sanitize-html';
+
 import { strapiFetch } from '@/lib/strapi-fetch';
 
 import { useState, useEffect } from 'react';
@@ -162,7 +164,7 @@ export default function CouncilArticleEditor() {
           <p className="text-sm font-medium text-gray-700 mb-2">预览效果</p>
           <div
             className="border border-gray-200 rounded-lg p-4 prose prose-gray max-w-none text-sm bg-gray-50"
-            dangerouslySetInnerHTML={{ __html: content }}
+            dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(content) }}
           />
         </div>
       )}

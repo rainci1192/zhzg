@@ -1,9 +1,5 @@
 'use strict';
 
-/**
- * policy-document router
- */
+const createRbacCoreRouter = require('../../../utils/create-rbac-core-router');
 
-const { createCoreRouter } = require('@strapi/strapi').factories;
-
-module.exports = createCoreRouter('api::policy-document.policy-document');
+module.exports = createRbacCoreRouter('api::policy-document.policy-document', 'policy_documents');

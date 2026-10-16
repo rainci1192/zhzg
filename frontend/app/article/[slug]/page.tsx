@@ -1,3 +1,4 @@
+import { sanitizeRichHtml } from '@/lib/sanitize-html';
 import type { Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
@@ -290,7 +291,7 @@ export default async function ArticlePage({
         {/* ✅ 核心修改：简化 className，使用 article-content 类 */}
         <div
           className="article-content prose max-w-none"
-          dangerouslySetInnerHTML={{ __html: article.content || '<p>暂无内容</p>' }}
+          dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(article.content || '<p>暂无内容</p>') }}
         />
 
         {coverImage && (

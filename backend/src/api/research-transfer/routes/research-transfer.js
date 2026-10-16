@@ -1,9 +1,5 @@
 'use strict';
 
-/**
- * research-transfer router
- */
+const createRbacCoreRouter = require('../../../utils/create-rbac-core-router');
 
-const { createCoreRouter } = require('@strapi/strapi').factories;
-
-module.exports = createCoreRouter('api::research-transfer.research-transfer');
+module.exports = createRbacCoreRouter('api::research-transfer.research-transfer', 'research_transfers');

@@ -1,5 +1,7 @@
 'use client';
 
+import { sanitizeRichHtml } from '@/lib/sanitize-html';
+
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
@@ -215,7 +217,7 @@ export default function DashboardPage() {
         {historyLoading ? <div className="p-8 text-center text-gray-400">正在加载历史记录…</div> : history.length === 0 ? <div className="p-8 text-center text-gray-400">暂无历史操作记录</div> : <div className="divide-y divide-gray-100">{history.slice(0, 12).map((item) => <div key={item.id} className="flex flex-wrap items-center justify-between gap-4 px-6 py-4"><div className="flex min-w-0 items-start gap-3"><div className="mt-0.5 h-2.5 w-2.5 rounded-full bg-blue-500" /><div className="min-w-0"><div className="font-medium text-gray-900">{item.action_label}</div><div className="truncate text-sm text-gray-600">{item.article?.title || '文章已删除或不可用'}</div>{item.comment && <div className="mt-1 text-xs text-gray-400">备注：{item.comment}</div>}</div></div><time className="shrink-0 text-xs text-gray-400">{item.review_date ? new Date(item.review_date).toLocaleString('zh-CN', { hour12: false }) : '—'}</time></div>)}</div>}
         {history.length > 12 && <div className="border-t border-gray-100 px-6 py-3 text-center text-sm text-gray-500">展示最近 12 条，共 {history.length} 条</div>}
       </section>
-      {preview && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"><div className="max-h-[85vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white p-6"><h2 className="text-2xl font-bold text-gray-900">{preview.title}</h2>{preview.summary && <p className="mt-2 text-gray-500">{preview.summary}</p>}<div className="prose mt-6 max-w-none" dangerouslySetInnerHTML={{ __html: preview.content || '<p>暂无正文</p>' }} /><div className="mt-6 text-right"><button onClick={() => setPreview(null)} className="rounded-xl bg-gray-100 px-4 py-2 text-sm text-gray-700">关闭预览</button></div></div></div>}
+      {preview && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"><div className="max-h-[85vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white p-6"><h2 className="text-2xl font-bold text-gray-900">{preview.title}</h2>{preview.summary && <p className="mt-2 text-gray-500">{preview.summary}</p>}<div className="prose mt-6 max-w-none" dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(preview.content || '<p>暂无正文</p>') }} /><div className="mt-6 text-right"><button onClick={() => setPreview(null)} className="rounded-xl bg-gray-100 px-4 py-2 text-sm text-gray-700">关闭预览</button></div></div></div>}
       {!loading && Object.values(counts).some((value) => value === null) && (
         <p role="alert" className="text-sm text-amber-700">
           部分统计暂时无法获取，请检查登录状态和 Strapi 接口权限。

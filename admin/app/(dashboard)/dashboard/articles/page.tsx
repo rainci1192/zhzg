@@ -87,7 +87,9 @@ interface Reviewer {
 }
 
 function relationName(relation: AdminRelation | { data?: AdminRelation } | null | undefined) {
-  const value = relation && typeof relation === 'object' && 'data' in relation ? relation.data : relation;
+  const value: AdminRelation | null | undefined = relation && typeof relation === 'object' && 'data' in relation
+    ? relation.data
+    : relation as AdminRelation | null | undefined;
   return value?.name || value?.email || '未记录';
 }
 
