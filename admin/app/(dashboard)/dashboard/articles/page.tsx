@@ -571,6 +571,10 @@ export default function ArticlesPage() {
     const canReviewLevel2 = isLevel2 && canReviewArticle && level2Status && (isSuperAdmin || !article.level2_reviewer || relationMatches(article.level2_reviewer, user));
     const canPublish = canPublishArticle && (isSuperAdmin ? article.review_status !== 'published' : article.review_status === 'approved_pending_publish' && owner);
     const canUnpublish = canUnpublishArticle && article.review_status === 'published' && owner;
+    const canViewReviewMessages = isSuperAdmin ||
+      relationMatches(article.created_by_admin, user) ||
+      relationMatches(article.level1_reviewer, user) ||
+      relationMatches(article.level2_reviewer, user);
     const actionClass = (enabled: boolean, activeClass: string) => enabled ? activeClass : 'cursor-not-allowed text-gray-300';
     const actionTitle = (enabled: boolean, title: string) => enabled ? title : `${title}（无权限或非本人文章）`;
 
@@ -583,7 +587,7 @@ export default function ArticlesPage() {
         {level2Status && <><button disabled={!canReviewLevel2} onClick={() => { if (canReviewLevel2) void openReviewModal(article, 'approve'); }} className={actionClass(canReviewLevel2, 'text-green-600 hover:text-green-800')} title={actionTitle(canReviewLevel2, '二级审核通过')}><CheckCircle className="w-4 h-4" /></button><button disabled={!canReviewLevel2} onClick={() => { if (canReviewLevel2) void openReviewModal(article, 'reject'); }} className={actionClass(canReviewLevel2, 'text-red-600 hover:text-red-800')} title={actionTitle(canReviewLevel2, '二级审核退回')}><XCircle className="w-4 h-4" /></button></>}
         {(article.review_status === 'approved_pending_publish' || isSuperAdmin && article.review_status !== 'published') && <button disabled={!canPublish} onClick={() => { if (canPublish) void publish(article); }} className={actionClass(canPublish, 'text-purple-600 hover:text-purple-800')} title={actionTitle(canPublish, isSuperAdmin && article.review_status !== 'approved_pending_publish' ? '超级管理员直接发布' : '发布')}><CheckCircle className="w-4 h-4" /></button>}
         {article.review_status === 'published' && <button disabled={!canUnpublish} onClick={async () => { if (!canUnpublish || !confirm('确定取消发布这篇文章吗？')) return; try { await api.unpublishArticle(getKey(article)); await fetchArticles(); } catch (error) { alert(`取消发布失败：${error instanceof Error ? error.message : '未知错误'}`); } }} className={actionClass(canUnpublish, 'text-orange-600 hover:text-orange-800')} title={actionTitle(canUnpublish, '取消发布')}><XCircle className="w-4 h-4" /></button>}
-        {(article.rejection_reason || article.level1_review_comment || article.level2_review_comment || article.admin_review_comment || article.leader_review_comment) && <button onClick={() => alert(`审核意见：\n${article.rejection_reason || ''}\n${article.level1_review_comment || ''}\n${article.level2_review_comment || ''}`)} className="text-gray-600 hover:text-gray-800" title="查看意见"><MessageSquare className="w-4 h-4" /></button>}
+        {canViewReviewMessages && (article.rejection_reason || article.level1_review_comment || article.level2_review_comment || article.admin_review_comment || article.leader_review_comment) && <button onClick={() => alert(`审核意见：\n${article.rejection_reason || ''}\n${article.level1_review_comment || ''}\n${article.level2_review_comment || ''}`)} className="text-gray-600 hover:text-gray-800" title="查看意见"><MessageSquare className="w-4 h-4" /></button>}
         <button disabled={!canDelete} onClick={() => { if (canDelete) void handleDelete(article); }} className={actionClass(canDelete, 'text-red-500 hover:text-red-700')} title={actionTitle(canDelete, '删除')}><Trash2 className="w-4 h-4" /></button>
       </div>
     );

@@ -1,6 +1,7 @@
+'use client';
+
 import { strapiFetch } from '@/lib/strapi-fetch';
 /* cSpell:disable */
-'use client';
 
 import { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
