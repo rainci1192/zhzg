@@ -15,6 +15,7 @@ export function useModulePermission(moduleName: string) {
     canUpdate: boolean;
     canDelete: boolean;
     canPublish: boolean;
+    canUnpublish: boolean;
     canReview: boolean;
     canExport: boolean;
     canImport: boolean;
@@ -27,6 +28,7 @@ export function useModulePermission(moduleName: string) {
     canUpdate: false,
     canDelete: false,
     canPublish: false,
+    canUnpublish: false,
     canReview: false,
     canExport: false,
     canImport: false,
@@ -49,6 +51,7 @@ export function useModulePermission(moduleName: string) {
           canUpdate,
           canDelete,
           canPublish,
+          canUnpublish,
           canReview,
           canExport,
           canImport,
@@ -60,6 +63,7 @@ export function useModulePermission(moduleName: string) {
           hasModulePermission(user.roleId, moduleName, 'update'),
           hasModulePermission(user.roleId, moduleName, 'delete'),
           hasModulePermission(user.roleId, moduleName, 'publish'),
+          hasModulePermission(user.roleId, moduleName, 'unpublish'),
           hasModulePermission(user.roleId, moduleName, 'review'),
           hasModulePermission(user.roleId, moduleName, 'export'),
           hasModulePermission(user.roleId, moduleName, 'import'),
@@ -73,6 +77,7 @@ export function useModulePermission(moduleName: string) {
           canUpdate,
           canDelete,
           canPublish,
+          canUnpublish,
           canReview,
           canExport,
           canImport,

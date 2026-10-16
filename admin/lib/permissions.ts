@@ -75,6 +75,64 @@ export interface RolePermission {
 let rolesCache: StrapiRole[] | null = null;
 let rolePermissionsCache: Record<string, Permission[]> = {};
 let detailedPermissionsCache: Record<number, RolePermission[]> = {};
+let permissionModulesCache: Array<Record<string, unknown>> | null = null;
+let permissionActionsCache: Array<Record<string, unknown>> | null = null;
+
+type PermissionRecord = Record<string, unknown>;
+
+function unwrapPermissionRecord(value: unknown): PermissionRecord | null {
+  if (!value || typeof value !== 'object') return null;
+  const record = value as PermissionRecord;
+  const data = record.data && typeof record.data === 'object'
+    ? record.data as PermissionRecord
+    : record;
+  const attributes = data.attributes && typeof data.attributes === 'object'
+    ? data.attributes as PermissionRecord
+    : data;
+  return { ...attributes, id: data.id ?? attributes.id, documentId: data.documentId ?? attributes.documentId };
+}
+
+function permissionRelationItems(value: unknown): Array<{ raw: unknown; record: PermissionRecord | null }> {
+  const wrapped = value && typeof value === 'object' && 'data' in value
+    ? (value as { data?: unknown }).data
+    : value;
+  const values = Array.isArray(wrapped) ? wrapped : wrapped == null ? [] : [wrapped];
+  return values.map((raw) => ({ raw, record: unwrapPermissionRecord(raw) }));
+}
+
+function findPermissionReference(
+  raw: unknown,
+  record: PermissionRecord | null,
+  candidates: Array<Record<string, unknown>>,
+) {
+  if (record?.name) return record;
+  const id = record?.id ?? (typeof raw === 'number' || typeof raw === 'string' ? raw : undefined);
+  const documentId = record?.documentId;
+  return candidates.find((candidate) =>
+    (id != null && String(candidate.id) === String(id)) ||
+    (documentId != null && String(candidate.documentId) === String(documentId))
+  ) || null;
+}
+
+async function fetchPermissionCatalogs() {
+  if (permissionModulesCache && permissionActionsCache) {
+    return { modules: permissionModulesCache, actions: permissionActionsCache };
+  }
+  const [modulesResponse, actionsResponse] = await Promise.all([
+    strapiFetch(`${STRAPI_URL}/api/permission-modules?pagination[pageSize]=100`),
+    strapiFetch(`${STRAPI_URL}/api/permission-actions?pagination[pageSize]=100`),
+  ]);
+  if (!modulesResponse.ok || !actionsResponse.ok) {
+    return { modules: [], actions: [] };
+  }
+  const [modulesPayload, actionsPayload] = await Promise.all([
+    modulesResponse.json() as Promise<{ data?: unknown[] }>,
+    actionsResponse.json() as Promise<{ data?: unknown[] }>,
+  ]);
+  permissionModulesCache = (modulesPayload.data || []).map(unwrapPermissionRecord).filter((item): item is PermissionRecord => Boolean(item));
+  permissionActionsCache = (actionsPayload.data || []).map(unwrapPermissionRecord).filter((item): item is PermissionRecord => Boolean(item));
+  return { modules: permissionModulesCache, actions: permissionActionsCache };
+}
 
 // 从 Strapi 获取所有角色
 export async function fetchRoles(): Promise<StrapiRole[]> {
@@ -106,10 +164,38 @@ export async function fetchRolePermissions(roleId: number): Promise<RolePermissi
 
   try {
     const response = await strapiFetch(
-      `${STRAPI_URL}/api/role-permissions?filters[backend_role][id][$eq]=${roleId}&populate[permission_module]=*&populate[allowed_actions]=*`
+      `${STRAPI_URL}/api/role-permissions?filters[backend_role][id][$eq]=${roleId}&populate=permission_module&populate=allowed_actions&pagination[pageSize]=100`
     );
-    const data = await response.json();
-    detailedPermissionsCache[roleId] = data.data || [];
+    if (!response.ok) throw new Error(`加载角色权限失败: ${response.status}`);
+    const data = await response.json() as { data?: unknown[] };
+    const rawRecords = (data.data || []).map(unwrapPermissionRecord).filter((item): item is PermissionRecord => Boolean(item));
+    const needsCatalogs = rawRecords.some((raw) => {
+      const module = permissionRelationItems(raw.permission_module)[0];
+      const actions = permissionRelationItems(raw.allowed_actions);
+      return !module?.record?.name || actions.some(({ record }) => !record?.name);
+    });
+    const catalogs = needsCatalogs
+      ? await fetchPermissionCatalogs().catch(() => ({ modules: [], actions: [] }))
+      : { modules: [], actions: [] };
+    detailedPermissionsCache[roleId] = rawRecords.flatMap((raw) => {
+      const moduleItems = permissionRelationItems(raw.permission_module);
+      const module = moduleItems.length
+        ? findPermissionReference(moduleItems[0].raw, moduleItems[0].record, catalogs.modules)
+        : null;
+      if (!module?.name) return [];
+
+      const allowedActions = permissionRelationItems(raw.allowed_actions)
+        .map(({ raw: actionRaw, record: actionRecord }) => findPermissionReference(actionRaw, actionRecord, catalogs.actions))
+        .filter((action): action is Record<string, unknown> => Boolean(action?.name));
+
+      return [{
+        id: Number(raw.id || 0),
+        documentId: String(raw.documentId || ''),
+        permission_module: module as RolePermission['permission_module'],
+        allowed_actions: allowedActions as RolePermission['allowed_actions'],
+        data_scope: String(raw.data_scope || 'all'),
+      }];
+    });
     return detailedPermissionsCache[roleId];
   } catch (error) {
     console.error('获取角色权限失败:', error);
@@ -135,16 +221,9 @@ export async function hasModulePermission(
   actionName: string
 ): Promise<boolean> {
   const permissions = await fetchRolePermissions(roleId);
-  
-  const modulePermission = permissions.find(
-    (p) => p.permission_module.name === moduleName
-  );
-
-  if (!modulePermission) return false;
-
-  return modulePermission.allowed_actions.some(
-    (action) => action.name === actionName
-  );
+  return permissions
+    .filter((permission) => permission.permission_module.name === moduleName)
+    .some((permission) => permission.allowed_actions.some((action) => action.name === actionName));
 }
 
 // 获取用户对某个模块的所有允许操作
@@ -153,14 +232,9 @@ export async function getModuleActions(
   moduleName: string
 ): Promise<string[]> {
   const permissions = await fetchRolePermissions(roleId);
-  
-  const modulePermission = permissions.find(
-    (p) => p.permission_module.name === moduleName
-  );
-
-  if (!modulePermission) return [];
-
-  return modulePermission.allowed_actions.map((action) => action.name);
+  return [...new Set(permissions
+    .filter((permission) => permission.permission_module.name === moduleName)
+    .flatMap((permission) => permission.allowed_actions.map((action) => action.name)))];
 }
 
 // 获取用户对某个模块的数据范围
@@ -169,12 +243,7 @@ export async function getDataScope(
   moduleName: string
 ): Promise<string> {
   const permissions = await fetchRolePermissions(roleId);
-  
-  const modulePermission = permissions.find(
-    (p) => p.permission_module.name === moduleName
-  );
-
-  return modulePermission?.data_scope || 'none';
+  return permissions.find((permission) => permission.permission_module.name === moduleName)?.data_scope || 'none';
 }
 
 // 批量检查多个权限
@@ -273,5 +342,7 @@ export function clearRolesCache() {
 
 export function clearPermissionsCache() {
   detailedPermissionsCache = {};
+  permissionModulesCache = null;
+  permissionActionsCache = null;
   clearRolesCache();
 }

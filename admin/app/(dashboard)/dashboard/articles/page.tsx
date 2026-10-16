@@ -165,12 +165,18 @@ function uniqueReviewers(items: Reviewer[]) {
 }
 
 function relationMatches(relation: AdminRelation | { data?: AdminRelation } | null | undefined, user: { id?: string; documentId?: string; email?: string } | null) {
-  const normalized = relation && typeof relation === 'object' && 'data' in relation ? relation.data : relation;
-  if (!normalized || !user) return false;
+  if (!relation || !user) return false;
+  const raw = relation as AdminRelation & {
+    data?: AdminRelation & { attributes?: AdminRelation };
+    attributes?: AdminRelation;
+  };
+  const nested = raw.data || raw;
+  const attributes = nested.attributes || nested;
+  const normalized = { ...attributes, id: nested.id ?? attributes.id, documentId: nested.documentId ?? attributes.documentId };
   return (
     (normalized.id != null && String(normalized.id) === String(user.id)) ||
-    (normalized.documentId && normalized.documentId === user.documentId) ||
-    (normalized.email && normalized.email.toLowerCase() === user.email?.toLowerCase())
+    Boolean(normalized.documentId && user.documentId && normalized.documentId === user.documentId) ||
+    Boolean(normalized.email && user.email && normalized.email.trim().toLowerCase() === user.email.trim().toLowerCase())
   );
 }
 
@@ -185,6 +191,7 @@ export default function ArticlesPage() {
   const canUpdateArticle = isSuperAdmin || (!articlePermissions.loading && articlePermissions.canUpdate);
   const canDeleteArticle = isSuperAdmin || (!articlePermissions.loading && articlePermissions.canDelete);
   const canPublishArticle = isSuperAdmin || (!articlePermissions.loading && articlePermissions.canPublish);
+  const canUnpublishArticle = isSuperAdmin || (!articlePermissions.loading && articlePermissions.canUnpublish);
   const canReviewArticle = isSuperAdmin || (!articlePermissions.loading && articlePermissions.canReview);
 
   const [articles, setArticles] = useState<Article[]>([]);
@@ -563,7 +570,7 @@ export default function ArticlesPage() {
     const canReviewLevel1 = isLevel1 && canReviewArticle && level1Status && (isSuperAdmin || article.review_status === 'pending_admin' || relationMatches(article.level1_reviewer, user));
     const canReviewLevel2 = isLevel2 && canReviewArticle && level2Status && (isSuperAdmin || !article.level2_reviewer || relationMatches(article.level2_reviewer, user));
     const canPublish = canPublishArticle && (isSuperAdmin ? article.review_status !== 'published' : article.review_status === 'approved_pending_publish' && owner);
-    const canUnpublish = canPublishArticle && article.review_status === 'published' && owner;
+    const canUnpublish = canUnpublishArticle && article.review_status === 'published' && owner;
     const actionClass = (enabled: boolean, activeClass: string) => enabled ? activeClass : 'cursor-not-allowed text-gray-300';
     const actionTitle = (enabled: boolean, title: string) => enabled ? title : `${title}（无权限或非本人文章）`;
 

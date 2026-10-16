@@ -105,25 +105,29 @@ async function hasArticleAction(strapi, admin, actionName) {
     const legacyPermissions = admin.backend_role?.permissions;
     if (Array.isArray(legacyPermissions)) {
       if (actionName === 'review') return legacyPermissions.includes('manage_review');
-      return ['create', 'update', 'delete', 'publish'].includes(actionName)
+      return ['create', 'update', 'delete', 'publish', 'unpublish'].includes(actionName)
         && legacyPermissions.includes('manage_articles');
     }
     if (actionName === 'review') return isLevel1(admin) || isLevel2(admin);
     return ['editor', 'admin'].includes(roleName(admin));
   }
 
-  const grants = await strapi.db.query('api::role-permission.role-permission').findMany({
-    where: { backend_role: Number(roleId) || roleId },
-    populate: ['permission_module', 'allowed_actions'],
+  const module = await strapi.db.query('api::permission-module.permission-module').findOne({
+    where: { name: 'articles' },
   });
+  const articleGrants = module
+    ? await strapi.db.query('api::role-permission.role-permission').findMany({
+        where: {
+          backend_role: Number(roleId) || roleId,
+          permission_module: module.id,
+        },
+        populate: ['allowed_actions'],
+      })
+    : [];
 
   // Older installations may only have the coarse role permission list. Keep
-  // that list as a compatibility fallback until fine-grained article grants
-  // are created in the role-permission manager.
-  const articleGrants = (grants || []).filter((grant) => {
-    const module = grant.permission_module?.data || grant.permission_module;
-    return module?.name === 'articles';
-  });
+  // that list as a compatibility fallback only when no article-module grant
+  // exists for this role.
 
   if (articleGrants.length === 0) {
     const legacyPermissions = admin.backend_role?.permissions;
@@ -132,7 +136,7 @@ async function hasArticleAction(strapi, admin, actionName) {
       return ['editor', 'admin'].includes(roleName(admin));
     }
     if (actionName === 'review') return legacyPermissions.includes('manage_review');
-    return ['create', 'update', 'delete', 'publish'].includes(actionName)
+    return ['create', 'update', 'delete', 'publish', 'unpublish'].includes(actionName)
       && legacyPermissions.includes('manage_articles');
   }
 
@@ -193,10 +197,18 @@ async function getCurrentAdmin(ctx, strapi) {
 }
 
 function ownerMatches(article, admin, identity) {
-  const owner = article?.created_by_admin;
+  const relation = article?.created_by_admin;
+  const owner = relation?.data || relation;
   if (owner) {
     const ownerId = relationId(owner);
-    return ownerId === String(admin.id) || ownerId === String(admin.documentId);
+    const attributes = owner.attributes || owner;
+    const ownerEmail = String(attributes.email || '').trim().toLowerCase();
+    const adminEmail = String(admin.email || '').trim().toLowerCase();
+    return (
+      ownerId === String(admin.id) ||
+      ownerId === String(admin.documentId) ||
+      Boolean(ownerEmail && adminEmail && ownerEmail === adminEmail)
+    );
   }
 
   const legacyOwner = article?.created_by_user;
@@ -442,7 +454,8 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
     const article = await findArticle(strapi, ctx.params.id);
     if (!article) return ctx.notFound('文章不存在。');
 
-    const allowed = ownerMatches(article, admin, ctx.state.user) || isSuperAdmin(admin);
+    const isOwner = ownerMatches(article, admin, ctx.state.user);
+    const allowed = isOwner || isSuperAdmin(admin);
     if (!allowed) return ctx.forbidden('只有文章发布者可以编辑这篇文章。');
     if (!isSuperAdmin(admin) && !EDITABLE_STATUSES.has(article.review_status)) {
       return ctx.forbidden('当前文章正在审核中，暂不能修改。');
@@ -667,6 +680,7 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
 
     const article = await findArticle(strapi, ctx.params.id);
     if (!article) return ctx.notFound('文章不存在。');
+    const isOwner = ownerMatches(article, admin, ctx.state.user);
 
     const allowedStatuses = new Set([
       'draft',
@@ -681,7 +695,7 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
       return ctx.badRequest('当前文章状态不能提交审核。');
     }
 
-    const canSubmit = ownerMatches(article, admin, ctx.state.user) || isSuperAdmin(admin);
+    const canSubmit = isOwner || isSuperAdmin(admin);
     if (!canSubmit) return ctx.forbidden('只有文章发布者可以提交审核。');
 
     // A changed published article goes straight back to the second review.
@@ -899,7 +913,7 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
   async unpublish(ctx) {
     const admin = await getCurrentAdmin(ctx, strapi);
     if (!admin) return;
-    if (!(await hasArticleAction(strapi, admin, 'publish'))) {
+    if (!(await hasArticleAction(strapi, admin, 'unpublish'))) {
       return ctx.forbidden('当前角色没有取消发布文章的权限。');
     }
     const article = await findArticle(strapi, ctx.params.id);
@@ -935,7 +949,8 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
 
     const article = await findArticle(strapi, ctx.params.id);
     if (!article) return ctx.notFound('文章不存在。');
-    if (!isSuperAdmin(admin) && !ownerMatches(article, admin, ctx.state.user)) {
+    const isOwner = ownerMatches(article, admin, ctx.state.user);
+    if (!isSuperAdmin(admin) && !isOwner) {
       return ctx.forbidden('只有文章发布者可以删除这篇文章。');
     }
     if (!isSuperAdmin(admin) && !EDITABLE_STATUSES.has(article.review_status)) {
