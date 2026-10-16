@@ -223,5 +223,86 @@ module.exports = {
         strapi.log.warn(`文章审核角色初始化失败（可在后台角色管理中手动创建）: ${error.message}`);
       }
     }
+
+    // Register the backup module/actions for the custom role-permission editor.
+    // No role is granted backup access implicitly; administrators must assign it.
+    try {
+      const moduleUid = 'api::permission-module.permission-module';
+      const actionUid = 'api::permission-action.permission-action';
+      let module = await strapi.db.query(moduleUid).findOne({ where: { name: 'backup' } });
+      if (!module) {
+        module = await strapi.db.query(moduleUid).create({
+          data: {
+            name: 'backup',
+            display_name: '备份管理',
+            description: '创建、下载、清理和恢复网站备份',
+            category: 'system',
+            sort_order: 95,
+            is_active: true,
+            publishedAt: new Date().toISOString(),
+          },
+        });
+      }
+      const actionDefinitions = [
+        ['view', '查看', '查看备份记录和计划'],
+        ['create', '创建', '执行手动备份'],
+        ['edit', '配置', '修改定时计划和保留策略'],
+        ['delete', '删除', '删除备份文件'],
+        ['restore', '恢复', '恢复网站数据库和本地媒体文件'],
+      ];
+      const actionRows = [];
+      for (const [name, display_name, description] of actionDefinitions) {
+        let action = await strapi.db.query(actionUid).findOne({ where: { name } });
+        if (!action) {
+          action = await strapi.db.query(actionUid).create({
+            data: { name, display_name, description, color: 'blue', icon: 'Database', sort_order: 90, publishedAt: new Date().toISOString() },
+          });
+        }
+        actionRows.push(action);
+      }
+
+      // The designated super administrator must always be able to reach and
+      // operate this page, including from the fine-grained sidebar.
+      const superRole = await strapi.db.query('api::backend-role.backend-role').findOne({ where: { name: 'super_admin' } });
+      if (superRole) {
+        const rolePermissionUid = 'api::role-permission.role-permission';
+        const grants = await strapi.db.query(rolePermissionUid).findMany({
+          where: { backend_role: superRole.id },
+          populate: ['permission_module', 'allowed_actions'],
+        });
+        const backupGrant = grants.find((grant) => String(grant.permission_module?.id ?? grant.permission_module) === String(module.id));
+        if (backupGrant) {
+          await strapi.db.query(rolePermissionUid).update({
+            where: { id: backupGrant.id },
+            data: { allowed_actions: actionRows.map((action) => action.id), data_scope: 'all' },
+          });
+        } else {
+          await strapi.db.query(rolePermissionUid).create({
+            data: { backend_role: superRole.id, permission_module: module.id, allowed_actions: actionRows.map((action) => action.id), data_scope: 'all', publishedAt: new Date().toISOString() },
+          });
+        }
+      }
+
+      // Migrate the existing coarse manage_backup flag to equivalent
+      // fine-grained actions for legacy roles, without granting restore.
+      const allRoles = await strapi.db.query('api::backend-role.backend-role').findMany();
+      const rolePermissionUid = 'api::role-permission.role-permission';
+      const legacyActions = actionRows.filter((action) => ['view', 'create', 'edit', 'delete'].includes(action.name));
+      for (const role of allRoles) {
+        if (role.name === 'super_admin' || !Array.isArray(role.permissions) || !role.permissions.includes('manage_backup')) continue;
+        const grants = await strapi.db.query(rolePermissionUid).findMany({
+          where: { backend_role: role.id },
+          populate: ['permission_module'],
+        });
+        const alreadyConfigured = grants.some((grant) => String(grant.permission_module?.id ?? grant.permission_module) === String(module.id));
+        if (!alreadyConfigured) {
+          await strapi.db.query(rolePermissionUid).create({
+            data: { backend_role: role.id, permission_module: module.id, allowed_actions: legacyActions.map((action) => action.id), data_scope: 'all', publishedAt: new Date().toISOString() },
+          });
+        }
+      }
+    } catch (error) {
+      strapi.log.warn(`备份管理权限初始化失败：${error.message}`);
+    }
   },
 };

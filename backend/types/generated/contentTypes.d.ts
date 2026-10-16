@@ -646,6 +646,36 @@ export interface ApiBackendRoleBackendRole extends Struct.CollectionTypeSchema {
   };
 }
 
+export interface ApiBackupManagementBackupManagement
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'backup_management_internal';
+  info: {
+    description: 'Internal Strapi API registration for filesystem-based backup management';
+    displayName: 'Backup Management Internal';
+    pluralName: 'backup-managements';
+    singularName: 'backup-management';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    internal_key: Schema.Attribute.String & Schema.Attribute.Unique;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::backup-management.backup-management'
+    > &
+      Schema.Attribute.Private;
+    publishedAt: Schema.Attribute.DateTime;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
 export interface ApiBannerBanner extends Struct.CollectionTypeSchema {
   collectionName: 'banners';
   info: {
@@ -2017,6 +2047,7 @@ declare module '@strapi/strapi' {
       'api::attachment.attachment': ApiAttachmentAttachment;
       'api::backend-admin.backend-admin': ApiBackendAdminBackendAdmin;
       'api::backend-role.backend-role': ApiBackendRoleBackendRole;
+      'api::backup-management.backup-management': ApiBackupManagementBackupManagement;
       'api::banner.banner': ApiBannerBanner;
       'api::category.category': ApiCategoryCategory;
       'api::council-intro.council-intro': ApiCouncilIntroCouncilIntro;

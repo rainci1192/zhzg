@@ -1,0 +1,15 @@
+{
+  "kind": "collectionType",
+  "collectionName": "backup_management_internal",
+  "info": {
+    "singularName": "backup-management",
+    "pluralName": "backup-managements",
+    "displayName": "Backup Management Internal",
+    "description": "Internal Strapi API registration for filesystem-based backup management"
+  },
+  "options": { "draftAndPublish": false },
+  "pluginOptions": {},
+  "attributes": {
+    "internal_key": { "type": "string", "unique": true }
+  }
+}
