@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
+import PageHero from '@/components/layout/PageHero';
 
 export const metadata: Metadata = {
   title: '站内搜索 - 吉林大学国家卓越工程师学院(珠海)',
@@ -59,9 +60,10 @@ export default async function SearchPage({
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
-      <main className="flex-1 bg-gray-50 px-4 py-10">
-        <div className="max-w-5xl mx-auto bg-white rounded-lg shadow-sm p-6 md:p-10">
-          <h1 className="text-3xl font-bold text-gray-800 mb-6">站内搜索</h1>
+      <main className="flex-1 site-subpage">
+        <PageHero title="站内搜索" items={[{ name: '首页', href: '/' }, { name: '站内搜索', href: '/search' }]} />
+        <div className="site-search-panel max-w-5xl mx-auto bg-white rounded-lg shadow-sm p-6 md:p-10">
+          <h2 className="text-2xl font-bold text-[#173d65] mb-6">查找学院资讯</h2>
           <form action="/search" role="search" className="flex gap-3 mb-8">
             <input
               name="q"
@@ -87,7 +89,7 @@ export default async function SearchPage({
               {results.length === 0 ? (
                 <p className="text-gray-500">没有找到相关文章。</p>
               ) : (
-                <ul className="divide-y">
+                <ul className="divide-y site-search-results">
                   {results.map((item) => (
                     <li key={item.id} className="py-5">
                       <Link href={`/article/${item.slug}`} className="text-lg font-semibold text-blue-800 hover:underline">
@@ -104,7 +106,7 @@ export default async function SearchPage({
                 </ul>
               )}
               {pageCount > 1 && (
-                <nav aria-label="搜索结果分页" className="flex items-center gap-4 mt-8">
+                <nav aria-label="搜索结果分页" className="site-pagination flex items-center gap-4 mt-8">
                   {page > 1 && <Link href={pageUrl(page - 1)} className="text-blue-700 hover:underline">上一页</Link>}
                   <span className="text-gray-500">第 {page} / {pageCount} 页</span>
                   {page < pageCount && <Link href={pageUrl(page + 1)} className="text-blue-700 hover:underline">下一页</Link>}

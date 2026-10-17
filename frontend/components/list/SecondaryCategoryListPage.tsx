@@ -1,7 +1,7 @@
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import Sidebar from '@/components/layout/Sidebar';
-import Breadcrumb from '@/components/layout/Breadcrumb';
+import PageHero from '@/components/layout/PageHero';
 import Link from 'next/link';
 import { getSecondaryCategoryPageList } from '@/lib/api';
 
@@ -79,21 +79,16 @@ export default async function SecondaryCategoryListPage({
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
-      <main className="flex-1 bg-gray-50">
-        <div className="bg-white border-b">
-          <div className="max-w-7xl mx-auto px-4 py-6 flex items-center justify-between">
-            <h1 className="text-3xl font-bold text-gray-800">{pageTitle}</h1>
-            <Breadcrumb items={breadcrumbItems} />
-          </div>
-        </div>
+      <main className="flex-1 bg-gray-50 site-subpage">
+        <PageHero title={pageTitle} items={breadcrumbItems} />
 
-        <div className="max-w-7xl mx-auto px-4 py-8">
-          <div className="flex gap-6">
-            <aside className="w-64 flex-shrink-0">
+        <div className="max-w-7xl mx-auto px-4 py-8 site-page-body">
+          <div className="flex gap-6 site-column-layout">
+            <aside className="w-64 flex-shrink-0 site-column-aside">
               <Sidebar title={sidebarTitle} items={sidebarItems} />
             </aside>
 
-            <div className="flex-1">
+            <div className="flex-1 min-w-0 site-content">
               {list.length === 0 ? (
                 <div className="bg-white rounded-lg shadow-sm p-8 text-gray-500">{emptyText}</div>
               ) : (
@@ -112,7 +107,7 @@ export default async function SecondaryCategoryListPage({
                       <Link
                         key={item.id}
                         href={href}
-                        className="group block bg-white rounded-lg shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden border border-transparent hover:border-blue-100"
+                        className="group site-category-card block bg-white rounded-lg shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden border border-transparent hover:border-blue-100"
                       >
                         {/* ⬇️ 高度从 h-24 缩小到 h-20 (80px) */}
                         <div className="flex items-stretch h-20">
@@ -161,7 +156,7 @@ export default async function SecondaryCategoryListPage({
               )}
 
               {/* 分页 */}
-              <div className="flex justify-center items-center gap-2 mt-8 flex-wrap">
+              <div className="flex justify-center items-center gap-2 mt-8 flex-wrap site-pagination">
                 {safePage > 1 ? (
                   <Link href={`${listPath}?page=${safePage - 1}`} className="px-4 py-2 bg-gray-200 text-gray-600 rounded hover:bg-gray-300 text-sm">上一页</Link>
                 ) : (

@@ -3,7 +3,7 @@ import { sanitizeRichHtml } from '@/lib/sanitize-html';
 import { notFound } from 'next/navigation';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
-import Breadcrumb from '@/components/layout/Breadcrumb';
+import PageHero from '@/components/layout/PageHero';
 import { getContentDetail, mediaUrl, type StrapiMedia } from '@/lib/strapi-content';
 
 type Education = {
@@ -64,14 +64,10 @@ export default async function SupervisorDetail({
     <>
       <Header />
 
-      <div className="bg-gray-100 py-3">
-        <div className="max-w-7xl mx-auto px-6">
-          <Breadcrumb items={breadcrumbItems} />
-        </div>
-      </div>
+      <PageHero title={categoryName} items={breadcrumbItems} />
 
-      <div className="max-w-7xl mx-auto px-6 py-10">
-        <div className="bg-white rounded-lg shadow-lg p-8">
+      <div className="site-detail-body max-w-7xl mx-auto px-6 py-10">
+        <div className="site-detail-panel bg-white rounded-lg shadow-lg p-8">
           {/* 顶部：照片 + 基本信息 */}
           <div className="flex gap-8 mb-8 pb-8 border-b">
             <div className="flex-shrink-0">
@@ -88,7 +84,7 @@ export default async function SupervisorDetail({
               )}
             </div>
 
-            <div className="flex-1">
+            <div className="flex-1 min-w-0 site-content">
               <h1 className="text-3xl font-bold text-gray-800 mb-2">
                 {supervisor.name}
                 {supervisor.name_en && (

@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
-import Breadcrumb from '@/components/layout/Breadcrumb';
+import PageHero from '@/components/layout/PageHero';
 
 const STRAPI_BASE_URL = (
   process.env.NEXT_PUBLIC_STRAPI_URL ||
@@ -90,14 +90,10 @@ export default async function PartnerDetailPage({
     <>
       <Header />
 
-      <div className="bg-gray-100 py-3">
-        <div className="max-w-7xl mx-auto px-6">
-          <Breadcrumb items={breadcrumbItems} />
-        </div>
-      </div>
+      <PageHero title="合作单位" items={breadcrumbItems} />
 
-      <div className="max-w-7xl mx-auto px-6 py-10">
-        <div className="bg-white rounded-lg shadow-lg p-8">
+      <div className="site-detail-body max-w-7xl mx-auto px-6 py-10">
+        <div className="site-detail-panel bg-white rounded-lg shadow-lg p-8">
           {/* 顶部：Logo + 基本信息 */}
           <div className="flex gap-8 mb-8 pb-8 border-b">
             {partner.logo_url && (
@@ -110,7 +106,7 @@ export default async function PartnerDetailPage({
               </div>
             )}
 
-            <div className="flex-1">
+            <div className="flex-1 min-w-0 site-content">
               <h1 className="text-3xl font-bold text-gray-800 mb-4">{partner.name}</h1>
 
               {partner.website && (

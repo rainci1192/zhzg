@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import Sidebar from '@/components/layout/Sidebar';
-import Breadcrumb from '@/components/layout/Breadcrumb';
+import PageHero from '@/components/layout/PageHero';
 import { getContentDetail, mediaUrl, type StrapiMedia } from '@/lib/strapi-content';
 
 type Institution = {
@@ -35,20 +35,16 @@ export default async function InstitutionDetail({ params }: { params: Promise<{ 
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
-      <main className="flex-1 bg-gray-50">
-        <div className="bg-white border-b">
-          <div className="max-w-7xl mx-auto px-4 py-6 flex items-center justify-between">
-             <Breadcrumb items={breadcrumbItems} />
-          </div>
-        </div>
+      <main className="flex-1 bg-gray-50 site-subpage">
+        <PageHero title={inst.name} items={breadcrumbItems} />
 
-        <div className="max-w-7xl mx-auto px-4 py-8">
-          <div className="flex gap-6">
-            <aside className="w-64 flex-shrink-0">
+        <div className="max-w-7xl mx-auto px-4 py-8 site-page-body">
+          <div className="flex gap-6 site-column-layout">
+            <aside className="w-64 flex-shrink-0 site-column-aside">
               <Sidebar title="科学研究" items={sidebarItems} />
             </aside>
 
-            <div className="flex-1 bg-white rounded-lg shadow-lg p-8">
+            <div className="flex-1 bg-white rounded-lg shadow-lg p-8 site-content-panel">
               <h2 className="text-2xl font-bold text-gray-800 mb-6 pb-3 border-b-2 border-blue-600">
                 {inst.name}
               </h2>

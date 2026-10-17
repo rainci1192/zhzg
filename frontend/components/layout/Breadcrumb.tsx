@@ -11,19 +11,18 @@ interface BreadcrumbProps {
 
 export default function Breadcrumb({ items }: BreadcrumbProps) {
   return (
-    <nav className="text-sm opacity-90">
-      <span>当前位置：</span>
+    <nav className="site-breadcrumb" aria-label="面包屑导航">
       {items.map((item, index) => (
-        <span key={index}>
+        <span key={`${item.href}-${index}`} className="site-breadcrumb-segment">
           {index < items.length - 1 ? (
             <>
-              <Link href={item.href} className="hover:underline">
+              <Link href={item.href}>
                 {item.name}
               </Link>
-              <span className="mx-2">/</span>
+              <span className="site-breadcrumb-divider" aria-hidden="true">/</span>
             </>
           ) : (
-            <span>{item.name}</span>
+            <span aria-current="page" className="site-breadcrumb-current">{item.name}</span>
           )}
         </span>
       ))}

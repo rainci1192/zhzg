@@ -1,0 +1,1399 @@
+diff --git a/frontend/app/article/[slug]/page.tsx b/frontend/app/article/[slug]/page.tsx
+index c31a4b5..4b73f33 100644
+--- a/frontend/app/article/[slug]/page.tsx
++++ b/frontend/app/article/[slug]/page.tsx
+@@ -2,6 +2,7 @@ import { sanitizeRichHtml } from '@/lib/sanitize-html';
+ import type { Metadata } from 'next';
+ import { notFound, redirect } from 'next/navigation';
+ import Link from 'next/link';
++import PageHero from '@/components/layout/PageHero';
+ import Image from 'next/image';
+ import Header from '@/components/layout/Header';
+ import Footer from '@/components/layout/Footer';
+@@ -256,19 +257,10 @@ export default async function ArticlePage({
+     <>
+       <Header />
+ 
+-      <div className="bg-gray-100 py-3">
+-        <div className="max-w-5xl mx-auto px-6">
+-          <nav className="flex text-sm text-gray-600">
+-            <Link href="/" className="hover:text-blue-600">首页</Link>
+-            <span className="mx-2">›</span>
+-            <Link href={listHref} className="hover:text-blue-600">{listName}</Link>
+-            <span className="mx-2">›</span>
+-            <span className="text-blue-600 line-clamp-1">{article.title}</span>
+-          </nav>
+-        </div>
+-      </div>
++      <PageHero title={listName} items={[{ name: '首页', href: '/' }, { name: listName, href: listHref }, { name: article.title, href: `/article/${article.slug}` }]} />
+ 
+-      <div className="max-w-5xl mx-auto px-6 py-10">
++      <div className="site-article-body max-w-5xl mx-auto px-6 py-10">
++        <Link href={listHref} className="inline-flex items-center gap-2 text-sm font-semibold text-blue-700 hover:text-blue-900 mb-7">← 返回{listName}</Link>
+         <h1 className="text-3xl md:text-4xl font-bold mb-4 text-gray-900 leading-tight text-center">
+           {article.title}
+         </h1>
+@@ -288,6 +280,10 @@ export default async function ArticlePage({
+           )}
+         </div>
+ 
++        {article.summary && (
++          <p className="site-article-summary">{article.summary}</p>
++        )}
++
+         {/* ✅ 核心修改：简化 className，使用 article-content 类 */}
+         <div
+           className="article-content prose max-w-none"
+@@ -308,7 +304,7 @@ export default async function ArticlePage({
+         )}
+       </div>
+ 
+-      <div className="w-full border-t border-gray-200 bg-white py-12">
++      <div className="site-article-navigation w-full border-t border-gray-200 bg-white py-12">
+         <div className="max-w-5xl mx-auto px-6">
+           <div className="flex flex-col md:flex-row justify-between items-stretch gap-8 text-base">
+             {prev ? (
+diff --git a/frontend/app/cooperation/partner/[id]/page.tsx b/frontend/app/cooperation/partner/[id]/page.tsx
+index 45360ce..a58f2e1 100644
+--- a/frontend/app/cooperation/partner/[id]/page.tsx
++++ b/frontend/app/cooperation/partner/[id]/page.tsx
+@@ -1,7 +1,7 @@
+ import { notFound } from 'next/navigation';
+ import Header from '@/components/layout/Header';
+ import Footer from '@/components/layout/Footer';
+-import Breadcrumb from '@/components/layout/Breadcrumb';
++import PageHero from '@/components/layout/PageHero';
+ 
+ const STRAPI_BASE_URL = (
+   process.env.NEXT_PUBLIC_STRAPI_URL ||
+@@ -90,14 +90,10 @@ export default async function PartnerDetailPage({
+     <>
+       <Header />
+ 
+-      <div className="bg-gray-100 py-3">
+-        <div className="max-w-7xl mx-auto px-6">
+-          <Breadcrumb items={breadcrumbItems} />
+-        </div>
+-      </div>
++      <PageHero title="合作单位" items={breadcrumbItems} />
+ 
+-      <div className="max-w-7xl mx-auto px-6 py-10">
+-        <div className="bg-white rounded-lg shadow-lg p-8">
++      <div className="site-detail-body max-w-7xl mx-auto px-6 py-10">
++        <div className="site-detail-panel bg-white rounded-lg shadow-lg p-8">
+           {/* 顶部：Logo + 基本信息 */}
+           <div className="flex gap-8 mb-8 pb-8 border-b">
+             {partner.logo_url && (
+@@ -110,7 +106,7 @@ export default async function PartnerDetailPage({
+               </div>
+             )}
+ 
+-            <div className="flex-1">
++            <div className="flex-1 min-w-0 site-content">
+               <h1 className="text-3xl font-bold text-gray-800 mb-4">{partner.name}</h1>
+ 
+               {partner.website && (
+diff --git a/frontend/app/cooperation/partner/page.tsx b/frontend/app/cooperation/partner/page.tsx
+index 343b5fd..aa66d97 100644
+--- a/frontend/app/cooperation/partner/page.tsx
++++ b/frontend/app/cooperation/partner/page.tsx
+@@ -1,7 +1,7 @@
+ import Header from '@/components/layout/Header';
+ import Footer from '@/components/layout/Footer';
+ import Sidebar from '@/components/layout/Sidebar';
+-import Breadcrumb from '@/components/layout/Breadcrumb';
++import PageHero from '@/components/layout/PageHero';
+ import Link from 'next/link';
+ 
+ // ─── 类型 ───────────────────────────────────────────────
+@@ -101,21 +101,16 @@ export default async function CooperationPartners() {
+   return (
+     <div className="min-h-screen flex flex-col">
+       <Header />
+-      <main className="flex-1 bg-gray-50">
+-        <div className="bg-white border-b">
+-          <div className="max-w-7xl mx-auto px-4 py-6 flex items-center justify-between">
+-            <h1 className="text-3xl font-bold text-gray-800">合作单位</h1>
+-            <Breadcrumb items={breadcrumbItems} />
+-          </div>
+-        </div>
++      <main className="flex-1 bg-gray-50 site-subpage">
++        <PageHero title="合作单位" items={breadcrumbItems} />
+ 
+-        <div className="max-w-7xl mx-auto px-4 py-8">
+-          <div className="flex gap-6">
+-            <aside className="w-64 flex-shrink-0">
++        <div className="max-w-7xl mx-auto px-4 py-8 site-page-body">
++          <div className="flex gap-6 site-column-layout">
++            <aside className="w-64 flex-shrink-0 site-column-aside">
+               <Sidebar title="校企合作" items={sidebarItems} />
+             </aside>
+ 
+-            <div className="flex-1 bg-white rounded-lg shadow-lg p-8">
++            <div className="flex-1 bg-white rounded-lg shadow-lg p-8 site-content-panel">
+               <h2 className="text-2xl font-bold text-gray-800 mb-6 pb-3 border-b-2 border-blue-600">
+                 合作单位
+               </h2>
+diff --git a/frontend/app/documents/downloads/page.tsx b/frontend/app/documents/downloads/page.tsx
+index 9b5ef29..aa5d11e 100644
+--- a/frontend/app/documents/downloads/page.tsx
++++ b/frontend/app/documents/downloads/page.tsx
+@@ -2,7 +2,7 @@
+ import Header from '@/components/layout/Header';
+ import Footer from '@/components/layout/Footer';
+ import Sidebar from '@/components/layout/Sidebar';
+-import Breadcrumb from '@/components/layout/Breadcrumb';
++import PageHero from '@/components/layout/PageHero';
+ import { getContentPage, mediaUrl, mediaSize, type StrapiMedia } from '@/lib/strapi-content';
+ 
+ const PAGE_SIZE = 5;
+@@ -53,21 +53,16 @@ export default async function DocumentsDownloads({
+   return (
+     <div className="min-h-screen flex flex-col">
+       <Header />
+-      <main className="flex-1 bg-gray-50">
+-        <div className="bg-white border-b">
+-          <div className="max-w-7xl mx-auto px-4 py-6 flex items-center justify-between">
+-            <h1 className="text-3xl font-bold text-gray-800">资料下载</h1>
+-            <Breadcrumb items={breadcrumbItems} />
+-          </div>
+-        </div>
++      <main className="flex-1 bg-gray-50 site-subpage">
++        <PageHero title="资料下载" items={breadcrumbItems} />
+ 
+-        <div className="max-w-7xl mx-auto px-4 py-8">
+-          <div className="flex gap-6">
+-            <aside className="w-64 flex-shrink-0">
++        <div className="max-w-7xl mx-auto px-4 py-8 site-page-body">
++          <div className="flex gap-6 site-column-layout">
++            <aside className="w-64 flex-shrink-0 site-column-aside">
+               <Sidebar title="管理文件" items={sidebarItems} />
+             </aside>
+ 
+-            <div className="flex-1 bg-white rounded-lg shadow-lg p-8">
++            <div className="flex-1 bg-white rounded-lg shadow-lg p-8 site-content-panel">
+               <h2 className="text-2xl font-bold text-gray-800 mb-6 pb-3 border-b-2 border-blue-600">资料下载</h2>
+ 
+               {files.length === 0 ? (
+@@ -122,7 +117,7 @@ export default async function DocumentsDownloads({
+               )}
+ 
+               {/* 分页 */}
+-              <div className="flex justify-center items-center gap-2 mt-8 flex-wrap">
++              <div className="flex justify-center items-center gap-2 mt-8 flex-wrap site-pagination">
+                 {safePage > 1 ? (
+                   <a
+                     href={`/documents/downloads?page=${safePage - 1}`}
+diff --git a/frontend/app/documents/policies/[slug]/page.tsx b/frontend/app/documents/policies/[slug]/page.tsx
+index 57fc2a0..8effe45 100644
+--- a/frontend/app/documents/policies/[slug]/page.tsx
++++ b/frontend/app/documents/policies/[slug]/page.tsx
+@@ -3,7 +3,7 @@ import { sanitizeRichHtml } from '@/lib/sanitize-html';
+ import { notFound } from 'next/navigation';
+ import Header from '@/components/layout/Header';
+ import Footer from '@/components/layout/Footer';
+-import Breadcrumb from '@/components/layout/Breadcrumb';
++import PageHero from '@/components/layout/PageHero';
+ import { getContentDetail, mediaUrl, mediaSize, type StrapiMedia } from '@/lib/strapi-content';
+ 
+ type PolicyDocument = {
+@@ -36,14 +36,10 @@ export default async function PolicyDocumentDetail({
+     <>
+       <Header />
+ 
+-      <div className="bg-gray-100 py-3">
+-        <div className="max-w-7xl mx-auto px-6">
+-          <Breadcrumb items={breadcrumbItems} />
+-        </div>
+-      </div>
++      <PageHero title="政策文件" items={breadcrumbItems} />
+ 
+-      <div className="max-w-5xl mx-auto px-6 py-10">
+-        <div className="bg-white rounded-lg shadow-lg p-8">
++      <div className="site-detail-body max-w-5xl mx-auto px-6 py-10">
++        <div className="site-detail-panel bg-white rounded-lg shadow-lg p-8">
+           <h1 className="text-3xl font-bold text-gray-800 mb-4">{doc.title}</h1>
+ 
+           {doc.publish_time && (
+diff --git a/frontend/app/documents/policies/page.tsx b/frontend/app/documents/policies/page.tsx
+index 96d8d48..8fa915d 100644
+--- a/frontend/app/documents/policies/page.tsx
++++ b/frontend/app/documents/policies/page.tsx
+@@ -2,7 +2,7 @@
+ import Header from '@/components/layout/Header';
+ import Footer from '@/components/layout/Footer';
+ import Sidebar from '@/components/layout/Sidebar';
+-import Breadcrumb from '@/components/layout/Breadcrumb';
++import PageHero from '@/components/layout/PageHero';
+ import Link from 'next/link';
+ import { getContentPage } from '@/lib/strapi-content';
+ 
+@@ -55,21 +55,16 @@ export default async function DocumentsPolicies({
+   return (
+     <div className="min-h-screen flex flex-col">
+       <Header />
+-      <main className="flex-1 bg-gray-50">
+-        <div className="bg-white border-b">
+-          <div className="max-w-7xl mx-auto px-4 py-6 flex items-center justify-between">
+-            <h1 className="text-3xl font-bold text-gray-800">政策文件</h1>
+-            <Breadcrumb items={breadcrumbItems} />
+-          </div>
+-        </div>
++      <main className="flex-1 bg-gray-50 site-subpage">
++        <PageHero title="政策文件" items={breadcrumbItems} />
+ 
+-        <div className="max-w-7xl mx-auto px-4 py-8">
+-          <div className="flex gap-6">
+-            <aside className="w-64 flex-shrink-0">
++        <div className="max-w-7xl mx-auto px-4 py-8 site-page-body">
++          <div className="flex gap-6 site-column-layout">
++            <aside className="w-64 flex-shrink-0 site-column-aside">
+               <Sidebar title="管理文件" items={sidebarItems} />
+             </aside>
+ 
+-            <div className="flex-1 bg-white rounded-lg shadow-lg p-8">
++            <div className="flex-1 bg-white rounded-lg shadow-lg p-8 site-content-panel">
+               <h2 className="text-2xl font-bold text-gray-800 mb-6 pb-3 border-b-2 border-blue-600">政策文件</h2>
+ 
+               {documents.length === 0 ? (
+@@ -97,7 +92,7 @@ export default async function DocumentsPolicies({
+               )}
+ 
+               {/* 分页 */}
+-              <div className="flex justify-center items-center gap-2 mt-8 flex-wrap">
++              <div className="flex justify-center items-center gap-2 mt-8 flex-wrap site-pagination">
+                 {safePage > 1 ? (
+                   <Link
+                     href={`/documents/policies?page=${safePage - 1}`}
+diff --git a/frontend/app/faculty/enterprise/page.tsx b/frontend/app/faculty/enterprise/page.tsx
+index f64c702..723e291 100644
+--- a/frontend/app/faculty/enterprise/page.tsx
++++ b/frontend/app/faculty/enterprise/page.tsx
+@@ -2,7 +2,7 @@
+ import Header from '@/components/layout/Header';
+ import Footer from '@/components/layout/Footer';
+ import Sidebar from '@/components/layout/Sidebar';
+-import Breadcrumb from '@/components/layout/Breadcrumb';
++import PageHero from '@/components/layout/PageHero';
+ import Link from 'next/link';
+ import { getContentAll } from '@/lib/strapi-content';
+ 
+@@ -48,17 +48,12 @@ export default async function EnterpriseSupervisors() {
+   return (
+     <div className="min-h-screen flex flex-col">
+       <Header />
+-      <main className="flex-1 bg-gray-50">
+-        <div className="bg-white border-b">
+-          <div className="max-w-7xl mx-auto px-4 py-6 flex items-center justify-between">
+-            <h1 className="text-3xl font-bold text-gray-800">企业培养导师</h1>
+-            <Breadcrumb items={breadcrumbItems} />
+-          </div>
+-        </div>
++      <main className="flex-1 bg-gray-50 site-subpage">
++        <PageHero title="企业培养导师" items={breadcrumbItems} />
+ 
+-        <div className="max-w-7xl mx-auto px-4 py-8">
+-          <div className="flex gap-6">
+-            <aside className="w-64 flex-shrink-0">
++        <div className="max-w-7xl mx-auto px-4 py-8 site-page-body">
++          <div className="flex gap-6 site-column-layout">
++            <aside className="w-64 flex-shrink-0 site-column-aside">
+               <Sidebar title="师资队伍" items={sidebarItems} />
+             </aside>
+ 
+diff --git a/frontend/app/faculty/internal/page.tsx b/frontend/app/faculty/internal/page.tsx
+index bb8c3c0..070eec9 100644
+--- a/frontend/app/faculty/internal/page.tsx
++++ b/frontend/app/faculty/internal/page.tsx
+@@ -2,7 +2,7 @@
+ import Header from '@/components/layout/Header';
+ import Footer from '@/components/layout/Footer';
+ import Sidebar from '@/components/layout/Sidebar';
+-import Breadcrumb from '@/components/layout/Breadcrumb';
++import PageHero from '@/components/layout/PageHero';
+ import Link from 'next/link';
+ import { getContentAll } from '@/lib/strapi-content';
+ 
+@@ -49,17 +49,12 @@ export default async function InternalSupervisors() {
+   return (
+     <div className="min-h-screen flex flex-col">
+       <Header />
+-      <main className="flex-1 bg-gray-50">
+-        <div className="bg-white border-b">
+-          <div className="max-w-7xl mx-auto px-4 py-6 flex items-center justify-between">
+-            <h1 className="text-3xl font-bold text-gray-800">校内培养导师</h1>
+-            <Breadcrumb items={breadcrumbItems} />
+-          </div>
+-        </div>
++      <main className="flex-1 bg-gray-50 site-subpage">
++        <PageHero title="校内培养导师" items={breadcrumbItems} />
+ 
+-        <div className="max-w-7xl mx-auto px-4 py-8">
+-          <div className="flex gap-6">
+-            <aside className="w-64 flex-shrink-0">
++        <div className="max-w-7xl mx-auto px-4 py-8 site-page-body">
++          <div className="flex gap-6 site-column-layout">
++            <aside className="w-64 flex-shrink-0 site-column-aside">
+               <Sidebar title="师资队伍" items={sidebarItems} />
+             </aside>
+ 
+diff --git a/frontend/app/faculty/supervisor/[slug]/page.tsx b/frontend/app/faculty/supervisor/[slug]/page.tsx
+index f2108c4..6417faf 100644
+--- a/frontend/app/faculty/supervisor/[slug]/page.tsx
++++ b/frontend/app/faculty/supervisor/[slug]/page.tsx
+@@ -3,7 +3,7 @@ import { sanitizeRichHtml } from '@/lib/sanitize-html';
+ import { notFound } from 'next/navigation';
+ import Header from '@/components/layout/Header';
+ import Footer from '@/components/layout/Footer';
+-import Breadcrumb from '@/components/layout/Breadcrumb';
++import PageHero from '@/components/layout/PageHero';
+ import { getContentDetail, mediaUrl, type StrapiMedia } from '@/lib/strapi-content';
+ 
+ type Education = {
+@@ -64,14 +64,10 @@ export default async function SupervisorDetail({
+     <>
+       <Header />
+ 
+-      <div className="bg-gray-100 py-3">
+-        <div className="max-w-7xl mx-auto px-6">
+-          <Breadcrumb items={breadcrumbItems} />
+-        </div>
+-      </div>
++      <PageHero title={categoryName} items={breadcrumbItems} />
+ 
+-      <div className="max-w-7xl mx-auto px-6 py-10">
+-        <div className="bg-white rounded-lg shadow-lg p-8">
++      <div className="site-detail-body max-w-7xl mx-auto px-6 py-10">
++        <div className="site-detail-panel bg-white rounded-lg shadow-lg p-8">
+           {/* 顶部：照片 + 基本信息 */}
+           <div className="flex gap-8 mb-8 pb-8 border-b">
+             <div className="flex-shrink-0">
+@@ -88,7 +84,7 @@ export default async function SupervisorDetail({
+               )}
+             </div>
+ 
+-            <div className="flex-1">
++            <div className="flex-1 min-w-0 site-content">
+               <h1 className="text-3xl font-bold text-gray-800 mb-2">
+                 {supervisor.name}
+                 {supervisor.name_en && (
+diff --git a/frontend/app/faculty/tutors/page.tsx b/frontend/app/faculty/tutors/page.tsx
+index 3cd4d79..c850b2b 100644
+--- a/frontend/app/faculty/tutors/page.tsx
++++ b/frontend/app/faculty/tutors/page.tsx
+@@ -1,7 +1,7 @@
+ import Header from '@/components/layout/Header';
+ import Footer from '@/components/layout/Footer';
+ import Sidebar from '@/components/layout/Sidebar';
+-import Breadcrumb from '@/components/layout/Breadcrumb';
++import PageHero from '@/components/layout/PageHero';
+ import Link from 'next/link';
+ 
+ export default function FacultyTutors() {
+@@ -19,21 +19,16 @@ export default function FacultyTutors() {
+   return (
+     <div className="min-h-screen flex flex-col">
+       <Header />
+-      <main className="flex-1 bg-gray-50">
+-        <div className="bg-white border-b">
+-          <div className="max-w-7xl mx-auto px-4 py-6 flex items-center justify-between">
+-            <h1 className="text-3xl font-bold text-gray-800">导师介绍</h1>
+-            <Breadcrumb items={breadcrumbItems} />
+-          </div>
+-        </div>
++      <main className="flex-1 bg-gray-50 site-subpage">
++        <PageHero title="导师介绍" items={breadcrumbItems} />
+ 
+-        <div className="max-w-7xl mx-auto px-4 py-8">
+-          <div className="flex gap-6">
+-            <aside className="w-64 flex-shrink-0">
++        <div className="max-w-7xl mx-auto px-4 py-8 site-page-body">
++          <div className="flex gap-6 site-column-layout">
++            <aside className="w-64 flex-shrink-0 site-column-aside">
+               <Sidebar title="师资队伍" items={sidebarItems} />
+             </aside>
+ 
+-            <div className="flex-1 bg-white rounded-lg shadow-lg p-8">
++            <div className="flex-1 bg-white rounded-lg shadow-lg p-8 site-content-panel">
+               <h2 className="text-2xl font-bold text-gray-800 mb-6 pb-3 border-b-2 border-blue-600">
+                 导师介绍
+               </h2>
+diff --git a/frontend/app/globals.css b/frontend/app/globals.css
+index db9731e..79c5e6b 100644
+--- a/frontend/app/globals.css
++++ b/frontend/app/globals.css
+@@ -356,3 +356,114 @@ a {
+   border-radius: 3px !important;
+   font-size: 0.9em !important;
+ }
++
++/* 二级页面延续首页的深海蓝、浅蓝与留白节奏 */
++.site-subpage { background: radial-gradient(circle at 92% 10%, #e4f1fa 0, transparent 30%), #f5f8fb !important; }
++.site-page-hero { position: relative; isolation: isolate; overflow: hidden; color: #fff; background: #073864; }
++.site-page-hero::before { content: ''; position: absolute; z-index: -2; inset: 0; background: url('/images/zh-banner3.png') center 46% / cover no-repeat; transform: scale(1.025); transition: transform .8s ease; }
++.site-page-hero:hover::before { transform: scale(1.06); }
++.site-page-hero::after { content: ''; position: absolute; z-index: -1; inset: 0; background: linear-gradient(90deg, rgba(3,30,64,.94), rgba(4,53,101,.83) 54%, rgba(5,59,106,.53)), linear-gradient(0deg, rgba(2,29,59,.5), transparent); }
++.site-page-hero-inner { width: min(100% - 64px, 1280px); margin: auto; min-height: 275px; display: flex; flex-direction: column; justify-content: center; align-items: flex-start; padding: 48px 0 38px; }
++.site-page-eyebrow { display: inline-flex; align-items: center; gap: 12px; color: #a5d8f5; font-size: 12px; font-weight: 700; letter-spacing: .15em; }
++.site-page-eyebrow::before { content: ''; display: block; width: 28px; height: 2px; background: #91d5fb; }
++.site-page-hero h1 { margin: 17px 0 24px; font-size: clamp(33px, 4vw, 55px); line-height: 1.2; font-weight: 700; letter-spacing: .06em; text-wrap: balance; }
++.site-breadcrumb { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; max-width: 100%; font-size: 13px; color: #c6def0; }
++.site-breadcrumb-segment { display: inline-flex; align-items: center; min-width: 0; gap: 7px; }
++.site-breadcrumb a { transition: color .2s; }
++.site-breadcrumb a:hover { color: #fff; text-decoration: underline; text-underline-offset: 4px; }
++.site-breadcrumb-divider { opacity: .5; }
++.site-breadcrumb-current { color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: min(55vw, 600px); }
++.site-page-body { padding-top: 55px !important; padding-bottom: 95px !important; }
++.site-column-layout { gap: clamp(24px, 3vw, 44px) !important; align-items: flex-start; }
++.site-column-aside { width: 245px !important; }
++.site-column-layout > .flex-1 { min-width: 0; }
++.site-sidebar { overflow: hidden; border: 1px solid #e0eaf3; background: white; box-shadow: 0 12px 30px rgba(12,55,96,.07); }
++.site-sidebar-heading { padding: 28px 28px 24px; color: #fff; background: linear-gradient(125deg, #075294, #063666); }
++.site-sidebar-heading::before { content: 'SECTION / 栏目导航'; display: block; margin-bottom: 8px; font-size: 10px; font-weight: 700; letter-spacing: .15em; color: #b9dcf1; }
++.site-sidebar-heading h2 { font-size: 22px; }
++.site-sidebar-nav { padding: 10px 0; }
++.site-sidebar-link { display: flex; justify-content: space-between; align-items: center; gap: 12px; position: relative; padding: 15px 23px 15px 29px; color: #3c5771; border-left: 3px solid transparent; transition: background .25s, color .25s, border-color .25s, padding .25s; }
++.site-sidebar-link > span:last-child { opacity: 0; color: #157ebc; transform: translateX(-5px); transition: opacity .25s, transform .25s; }
++.site-sidebar-link:hover, .site-sidebar-link:focus-visible, .site-sidebar-link.is-active { background: #ebf5fc; color: #07599b; border-left-color: #1595d0; padding-left: 35px; }
++.site-sidebar-link:hover > span:last-child, .site-sidebar-link:focus-visible > span:last-child, .site-sidebar-link.is-active > span:last-child { opacity: 1; transform: none; }
++.site-content-panel { min-width: 0; border: 1px solid #e8eef4; border-radius: 2px !important; padding: clamp(23px, 3vw, 46px) !important; box-shadow: 0 14px 35px rgba(12,55,96,.06) !important; }
++.site-content-panel > h2:first-child { border: 0 !important; border-bottom: 1px solid #e2ebf2 !important; font-size: clamp(22px, 2vw, 30px); color: #143d65; padding-bottom: 22px !important; margin-bottom: 27px !important; }
++.site-content-panel > h2:first-child::before { content: ''; display: inline-block; width: 4px; height: 24px; background: #208cc7; vertical-align: -4px; margin-right: 13px; }
++.site-content-panel a:focus-visible, .site-content a:focus-visible, .site-editorial-wrap a:focus-visible, .site-sidebar a:focus-visible, .site-page-hero a:focus-visible, .site-article-body a:focus-visible { outline: 3px solid #61baf1; outline-offset: 3px; }
++.site-content-panel .grid > a, .site-content-panel .grid > div, .site-content-panel .grid > article { transition: transform .25s, box-shadow .25s; }
++.site-content-panel .grid > a:hover, .site-content-panel .grid > article:hover { transform: translateY(-3px); }
++.site-content .space-y-4 > a.group { border: 1px solid #e4edf4 !important; border-radius: 2px !important; box-shadow: 0 5px 18px rgba(9,52,93,.04) !important; transition: transform .25s, box-shadow .25s, border-color .25s; }
++.site-content .space-y-4 > a.group:hover { transform: translateY(-3px); border-color: #bad5ea !important; box-shadow: 0 15px 35px rgba(8,58,105,.12) !important; }
++.site-category-card > .flex > div:first-child { background: linear-gradient(140deg, #136da9, #064277); }
++.site-list-empty { border: 1px solid #e1eaf2; background: white; padding: 70px 22px; text-align: center; color: #74899a; }
++.site-pagination { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 9px; margin-top: 40px; }
++.site-pagination a, .site-pagination > span:not(.is-ellipsis) { display: inline-flex; align-items: center; justify-content: center; min-height: 41px; min-width: 41px; padding: 8px 14px; border: 1px solid #d5e4f0; border-radius: 2px; font-size: 13px; color: #285270; background: #fff; transition: background .25s, color .25s, border-color .25s; }
++.site-pagination a:hover, .site-pagination a[aria-current="page"] { color: white; border-color: #075b9a; background: #075b9a; }
++.site-pagination .is-disabled { color: #a5b4c2 !important; background: #f5f7f9 !important; }
++.site-editorial-wrap { width: min(100% - 64px, 1190px); margin: auto; padding: 70px 0 100px; }
++.site-list-intro { display: flex; justify-content: space-between; align-items: end; gap: 24px; padding-bottom: 24px; margin-bottom: 23px; border-bottom: 1px solid #cfdfeb; }
++.site-list-kicker { font-size: 11px; font-weight: 700; letter-spacing: .2em; color: #3083af; }
++.site-list-intro h2 { margin-top: 6px; font-size: clamp(25px, 2.4vw, 35px); color: #163f67; font-weight: 700; }
++.site-list-intro p { color: #7d91a2; font-size: 13px; white-space: nowrap; }
++.site-editorial-list { display: grid; gap: 13px; }
++.site-editorial-item { position: relative; display: flex; align-items: center; gap: clamp(18px, 3vw, 42px); min-height: 135px; padding: 23px clamp(20px, 3vw, 38px); background: white; border: 1px solid #e2eaf1; overflow: hidden; transition: transform .3s, box-shadow .3s, border-color .3s; }
++.site-editorial-item::before { content: ''; position: absolute; inset: 0; background: linear-gradient(110deg, #075c9c, #073d71); transform: translateY(101%); transition: transform .35s ease; }
++.site-editorial-item:hover, .site-editorial-item:focus-visible { transform: translateY(-3px); box-shadow: 0 16px 35px rgba(9,55,102,.14); border-color: transparent; }
++.site-editorial-item:hover::before, .site-editorial-item:focus-visible::before { transform: translateY(0); }
++.site-editorial-date, .site-editorial-copy, .site-editorial-arrow { position: relative; z-index: 1; transition: color .25s, border-color .25s; }
++.site-editorial-date { min-width: 94px; padding-right: 23px; border-right: 1px solid #dbe6ed; display: flex; flex-direction: column; }
++.site-editorial-date strong { color: #1b72a8; font-family: Georgia, serif; font-size: 42px; line-height: 1; }
++.site-editorial-date small { color: #718ba2; font-size: 11px; margin-top: 8px; white-space: nowrap; }
++.site-editorial-copy { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 7px; }
++.site-editorial-copy strong { color: #193c61; font-size: clamp(17px, 1.7vw, 21px); font-weight: 650; line-height: 1.45; }
++.site-editorial-copy > span { color: #788da0; font-size: 13px; line-height: 1.6; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
++.site-editorial-arrow { font-size: 27px; color: #2783b7; }
++.site-editorial-item:hover .site-editorial-date, .site-editorial-item:focus-visible .site-editorial-date { border-color: rgba(255,255,255,.4); }
++.site-editorial-item:hover .site-editorial-date strong, .site-editorial-item:hover .site-editorial-date small, .site-editorial-item:hover .site-editorial-copy strong, .site-editorial-item:hover .site-editorial-copy > span, .site-editorial-item:hover .site-editorial-arrow, .site-editorial-item:focus-visible .site-editorial-date strong, .site-editorial-item:focus-visible .site-editorial-date small, .site-editorial-item:focus-visible .site-editorial-copy strong, .site-editorial-item:focus-visible .site-editorial-copy > span, .site-editorial-item:focus-visible .site-editorial-arrow { color: white; }
++body:has(.site-detail-body), body:has(.site-article-body) { background: #f5f8fb; }
++.site-detail-body, .site-article-body { position: relative; padding-top: 60px !important; padding-bottom: 75px !important; }
++.site-detail-panel, .site-article-body { border: 1px solid #e4edf4; border-radius: 2px !important; box-shadow: 0 15px 40px rgba(13,56,98,.08) !important; background: #fff; }
++.site-detail-panel { padding: clamp(22px, 4vw, 55px) !important; }
++.site-detail-panel h1, .site-article-body h1 { color: #173d65 !important; line-height: 1.4; text-wrap: balance; }
++.site-article-body { margin-top: 42px; margin-bottom: 45px; padding: clamp(24px, 5vw, 65px) !important; }
++.site-article-body h1 { font-size: clamp(25px, 3vw, 38px); }
++.site-article-body .article-content { max-width: 860px; margin: auto; }
++.site-article-navigation { background: #f5f8fb !important; }
++.site-article-navigation a { background: white; border-radius: 2px !important; }
++.site-article-navigation a:hover { background: #ebf5fc; }
++@media (max-width: 760px) {
++  .site-page-hero-inner, .site-editorial-wrap { width: min(100% - 36px, 1280px); }
++  .site-page-hero-inner { min-height: 210px; padding: 38px 0 30px; }
++  .site-page-hero h1 { margin: 16px 0 20px; }
++  .site-column-layout { flex-direction: column; }
++  .site-column-aside { width: 100% !important; }
++  .site-sidebar-heading { padding: 16px 20px; }
++  .site-sidebar-heading::before { margin-bottom: 2px; }
++  .site-sidebar-nav { display: flex; overflow-x: auto; white-space: nowrap; padding: 3px 5px; scrollbar-width: thin; }
++  .site-sidebar-link, .site-sidebar-link:hover, .site-sidebar-link.is-active { padding: 12px 15px; border-left: 0; border-bottom: 3px solid transparent; }
++  .site-sidebar-link.is-active { border-bottom-color: #168cca; }
++  .site-sidebar-link > span:last-child { display: none; }
++  .site-page-body { padding-top: 25px !important; padding-bottom: 65px !important; }
++  .site-editorial-wrap { padding: 42px 0 75px; }
++  .site-editorial-item { min-height: 110px; gap: 15px; padding: 18px 15px; }
++  .site-editorial-date { min-width: 70px; padding-right: 14px; }
++  .site-editorial-date strong { font-size: 32px; }
++  .site-editorial-arrow { display: none; }
++  .site-editorial-copy > span { -webkit-line-clamp: 1; }
++  .site-list-intro { align-items: flex-start; }
++  .site-list-intro p { padding-top: 6px; }
++  .site-detail-body { padding-top: 28px !important; }
++  .site-detail-panel > .flex { flex-direction: column; }
++  .site-article-body { margin-top: 25px; }
++}
++@media (prefers-reduced-motion: reduce) {
++  .site-subpage *, .site-subpage *::before, .site-subpage *::after, .site-page-hero *, .site-page-hero::before, .site-detail-body *, .site-article-body * { transition-duration: .01ms !important; animation-duration: .01ms !important; }
++}
++.site-article-summary { max-width: 860px; margin: 0 auto 38px; padding: 20px 24px; border-left: 3px solid #2a9ac7; color: #486985; background: #f0f7fb; font-size: 15px; line-height: 1.9; }
++.site-search-panel { margin-top: 55px; margin-bottom: 90px; border: 1px solid #e0ebf3; border-radius: 2px !important; box-shadow: 0 14px 35px rgba(13,56,98,.07); }
++.site-search-panel input { outline-color: #218bc7; }
++.site-search-panel button { background: #075994; transition: background .2s, transform .2s; }
++.site-search-panel button:hover { background: #034574; transform: translateY(-2px); }
++.site-search-results li { transition: background .2s, padding .2s; }
++.site-search-results li:hover { background: #f0f7fc; padding-left: 12px; }
++@media (max-width: 760px) { .site-search-panel { margin: 25px 18px 70px; } }
+diff --git a/frontend/app/news/page.tsx b/frontend/app/news/page.tsx
+index 1bbdd41..b7aa770 100644
+--- a/frontend/app/news/page.tsx
++++ b/frontend/app/news/page.tsx
+@@ -1,12 +1,8 @@
+ import type { Metadata } from 'next';
+ import { buildPagedMetadata } from '@/lib/seo/metadata';
+ import { getNewsPageList, type ListArticleItem } from '@/lib/api';
+-import { getPageNumbers } from '@/lib/pagination';
+ import { PAGE_SIZE } from '@/lib/constants';
+-import Header from '@/components/layout/Header';
+-import Footer from '@/components/layout/Footer';
+-import Breadcrumb from '@/components/layout/Breadcrumb';
+-import Link from 'next/link';
++import EditorialListing from '@/components/list/EditorialListing';
+ 
+ export async function generateMetadata({
+   searchParams,
+@@ -29,107 +25,9 @@ export default async function NewsPage({
+ }) {
+   const sp = await searchParams;
+   const currentPage = Math.max(1, Number(sp?.page || '1') || 1);
+-
+-  const breadcrumbItems = [
+-    { name: '首页', href: '/' },
+-    { name: '新闻动态', href: '/news' },
+-  ];
+-
+   const resp = await getNewsPageList(currentPage, PAGE_SIZE.NEWS);
+-  const newsItems: ListArticleItem[] = resp.data || [];
+-
++  const items: ListArticleItem[] = resp.data || [];
+   const total = resp.meta?.pagination?.total || 0;
+-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE.NEWS));
+-  const safePage = Math.min(currentPage, totalPages);
+-  const pageNumbers = getPageNumbers(safePage, totalPages);
+-
+-  return (
+-    <div className="min-h-screen flex flex-col">
+-      <Header />
+-      <main className="flex-1 bg-gray-50">
+-        <div className="bg-white border-b">
+-          <div className="max-w-7xl mx-auto px-4 py-6 flex items-center justify-between">
+-            <h1 className="text-3xl font-bold text-gray-800">新闻动态</h1>
+-            <Breadcrumb items={breadcrumbItems} />
+-          </div>
+-        </div>
+-
+-        <div className="max-w-7xl mx-auto px-4 py-8">
+-          {newsItems.length === 0 ? (
+-            <div className="bg-white rounded-lg shadow-sm p-8 text-gray-500">暂无新闻数据</div>
+-          ) : (
+-            <div className="space-y-4">
+-              {newsItems.map((item) => (
+-                <Link
+-                  key={item.id}
+-                  href={`/article/${item.slug}?from=news`}
+-                  className="group block bg-white rounded-lg shadow-sm hover:shadow-xl transition-all duration-300"
+-                >
+-                  <div className="p-6">
+-                    <div className="flex items-start gap-4">
+-                      <div className="text-sm text-gray-400 flex-shrink-0">
+-                        TIME:{' '}
+-                        {item.publish_time
+-                          ? new Date(item.publish_time).toLocaleDateString('zh-CN')
+-                          : '--'}
+-                      </div>
+-                      <div className="flex-1 min-w-0">
+-                        <h3 className="text-xl font-bold text-gray-800 group-hover:text-blue-600 transition-colors mb-2">
+-                          {item.title}
+-                        </h3>
+-                        <p className="text-sm text-gray-600 line-clamp-2">
+-                          {item.summary || '暂无摘要'}
+-                        </p>
+-                      </div>
+-                    </div>
+-                  </div>
+-                </Link>
+-              ))}
+-            </div>
+-          )}
+-
+-          <div className="flex justify-center items-center gap-2 mt-8 flex-wrap">
+-            {safePage > 1 ? (
+-              <Link
+-                href={`/news?page=${safePage - 1}`}
+-                className="px-4 py-2 bg-gray-200 text-gray-600 rounded hover:bg-gray-300"
+-              >
+-                上一页
+-              </Link>
+-            ) : (
+-              <span className="px-4 py-2 bg-gray-100 text-gray-400 rounded cursor-not-allowed">上一页</span>
+-            )}
+-
+-            {pageNumbers.map((p, idx) =>
+-              p === '...' ? (
+-                <span key={`ellipsis-${idx}`} className="px-2 py-2 text-gray-400">...</span>
+-              ) : (
+-                <Link
+-                  key={p}
+-                  href={`/news?page=${p}`}
+-                  className={`px-4 py-2 rounded transition-colors ${
+-                    p === safePage ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+-                  }`}
+-                >
+-                  {p}
+-                </Link>
+-              )
+-            )}
+-
+-            {safePage < totalPages ? (
+-              <Link
+-                href={`/news?page=${safePage + 1}`}
+-                className="px-4 py-2 bg-gray-200 text-gray-600 rounded hover:bg-gray-300"
+-              >
+-                下一页
+-              </Link>
+-            ) : (
+-              <span className="px-4 py-2 bg-gray-100 text-gray-400 rounded cursor-not-allowed">下一页</span>
+-            )}
+-          </div>
+-        </div>
+-      </main>
+-      <Footer />
+-    </div>
+-  );
++  const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE.NEWS));
++  return <EditorialListing title="新闻动态" path="/news" from="news" items={items} page={Math.min(currentPage, pageCount)} pageCount={pageCount} total={total} />;
+ }
+diff --git a/frontend/app/notice/page.tsx b/frontend/app/notice/page.tsx
+index c1ea67c..b11347a 100644
+--- a/frontend/app/notice/page.tsx
++++ b/frontend/app/notice/page.tsx
+@@ -1,12 +1,8 @@
+ import type { Metadata } from 'next';
+ import { buildPagedMetadata } from '@/lib/seo/metadata';
+ import { getNoticePageList, type ListArticleItem } from '@/lib/api';
+-import { getPageNumbers } from '@/lib/pagination';
+ import { PAGE_SIZE } from '@/lib/constants';
+-import Header from '@/components/layout/Header';
+-import Footer from '@/components/layout/Footer';
+-import Breadcrumb from '@/components/layout/Breadcrumb';
+-import Link from 'next/link';
++import EditorialListing from '@/components/list/EditorialListing';
+ 
+ export async function generateMetadata({
+   searchParams,
+@@ -29,107 +25,9 @@ export default async function NoticePage({
+ }) {
+   const sp = await searchParams;
+   const currentPage = Math.max(1, Number(sp?.page || '1') || 1);
+-
+-  const breadcrumbItems = [
+-    { name: '首页', href: '/' },
+-    { name: '通知公告', href: '/notice' },
+-  ];
+-
+   const resp = await getNoticePageList(currentPage, PAGE_SIZE.NOTICE);
+-  const notices: ListArticleItem[] = resp.data || [];
+-
++  const items: ListArticleItem[] = resp.data || [];
+   const total = resp.meta?.pagination?.total || 0;
+-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE.NOTICE));
+-  const safePage = Math.min(currentPage, totalPages);
+-  const pageNumbers = getPageNumbers(safePage, totalPages);
+-
+-  return (
+-    <div className="min-h-screen flex flex-col">
+-      <Header />
+-      <main className="flex-1 bg-gray-50">
+-        <div className="bg-white border-b">
+-          <div className="max-w-7xl mx-auto px-4 py-6 flex items-center justify-between">
+-            <h1 className="text-3xl font-bold text-gray-800">通知公告</h1>
+-            <Breadcrumb items={breadcrumbItems} />
+-          </div>
+-        </div>
+-
+-        <div className="max-w-7xl mx-auto px-4 py-8">
+-          {notices.length === 0 ? (
+-            <div className="bg-white rounded-lg shadow-sm p-8 text-gray-500">暂无通知公告</div>
+-          ) : (
+-            <div className="space-y-4">
+-              {notices.map((item) => (
+-                <Link
+-                  key={item.id}
+-                  href={`/article/${item.slug}?from=notice`}
+-                  className="group block bg-white rounded-lg shadow-sm hover:shadow-xl transition-all duration-300"
+-                >
+-                  <div className="p-6">
+-                    <div className="flex items-start gap-4">
+-                      <div className="text-sm text-gray-400 flex-shrink-0">
+-                        TIME:{' '}
+-                        {item.publish_time
+-                          ? new Date(item.publish_time).toLocaleDateString('zh-CN')
+-                          : '--'}
+-                      </div>
+-                      <div className="flex-1 min-w-0">
+-                        <h3 className="text-xl font-bold text-gray-800 group-hover:text-blue-600 transition-colors mb-2">
+-                          {item.title}
+-                        </h3>
+-                        <p className="text-sm text-gray-600 line-clamp-2">
+-                          {item.summary || '暂无摘要'}
+-                        </p>
+-                      </div>
+-                    </div>
+-                  </div>
+-                </Link>
+-              ))}
+-            </div>
+-          )}
+-
+-          <div className="flex justify-center items-center gap-2 mt-8 flex-wrap">
+-            {safePage > 1 ? (
+-              <Link
+-                href={`/notice?page=${safePage - 1}`}
+-                className="px-4 py-2 bg-gray-200 text-gray-600 rounded hover:bg-gray-300"
+-              >
+-                上一页
+-              </Link>
+-            ) : (
+-              <span className="px-4 py-2 bg-gray-100 text-gray-400 rounded cursor-not-allowed">上一页</span>
+-            )}
+-
+-            {pageNumbers.map((p, idx) =>
+-              p === '...' ? (
+-                <span key={`ellipsis-${idx}`} className="px-2 py-2 text-gray-400">...</span>
+-              ) : (
+-                <Link
+-                  key={p}
+-                  href={`/notice?page=${p}`}
+-                  className={`px-4 py-2 rounded transition-colors ${
+-                    p === safePage ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+-                  }`}
+-                >
+-                  {p}
+-                </Link>
+-              )
+-            )}
+-
+-            {safePage < totalPages ? (
+-              <Link
+-                href={`/notice?page=${safePage + 1}`}
+-                className="px-4 py-2 bg-gray-200 text-gray-600 rounded hover:bg-gray-300"
+-              >
+-                下一页
+-              </Link>
+-            ) : (
+-              <span className="px-4 py-2 bg-gray-100 text-gray-400 rounded cursor-not-allowed">下一页</span>
+-            )}
+-          </div>
+-        </div>
+-      </main>
+-      <Footer />
+-    </div>
+-  );
++  const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE.NOTICE));
++  return <EditorialListing title="通知公告" path="/notice" from="notice" items={items} page={Math.min(currentPage, pageCount)} pageCount={pageCount} total={total} />;
+ }
+diff --git a/frontend/app/research/institutions/[slug]/page.tsx b/frontend/app/research/institutions/[slug]/page.tsx
+index 7d42c07..07a400e 100644
+--- a/frontend/app/research/institutions/[slug]/page.tsx
++++ b/frontend/app/research/institutions/[slug]/page.tsx
+@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
+ import Header from '@/components/layout/Header';
+ import Footer from '@/components/layout/Footer';
+ import Sidebar from '@/components/layout/Sidebar';
+-import Breadcrumb from '@/components/layout/Breadcrumb';
++import PageHero from '@/components/layout/PageHero';
+ import { getContentDetail, mediaUrl, type StrapiMedia } from '@/lib/strapi-content';
+ 
+ type Institution = {
+@@ -35,20 +35,16 @@ export default async function InstitutionDetail({ params }: { params: Promise<{
+   return (
+     <div className="min-h-screen flex flex-col">
+       <Header />
+-      <main className="flex-1 bg-gray-50">
+-        <div className="bg-white border-b">
+-          <div className="max-w-7xl mx-auto px-4 py-6 flex items-center justify-between">
+-             <Breadcrumb items={breadcrumbItems} />
+-          </div>
+-        </div>
++      <main className="flex-1 bg-gray-50 site-subpage">
++        <PageHero title={inst.name} items={breadcrumbItems} />
+ 
+-        <div className="max-w-7xl mx-auto px-4 py-8">
+-          <div className="flex gap-6">
+-            <aside className="w-64 flex-shrink-0">
++        <div className="max-w-7xl mx-auto px-4 py-8 site-page-body">
++          <div className="flex gap-6 site-column-layout">
++            <aside className="w-64 flex-shrink-0 site-column-aside">
+               <Sidebar title="科学研究" items={sidebarItems} />
+             </aside>
+ 
+-            <div className="flex-1 bg-white rounded-lg shadow-lg p-8">
++            <div className="flex-1 bg-white rounded-lg shadow-lg p-8 site-content-panel">
+               <h2 className="text-2xl font-bold text-gray-800 mb-6 pb-3 border-b-2 border-blue-600">
+                 {inst.name}
+               </h2>
+diff --git a/frontend/app/research/institutions/page.tsx b/frontend/app/research/institutions/page.tsx
+index a3bcfe5..81c5c00 100644
+--- a/frontend/app/research/institutions/page.tsx
++++ b/frontend/app/research/institutions/page.tsx
+@@ -1,7 +1,7 @@
+ import Header from '@/components/layout/Header';
+ import Footer from '@/components/layout/Footer';
+ import Sidebar from '@/components/layout/Sidebar';
+-import Breadcrumb from '@/components/layout/Breadcrumb';
++import PageHero from '@/components/layout/PageHero';
+ import Link from 'next/link';
+ import { getContentAll, mediaUrl, type StrapiMedia } from '@/lib/strapi-content';
+ 
+@@ -31,21 +31,16 @@ export default async function ResearchInstitutions() {
+   return (
+     <div className="min-h-screen flex flex-col">
+       <Header />
+-      <main className="flex-1 bg-gray-50">
+-        <div className="bg-white border-b">
+-          <div className="max-w-7xl mx-auto px-4 py-6 flex items-center justify-between">
+-            <h1 className="text-3xl font-bold text-gray-800">科研机构</h1>
+-            <Breadcrumb items={breadcrumbItems} />
+-          </div>
+-        </div>
++      <main className="flex-1 bg-gray-50 site-subpage">
++        <PageHero title="科研机构" items={breadcrumbItems} />
+ 
+-        <div className="max-w-7xl mx-auto px-4 py-8">
+-          <div className="flex gap-6">
+-            <aside className="w-64 flex-shrink-0">
++        <div className="max-w-7xl mx-auto px-4 py-8 site-page-body">
++          <div className="flex gap-6 site-column-layout">
++            <aside className="w-64 flex-shrink-0 site-column-aside">
+               <Sidebar title="科学研究" items={sidebarItems} />
+             </aside>
+ 
+-            <div className="flex-1">
++            <div className="flex-1 min-w-0 site-content">
+               {institutions.length === 0 ? (
+                 <div className="bg-white rounded-lg shadow-sm p-8 text-gray-500">暂无科研机构数据</div>
+               ) : (
+diff --git a/frontend/app/research/transfer/[slug]/page.tsx b/frontend/app/research/transfer/[slug]/page.tsx
+index b749e50..b2e784a 100644
+--- a/frontend/app/research/transfer/[slug]/page.tsx
++++ b/frontend/app/research/transfer/[slug]/page.tsx
+@@ -3,7 +3,7 @@ import { sanitizeRichHtml } from '@/lib/sanitize-html';
+ import { notFound } from 'next/navigation';
+ import Header from '@/components/layout/Header';
+ import Footer from '@/components/layout/Footer';
+-import Breadcrumb from '@/components/layout/Breadcrumb';
++import PageHero from '@/components/layout/PageHero';
+ import { getContentDetail, mediaUrl, mediaSize, type StrapiMedia } from '@/lib/strapi-content';
+ 
+ type ResearchTransfer = {
+@@ -37,14 +37,10 @@ export default async function ResearchTransferDetail({
+     <>
+       <Header />
+ 
+-      <div className="bg-gray-100 py-3">
+-        <div className="max-w-7xl mx-auto px-6">
+-          <Breadcrumb items={breadcrumbItems} />
+-        </div>
+-      </div>
++      <PageHero title="成果转化" items={breadcrumbItems} />
+ 
+-      <div className="max-w-5xl mx-auto px-6 py-10">
+-        <div className="bg-white rounded-lg shadow-lg p-8">
++      <div className="site-detail-body max-w-5xl mx-auto px-6 py-10">
++        <div className="site-detail-panel bg-white rounded-lg shadow-lg p-8">
+           <h1 className="text-3xl font-bold text-gray-800 mb-4">{transfer.title}</h1>
+ 
+           {transfer.publish_time && (
+diff --git a/frontend/app/research/transfer/page.tsx b/frontend/app/research/transfer/page.tsx
+index 599f7df..a1b44e0 100644
+--- a/frontend/app/research/transfer/page.tsx
++++ b/frontend/app/research/transfer/page.tsx
+@@ -1,7 +1,7 @@
+ import Header from '@/components/layout/Header';
+ import Footer from '@/components/layout/Footer';
+ import Sidebar from '@/components/layout/Sidebar';
+-import Breadcrumb from '@/components/layout/Breadcrumb';
++import PageHero from '@/components/layout/PageHero';
+ import Link from 'next/link';
+ import { getContentPage } from '@/lib/strapi-content';
+ 
+@@ -56,21 +56,16 @@ export default async function ResearchTransfer({
+   return (
+     <div className="min-h-screen flex flex-col">
+       <Header />
+-      <main className="flex-1 bg-gray-50">
+-        <div className="bg-white border-b">
+-          <div className="max-w-7xl mx-auto px-4 py-6 flex items-center justify-between">
+-            <h1 className="text-3xl font-bold text-gray-800">成果转化</h1>
+-            <Breadcrumb items={breadcrumbItems} />
+-          </div>
+-        </div>
++      <main className="flex-1 bg-gray-50 site-subpage">
++        <PageHero title="成果转化" items={breadcrumbItems} />
+ 
+-        <div className="max-w-7xl mx-auto px-4 py-8">
+-          <div className="flex gap-6">
+-            <aside className="w-64 flex-shrink-0">
++        <div className="max-w-7xl mx-auto px-4 py-8 site-page-body">
++          <div className="flex gap-6 site-column-layout">
++            <aside className="w-64 flex-shrink-0 site-column-aside">
+               <Sidebar title="科学研究" items={sidebarItems} />
+             </aside>
+ 
+-            <div className="flex-1">
++            <div className="flex-1 min-w-0 site-content">
+               {transferData.length === 0 ? (
+                 <div className="bg-white rounded-lg shadow-sm p-8 text-gray-500">暂无成果转化数据</div>
+               ) : (
+@@ -115,7 +110,7 @@ export default async function ResearchTransfer({
+               )}
+ 
+               {/* 分页 */}
+-              <div className="flex justify-center items-center gap-2 mt-8 flex-wrap">
++              <div className="flex justify-center items-center gap-2 mt-8 flex-wrap site-pagination">
+                 {safePage > 1 ? (
+                   <Link
+                     href={`/research/transfer?page=${safePage - 1}`}
+diff --git a/frontend/app/search/page.tsx b/frontend/app/search/page.tsx
+index d743e6e..0b178f8 100644
+--- a/frontend/app/search/page.tsx
++++ b/frontend/app/search/page.tsx
+@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
+ import Link from 'next/link';
+ import Header from '@/components/layout/Header';
+ import Footer from '@/components/layout/Footer';
++import PageHero from '@/components/layout/PageHero';
+ 
+ export const metadata: Metadata = {
+   title: '站内搜索 - 吉林大学国家卓越工程师学院(珠海)',
+@@ -59,9 +60,10 @@ export default async function SearchPage({
+   return (
+     <div className="min-h-screen flex flex-col">
+       <Header />
+-      <main className="flex-1 bg-gray-50 px-4 py-10">
+-        <div className="max-w-5xl mx-auto bg-white rounded-lg shadow-sm p-6 md:p-10">
+-          <h1 className="text-3xl font-bold text-gray-800 mb-6">站内搜索</h1>
++      <main className="flex-1 site-subpage">
++        <PageHero title="站内搜索" items={[{ name: '首页', href: '/' }, { name: '站内搜索', href: '/search' }]} />
++        <div className="site-search-panel max-w-5xl mx-auto bg-white rounded-lg shadow-sm p-6 md:p-10">
++          <h2 className="text-2xl font-bold text-[#173d65] mb-6">查找学院资讯</h2>
+           <form action="/search" role="search" className="flex gap-3 mb-8">
+             <input
+               name="q"
+@@ -87,7 +89,7 @@ export default async function SearchPage({
+               {results.length === 0 ? (
+                 <p className="text-gray-500">没有找到相关文章。</p>
+               ) : (
+-                <ul className="divide-y">
++                <ul className="divide-y site-search-results">
+                   {results.map((item) => (
+                     <li key={item.id} className="py-5">
+                       <Link href={`/article/${item.slug}`} className="text-lg font-semibold text-blue-800 hover:underline">
+@@ -104,7 +106,7 @@ export default async function SearchPage({
+                 </ul>
+               )}
+               {pageCount > 1 && (
+-                <nav aria-label="搜索结果分页" className="flex items-center gap-4 mt-8">
++                <nav aria-label="搜索结果分页" className="site-pagination flex items-center gap-4 mt-8">
+                   {page > 1 && <Link href={pageUrl(page - 1)} className="text-blue-700 hover:underline">上一页</Link>}
+                   <span className="text-gray-500">第 {page} / {pageCount} 页</span>
+                   {page < pageCount && <Link href={pageUrl(page + 1)} className="text-blue-700 hover:underline">下一页</Link>}
+@@ -117,4 +119,4 @@ export default async function SearchPage({
+       <Footer />
+     </div>
+   );
+-}
+\ No newline at end of file
++}
+diff --git a/frontend/app/students/document/[slug]/page.tsx b/frontend/app/students/document/[slug]/page.tsx
+index 2a5c643..d3426df 100644
+--- a/frontend/app/students/document/[slug]/page.tsx
++++ b/frontend/app/students/document/[slug]/page.tsx
+@@ -3,7 +3,7 @@ import { sanitizeRichHtml } from '@/lib/sanitize-html';
+ import { notFound } from 'next/navigation';
+ import Header from '@/components/layout/Header';
+ import Footer from '@/components/layout/Footer';
+-import Breadcrumb from '@/components/layout/Breadcrumb';
++import PageHero from '@/components/layout/PageHero';
+ import { getContentDetail, mediaUrl, mediaSize, type StrapiMedia } from '@/lib/strapi-content';
+ 
+ type StudentDocument = {
+@@ -36,14 +36,10 @@ export default async function StudentDocumentDetail({
+     <>
+       <Header />
+ 
+-      <div className="bg-gray-100 py-3">
+-        <div className="max-w-7xl mx-auto px-6">
+-          <Breadcrumb items={breadcrumbItems} />
+-        </div>
+-      </div>
++      <PageHero title="学生管理" items={breadcrumbItems} />
+ 
+-      <div className="max-w-5xl mx-auto px-6 py-10">
+-        <div className="bg-white rounded-lg shadow-lg p-8">
++      <div className="site-detail-body max-w-5xl mx-auto px-6 py-10">
++        <div className="site-detail-panel bg-white rounded-lg shadow-lg p-8">
+           <h1 className="text-3xl font-bold text-gray-800 mb-4">{document.title}</h1>
+ 
+           {document.publish_time && (
+diff --git a/frontend/app/students/management/page.tsx b/frontend/app/students/management/page.tsx
+index 6ce8721..96067a1 100644
+--- a/frontend/app/students/management/page.tsx
++++ b/frontend/app/students/management/page.tsx
+@@ -2,7 +2,7 @@
+ import Header from '@/components/layout/Header';
+ import Footer from '@/components/layout/Footer';
+ import Sidebar from '@/components/layout/Sidebar';
+-import Breadcrumb from '@/components/layout/Breadcrumb';
++import PageHero from '@/components/layout/PageHero';
+ import Link from 'next/link';
+ import { getContentPage } from '@/lib/strapi-content';
+ 
+@@ -56,21 +56,16 @@ export default async function StudentsManagement({
+   return (
+     <div className="min-h-screen flex flex-col">
+       <Header />
+-      <main className="flex-1 bg-gray-50">
+-        <div className="bg-white border-b">
+-          <div className="max-w-7xl mx-auto px-4 py-6 flex items-center justify-between">
+-            <h1 className="text-3xl font-bold text-gray-800">学生管理</h1>
+-            <Breadcrumb items={breadcrumbItems} />
+-          </div>
+-        </div>
++      <main className="flex-1 bg-gray-50 site-subpage">
++        <PageHero title="学生管理" items={breadcrumbItems} />
+ 
+-        <div className="max-w-7xl mx-auto px-4 py-8">
+-          <div className="flex gap-6">
+-            <aside className="w-64 flex-shrink-0">
++        <div className="max-w-7xl mx-auto px-4 py-8 site-page-body">
++          <div className="flex gap-6 site-column-layout">
++            <aside className="w-64 flex-shrink-0 site-column-aside">
+               <Sidebar title="学生工作" items={sidebarItems} />
+             </aside>
+ 
+-            <div className="flex-1">
++            <div className="flex-1 min-w-0 site-content">
+               {documents.length === 0 ? (
+                 <div className="bg-white rounded-lg shadow-sm p-8 text-gray-500">暂无管理文档</div>
+               ) : (
+@@ -100,7 +95,7 @@ export default async function StudentsManagement({
+                 </div>
+               )}
+ 
+-              <div className="flex justify-center items-center gap-2 mt-8 flex-wrap">
++              <div className="flex justify-center items-center gap-2 mt-8 flex-wrap site-pagination">
+                 {safePage > 1 ? (
+                   <Link
+                     href={`/students/management?page=${safePage - 1}`}
+diff --git a/frontend/app/students/showcase/page.tsx b/frontend/app/students/showcase/page.tsx
+index fd64254..1bafb9c 100644
+--- a/frontend/app/students/showcase/page.tsx
++++ b/frontend/app/students/showcase/page.tsx
+@@ -2,7 +2,7 @@
+ import Header from '@/components/layout/Header';
+ import Footer from '@/components/layout/Footer';
+ import Sidebar from '@/components/layout/Sidebar';
+-import Breadcrumb from '@/components/layout/Breadcrumb';
++import PageHero from '@/components/layout/PageHero';
+ import Link from 'next/link';
+ import { getContentPage, mediaUrl, type StrapiMedia } from '@/lib/strapi-content';
+ 
+@@ -56,21 +56,16 @@ export default async function StudentsShowcase({
+   return (
+     <div className="min-h-screen flex flex-col">
+       <Header />
+-      <main className="flex-1 bg-gray-50">
+-        <div className="bg-white border-b">
+-          <div className="max-w-7xl mx-auto px-4 py-6 flex items-center justify-between">
+-            <h1 className="text-3xl font-bold text-gray-800">学生风采</h1>
+-            <Breadcrumb items={breadcrumbItems} />
+-          </div>
+-        </div>
++      <main className="flex-1 bg-gray-50 site-subpage">
++        <PageHero title="学生风采" items={breadcrumbItems} />
+ 
+-        <div className="max-w-7xl mx-auto px-4 py-8">
+-          <div className="flex gap-6">
+-            <aside className="w-64 flex-shrink-0">
++        <div className="max-w-7xl mx-auto px-4 py-8 site-page-body">
++          <div className="flex gap-6 site-column-layout">
++            <aside className="w-64 flex-shrink-0 site-column-aside">
+               <Sidebar title="学生工作" items={sidebarItems} />
+             </aside>
+ 
+-            <div className="flex-1">
++            <div className="flex-1 min-w-0 site-content">
+               {items.length === 0 ? (
+                 <div className="bg-white rounded-lg shadow-sm p-8 text-gray-500">暂无学生风采数据</div>
+               ) : (
+@@ -115,7 +110,7 @@ export default async function StudentsShowcase({
+               )}
+ 
+               {/* 分页 */}
+-              <div className="flex justify-center items-center gap-2 mt-8 flex-wrap">
++              <div className="flex justify-center items-center gap-2 mt-8 flex-wrap site-pagination">
+                 {safePage > 1 ? (
+                   <Link
+                     href={`/students/showcase?page=${safePage - 1}`}
+diff --git a/frontend/components/about/AboutSingleLayout.tsx b/frontend/components/about/AboutSingleLayout.tsx
+index 589a3c3..6213a21 100644
+--- a/frontend/components/about/AboutSingleLayout.tsx
++++ b/frontend/components/about/AboutSingleLayout.tsx
+@@ -1,7 +1,7 @@
+ import Header from '@/components/layout/Header';
+ import Footer from '@/components/layout/Footer';
+ import Sidebar from '@/components/layout/Sidebar';
+-import Breadcrumb from '@/components/layout/Breadcrumb';
++import PageHero from '@/components/layout/PageHero';
+ import { ReactNode } from 'react';
+ 
+ type Crumb = { name: string; href: string };
+@@ -27,21 +27,16 @@ export default function AboutSingleLayout({
+   return (
+     <div className="min-h-screen flex flex-col">
+       <Header />
+-      <main className="flex-1 bg-gray-50">
+-        <div className="bg-white border-b">
+-          <div className="max-w-7xl mx-auto px-4 py-6 flex items-center justify-between">
+-            <h1 className="text-3xl font-bold text-gray-800">{pageTitle}</h1>
+-            <Breadcrumb items={breadcrumbItems} />
+-          </div>
+-        </div>
++      <main className="flex-1 bg-gray-50 site-subpage">
++        <PageHero title={pageTitle} items={breadcrumbItems} />
+ 
+-        <div className="max-w-7xl mx-auto px-4 py-8">
+-          <div className="flex gap-6">
+-            <aside className="w-64 flex-shrink-0">
++        <div className="max-w-7xl mx-auto px-4 py-8 site-page-body">
++          <div className="flex gap-6 site-column-layout">
++            <aside className="w-64 flex-shrink-0 site-column-aside">
+               <Sidebar title="学院概况" items={sidebarItems} />
+             </aside>
+ 
+-            <div className="flex-1 bg-white rounded-lg shadow-lg p-8">
++            <div className="flex-1 bg-white rounded-lg shadow-lg p-8 site-content-panel">
+               <h2 className="text-2xl font-bold text-gray-800 mb-6 pb-3 border-b-2 border-blue-600">
+                 {sectionTitle}
+               </h2>
+diff --git a/frontend/components/layout/Breadcrumb.tsx b/frontend/components/layout/Breadcrumb.tsx
+index fc75418..f40dc02 100644
+--- a/frontend/components/layout/Breadcrumb.tsx
++++ b/frontend/components/layout/Breadcrumb.tsx
+@@ -11,19 +11,18 @@ interface BreadcrumbProps {
+ 
+ export default function Breadcrumb({ items }: BreadcrumbProps) {
+   return (
+-    <nav className="text-sm opacity-90">
+-      <span>当前位置：</span>
++    <nav className="site-breadcrumb" aria-label="面包屑导航">
+       {items.map((item, index) => (
+-        <span key={index}>
++        <span key={`${item.href}-${index}`} className="site-breadcrumb-segment">
+           {index < items.length - 1 ? (
+             <>
+-              <Link href={item.href} className="hover:underline">
++              <Link href={item.href}>
+                 {item.name}
+               </Link>
+-              <span className="mx-2">/</span>
++              <span className="site-breadcrumb-divider" aria-hidden="true">/</span>
+             </>
+           ) : (
+-            <span>{item.name}</span>
++            <span aria-current="page" className="site-breadcrumb-current">{item.name}</span>
+           )}
+         </span>
+       ))}
+diff --git a/frontend/components/layout/PageHero.tsx b/frontend/components/layout/PageHero.tsx
+new file mode 100644
+index 0000000..6716734
+--- /dev/null
++++ b/frontend/components/layout/PageHero.tsx
+@@ -0,0 +1,15 @@
++import Breadcrumb from './Breadcrumb';
++
++type Crumb = { name: string; href: string };
++
++export default function PageHero({ title, items, eyebrow }: { title: string; items: Crumb[]; eyebrow?: string }) {
++  return (
++    <section className="site-page-hero" aria-labelledby="site-page-title">
++      <div className="site-page-hero-inner">
++        <span className="site-page-eyebrow">JLU · {eyebrow || items[1]?.name || '国家卓越工程师学院'}</span>
++        <h1 id="site-page-title">{title}</h1>
++        <Breadcrumb items={items} />
++      </div>
++    </section>
++  );
++}
+diff --git a/frontend/components/layout/Sidebar.tsx b/frontend/components/layout/Sidebar.tsx
+index 200b1cc..50073c6 100644
+--- a/frontend/components/layout/Sidebar.tsx
++++ b/frontend/components/layout/Sidebar.tsx
+@@ -17,24 +17,21 @@ export default function Sidebar({ title, items }: SidebarProps) {
+   const pathname = usePathname();
+ 
+   return (
+-    <div className="bg-white rounded-lg shadow-lg overflow-hidden">
+-      <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-4">
++    <div className="site-sidebar">
++      <div className="site-sidebar-heading">
+         <h2 className="text-xl font-bold">{title}</h2>
+       </div>
+-      <nav className="py-2">
++      <nav aria-label={`${title}栏目`} className="site-sidebar-nav">
+         {items.map((item) => {
+           const isActive = pathname === item.href;
+           return (
+             <Link
+               key={item.href}
+               href={item.href}
+-              className={`block px-6 py-3 transition-all duration-300 border-l-4 ${
+-                isActive
+-                  ? 'bg-blue-50 border-blue-600 text-blue-600 font-semibold'
+-                  : 'border-transparent text-gray-700 hover:bg-gray-50 hover:border-blue-300'
+-              }`}
++              aria-current={isActive ? 'page' : undefined}
++              className={`site-sidebar-link ${isActive ? 'is-active' : ''}`}
+             >
+-              {item.name}
++              <span>{item.name}</span><span aria-hidden="true">↗</span>
+             </Link>
+           );
+         })}
+diff --git a/frontend/components/list/EditorialListing.tsx b/frontend/components/list/EditorialListing.tsx
+new file mode 100644
+index 0000000..de377c9
+--- /dev/null
++++ b/frontend/components/list/EditorialListing.tsx
+@@ -0,0 +1,67 @@
++import Link from 'next/link';
++import Header from '@/components/layout/Header';
++import Footer from '@/components/layout/Footer';
++import PageHero from '@/components/layout/PageHero';
++import { getPageNumbers } from '@/lib/pagination';
++import type { ListArticleItem } from '@/lib/api';
++
++type Props = {
++  title: string;
++  path: '/news' | '/notice';
++  from: 'news' | 'notice';
++  items: ListArticleItem[];
++  page: number;
++  pageCount: number;
++  total: number;
++};
++
++export default function EditorialListing({ title, path, from, items, page, pageCount, total }: Props) {
++  const pages = getPageNumbers(page, pageCount);
++  return (
++    <div className="min-h-screen flex flex-col">
++      <Header />
++      <main className="site-subpage flex-1">
++        <PageHero title={title} items={[{ name: '首页', href: '/' }, { name: title, href: path }]} />
++        <div className="site-editorial-wrap">
++          <div className="site-list-intro">
++            <div><span className="site-list-kicker">NEWS &amp; UPDATES</span><h2>{title}</h2></div>
++            <p>共 {total} 条 · 第 {page} / {pageCount} 页</p>
++          </div>
++          {items.length === 0 ? (
++            <div className="site-list-empty">暂无{title}内容</div>
++          ) : (
++            <div className="site-editorial-list">
++              {items.map((item) => {
++                const date = item.publish_time ? new Date(item.publish_time) : null;
++                const valid = date && !Number.isNaN(date.getTime());
++                return (
++                  <Link key={item.id} href={`/article/${encodeURIComponent(item.slug)}?from=${from}`} className="site-editorial-item">
++                    <span className="site-editorial-date" aria-label={valid ? date.toLocaleDateString('zh-CN') : '暂无日期'}>
++                      <strong>{valid ? String(date.getDate()).padStart(2, '0') : '--'}</strong>
++                      <small>{valid ? `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}` : '----.--'}</small>
++                    </span>
++                    <span className="site-editorial-copy">
++                      <strong>{item.title}</strong>
++                      {item.summary && <span>{item.summary}</span>}
++                    </span>
++                    <span className="site-editorial-arrow" aria-hidden="true">↗</span>
++                  </Link>
++                );
++              })}
++            </div>
++          )}
++          {pageCount > 1 && (
++            <nav className="site-pagination" aria-label={`${title}分页`}>
++              {page > 1 ? <Link href={`${path}?page=${page - 1}`}>上一页</Link> : <span className="is-disabled">上一页</span>}
++              {pages.map((p, index) => p === '...'
++                ? <span key={`ellipsis-${index}`} className="is-ellipsis">…</span>
++                : <Link key={p} href={`${path}?page=${p}`} aria-current={p === page ? 'page' : undefined}>{p}</Link>)}
++              {page < pageCount ? <Link href={`${path}?page=${page + 1}`}>下一页</Link> : <span className="is-disabled">下一页</span>}
++            </nav>
++          )}
++        </div>
++      </main>
++      <Footer />
++    </div>
++  );
++}
+diff --git a/frontend/components/list/SecondaryCategoryListPage.tsx b/frontend/components/list/SecondaryCategoryListPage.tsx
+index 4ad6545..33c9087 100644
+--- a/frontend/components/list/SecondaryCategoryListPage.tsx
++++ b/frontend/components/list/SecondaryCategoryListPage.tsx
+@@ -1,7 +1,7 @@
+ import Header from '@/components/layout/Header';
+ import Footer from '@/components/layout/Footer';
+ import Sidebar from '@/components/layout/Sidebar';
+-import Breadcrumb from '@/components/layout/Breadcrumb';
++import PageHero from '@/components/layout/PageHero';
+ import Link from 'next/link';
+ import { getSecondaryCategoryPageList } from '@/lib/api';
+ 
+@@ -79,21 +79,16 @@ export default async function SecondaryCategoryListPage({
+   return (
+     <div className="min-h-screen flex flex-col">
+       <Header />
+-      <main className="flex-1 bg-gray-50">
+-        <div className="bg-white border-b">
+-          <div className="max-w-7xl mx-auto px-4 py-6 flex items-center justify-between">
+-            <h1 className="text-3xl font-bold text-gray-800">{pageTitle}</h1>
+-            <Breadcrumb items={breadcrumbItems} />
+-          </div>
+-        </div>
++      <main className="flex-1 bg-gray-50 site-subpage">
++        <PageHero title={pageTitle} items={breadcrumbItems} />
+ 
+-        <div className="max-w-7xl mx-auto px-4 py-8">
+-          <div className="flex gap-6">
+-            <aside className="w-64 flex-shrink-0">
++        <div className="max-w-7xl mx-auto px-4 py-8 site-page-body">
++          <div className="flex gap-6 site-column-layout">
++            <aside className="w-64 flex-shrink-0 site-column-aside">
+               <Sidebar title={sidebarTitle} items={sidebarItems} />
+             </aside>
+ 
+-            <div className="flex-1">
++            <div className="flex-1 min-w-0 site-content">
+               {list.length === 0 ? (
+                 <div className="bg-white rounded-lg shadow-sm p-8 text-gray-500">{emptyText}</div>
+               ) : (
+@@ -112,7 +107,7 @@ export default async function SecondaryCategoryListPage({
+                       <Link
+                         key={item.id}
+                         href={href}
+-                        className="group block bg-white rounded-lg shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden border border-transparent hover:border-blue-100"
++                        className="group site-category-card block bg-white rounded-lg shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden border border-transparent hover:border-blue-100"
+                       >
+                         {/* ⬇️ 高度从 h-24 缩小到 h-20 (80px) */}
+                         <div className="flex items-stretch h-20">
+@@ -161,7 +156,7 @@ export default async function SecondaryCategoryListPage({
+               )}
+ 
+               {/* 分页 */}
+-              <div className="flex justify-center items-center gap-2 mt-8 flex-wrap">
++              <div className="flex justify-center items-center gap-2 mt-8 flex-wrap site-pagination">
+                 {safePage > 1 ? (
+                   <Link href={`${listPath}?page=${safePage - 1}`} className="px-4 py-2 bg-gray-200 text-gray-600 rounded hover:bg-gray-300 text-sm">上一页</Link>
+                 ) : (

@@ -2,6 +2,7 @@ import { sanitizeRichHtml } from '@/lib/sanitize-html';
 import type { Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
+import PageHero from '@/components/layout/PageHero';
 import Image from 'next/image';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
@@ -256,19 +257,10 @@ export default async function ArticlePage({
     <>
       <Header />
 
-      <div className="bg-gray-100 py-3">
-        <div className="max-w-5xl mx-auto px-6">
-          <nav className="flex text-sm text-gray-600">
-            <Link href="/" className="hover:text-blue-600">首页</Link>
-            <span className="mx-2">›</span>
-            <Link href={listHref} className="hover:text-blue-600">{listName}</Link>
-            <span className="mx-2">›</span>
-            <span className="text-blue-600 line-clamp-1">{article.title}</span>
-          </nav>
-        </div>
-      </div>
+      <PageHero title={listName} items={[{ name: '首页', href: '/' }, { name: listName, href: listHref }, { name: article.title, href: `/article/${article.slug}` }]} />
 
-      <div className="max-w-5xl mx-auto px-6 py-10">
+      <div className="site-article-body max-w-5xl mx-auto px-6 py-10">
+        <Link href={listHref} className="inline-flex items-center gap-2 text-sm font-semibold text-blue-700 hover:text-blue-900 mb-7">← 返回{listName}</Link>
         <h1 className="text-3xl md:text-4xl font-bold mb-4 text-gray-900 leading-tight text-center">
           {article.title}
         </h1>
@@ -287,6 +279,10 @@ export default async function ArticlePage({
             </span>
           )}
         </div>
+
+        {article.summary && (
+          <p className="site-article-summary">{article.summary}</p>
+        )}
 
         {/* ✅ 核心修改：简化 className，使用 article-content 类 */}
         <div
@@ -308,7 +304,7 @@ export default async function ArticlePage({
         )}
       </div>
 
-      <div className="w-full border-t border-gray-200 bg-white py-12">
+      <div className="site-article-navigation w-full border-t border-gray-200 bg-white py-12">
         <div className="max-w-5xl mx-auto px-6">
           <div className="flex flex-col md:flex-row justify-between items-stretch gap-8 text-base">
             {prev ? (
