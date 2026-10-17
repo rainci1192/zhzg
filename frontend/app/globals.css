@@ -467,3 +467,48 @@ body:has(.site-detail-body), body:has(.site-article-body) { background: #f5f8fb;
 .site-search-results li { transition: background .2s, padding .2s; }
 .site-search-results li:hover { background: #f0f7fc; padding-left: 12px; }
 @media (max-width: 760px) { .site-search-panel { margin: 25px 18px 70px; } }
+
+/* 官网统一页脚：与首屏及二级页头共享深蓝、冰蓝和克制的线条语言 */
+.site-footer { position: relative; isolation: isolate; overflow: hidden; color: #e4f1fb; background: linear-gradient(120deg, #051e3d 0%, #07345f 55%, #052b53 100%); border-top: 4px solid #3aa0d4; }
+.site-footer::before { content: 'JLU'; position: absolute; z-index: -1; right: -18px; bottom: 58px; font: 800 clamp(150px, 19vw, 350px)/1 Georgia, serif; letter-spacing: -.08em; color: rgba(152,207,239,.055); pointer-events: none; }
+.site-footer::after { content: ''; position: absolute; z-index: -1; inset: 0; background: radial-gradient(circle at 7% 92%, rgba(48,139,202,.14), transparent 34%), linear-gradient(90deg, transparent 0 85%, rgba(136,204,246,.035) 85% 85.15%, transparent 85.15%); pointer-events: none; }
+.site-footer-main { width: min(100% - 64px, 1320px); margin: 0 auto; padding: 75px 0 70px; display: grid; grid-template-columns: minmax(250px, 1.7fr) minmax(170px, 1fr) minmax(145px, .9fr) minmax(205px, 1fr); column-gap: clamp(26px, 4vw, 65px); row-gap: 45px; }
+.site-footer-brand { min-width: 0; }
+.site-footer-brand a { display: inline-block; max-width: 100%; }
+.site-footer-brand img { display: block; width: min(100%, 405px); height: auto; }
+.site-footer-brand p { margin-top: 30px; font-size: 14px; line-height: 1.8; color: #d4e4f2; }
+.site-footer-brand-en { display: block; margin-top: 9px; font-size: 10px; letter-spacing: .17em; color: #8cbeda; }
+.site-footer-section { min-width: 0; }
+.site-footer-section h2 { margin: 8px 0 25px; font-size: 16px; letter-spacing: .08em; font-weight: 700; color: #fff; }
+.site-footer-section h2::after { content: ''; display: block; width: 28px; height: 2px; margin-top: 13px; background: #62bde9; }
+.site-footer-link-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 15px; }
+.site-footer-section a { color: #c3d9e9; font-size: 13px; transition: color .2s, transform .2s; }
+.site-footer-section a:hover, .site-footer-section a:focus-visible, .site-footer-contact a:hover { color: #92d7fa; }
+.site-footer-link-grid a:hover, .site-footer-related a:hover { transform: translateX(3px); }
+.site-footer-related { display: flex; flex-direction: column; align-items: flex-start; gap: 15px; }
+.site-footer-related h2 { margin-bottom: 10px; }
+.site-footer-related a { display: inline-flex; gap: 8px; align-items: center; }
+.site-footer-related a span { color: #80c4e9; }
+.site-footer-contact address { display: grid; gap: 12px; font-size: 13px; line-height: 1.7; font-style: normal; color: #c3d9e9; }
+.site-footer-contact p { display: grid; grid-template-columns: 31px minmax(0, 1fr); gap: 10px; }
+.site-footer-contact p > span { color: #83bde0; white-space: nowrap; }
+.site-footer-bottom { border-top: 1px solid rgba(197,224,244,.16); background: rgba(0,18,38,.18); }
+.site-footer-bottom-inner { width: min(100% - 64px, 1320px); min-height: 62px; margin: auto; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px 20px; padding: 18px 0; font-size: 12px; color: #a5c3d8; letter-spacing: .025em; }
+.site-footer-bottom-inner span:last-child { font-size: 10px; letter-spacing: .16em; }
+.site-footer a:focus-visible { outline: 3px solid #89d6ff; outline-offset: 4px; }
+@media (max-width: 1050px) {
+  .site-footer-main { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .site-footer-brand { grid-column: span 2; }
+  .site-footer-brand img { width: min(100%, 420px); }
+}
+@media (max-width: 640px) {
+  .site-footer-main { width: min(100% - 36px, 1320px); grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 37px 22px; padding: 52px 0 55px; }
+  .site-footer-brand, .site-footer-contact { grid-column: span 2; }
+  .site-footer-brand p { margin-top: 22px; }
+  .site-footer-section h2 { margin-bottom: 20px; }
+  .site-footer-link-grid { grid-template-columns: 1fr; }
+  .site-footer-bottom-inner { width: min(100% - 36px, 1320px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .site-footer *, .site-footer *::before, .site-footer *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; }
+}

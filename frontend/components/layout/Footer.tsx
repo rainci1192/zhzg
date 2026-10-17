@@ -1,69 +1,55 @@
-'use client';
+import Link from 'next/link';
 
-import { useEffect, useRef, useState } from 'react';
+const primaryLinks = [
+  { label: '学院概况', href: '/about/intro' },
+  { label: '新闻动态', href: '/news' },
+  { label: '通知公告', href: '/notice' },
+  { label: '招生信息', href: '/admission/master' },
+  { label: '科学研究', href: '/research/institutions' },
+  { label: '师资队伍', href: '/faculty/internal' },
+];
 
 export default function Footer() {
-  const [isVisible, setIsVisible] = useState(false);
-  const footerRef = useRef<HTMLElement>(null);
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) setIsVisible(true);
-        });
-      },
-      { threshold: 0.1 }
-    );
-
-    if (footerRef.current) observer.observe(footerRef.current);
-    return () => observer.disconnect();
-  }, []);
-
   return (
-    <footer
-      ref={footerRef}
-      className={`relative bg-[#003d82] text-white py-8 mt-0 overflow-hidden transition-all duration-700 ${
-        isVisible ? 'opacity-100 translate-y-0' : 'opacity-100 translate-y-0'
-      }`}
-      style={{
-        backgroundImage: 'url(/images/banner-bg.jpg)',
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-      }}
-    >
-      <div className="absolute inset-0 bg-[#043c7e]/85"></div>
-
-      <div className="max-w-7xl mx-auto px-4 relative z-10">
-        {/* Logo和友情链接 */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex-shrink-0">
-            <img
-              src="/images/logo.png"
-              alt="Logo"
-              className="h-20 w-auto object-contain"
-            />
-          </div>
-
-          <div className="text-left">
-            <h4 className="text-white text-sm mb-3">友情链接</h4>
-            <div className="flex flex-col gap-2">
-              <a href="https://www.jlu.edu.cn" target="_blank" rel="noopener noreferrer" className="text-white hover:text-blue-200 transition-colors duration-300">
-                吉林大学
-              </a>
-              <a href="https://yjsy.jlu.edu.cn" target="_blank" rel="noopener noreferrer" className="text-white hover:text-blue-200 transition-colors duration-300">
-                研究生院
-              </a>
-              <a href="#" className="text-white hover:text-blue-200 transition-colors duration-300">
-                吉林大学国家卓越工程师学院
-              </a>
-            </div>
-          </div>
+    <footer className="site-footer" aria-label="网站页脚">
+      <div className="site-footer-main">
+        <div className="site-footer-brand">
+          <Link href="/" aria-label="返回吉林大学国家卓越工程师学院（珠海）首页">
+            <img src="/images/logo.png" alt="吉林大学国家卓越工程师学院（珠海）" />
+          </Link>
+          <p>吉林大学国家卓越工程师学院（珠海）官方网站</p>
+          <span className="site-footer-brand-en">JILIN UNIVERSITY · ZHUHAI</span>
         </div>
 
-        <div className="text-center text-xs text-white/80 border-t border-white/20 pt-4">
-          <p className="mb-1">版权所有 © 2026 吉林大学国家卓越工程师学院（珠海） ALL RIGHTS RESERVED</p>
-          <p>地址：广东省珠海市金湾区草堂 邮政编码：519041 | 联系电话：0756-7626386</p>
+        <nav className="site-footer-section" aria-label="页脚快捷导航">
+          <h2>快捷导航</h2>
+          <div className="site-footer-link-grid">
+            {primaryLinks.map(({ label, href }) => (
+              <Link key={href} href={href}>{label}</Link>
+            ))}
+          </div>
+        </nav>
+
+        <div className="site-footer-section site-footer-related">
+          <h2>相关链接</h2>
+          <a href="https://www.jlu.edu.cn" target="_blank" rel="noopener noreferrer">吉林大学 <span aria-hidden="true">↗</span></a>
+          <a href="https://yjsy.jlu.edu.cn" target="_blank" rel="noopener noreferrer">吉林大学研究生院 <span aria-hidden="true">↗</span></a>
+        </div>
+
+        <div className="site-footer-section site-footer-contact">
+          <h2>联系我们</h2>
+          <address>
+            <p><span>地址</span>广东省珠海市金湾区草堂</p>
+            <p><span>邮编</span>519041</p>
+            <p><span>电话</span><a href="tel:07567626386">0756-7626386</a></p>
+          </address>
+        </div>
+      </div>
+
+      <div className="site-footer-bottom">
+        <div className="site-footer-bottom-inner">
+          <span>© 2026 吉林大学国家卓越工程师学院（珠海）</span>
+          <span>ALL RIGHTS RESERVED</span>
         </div>
       </div>
     </footer>

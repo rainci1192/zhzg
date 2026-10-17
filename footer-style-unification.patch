@@ -1,0 +1,170 @@
+diff --git a/frontend/app/globals.css b/frontend/app/globals.css
+index 79c5e6b..a809063 100644
+--- a/frontend/app/globals.css
++++ b/frontend/app/globals.css
+@@ -467,3 +467,48 @@ body:has(.site-detail-body), body:has(.site-article-body) { background: #f5f8fb;
+ .site-search-results li { transition: background .2s, padding .2s; }
+ .site-search-results li:hover { background: #f0f7fc; padding-left: 12px; }
+ @media (max-width: 760px) { .site-search-panel { margin: 25px 18px 70px; } }
++
++/* 官网统一页脚：与首屏及二级页头共享深蓝、冰蓝和克制的线条语言 */
++.site-footer { position: relative; isolation: isolate; overflow: hidden; color: #e4f1fb; background: linear-gradient(120deg, #051e3d 0%, #07345f 55%, #052b53 100%); border-top: 4px solid #3aa0d4; }
++.site-footer::before { content: 'JLU'; position: absolute; z-index: -1; right: -18px; bottom: 58px; font: 800 clamp(150px, 19vw, 350px)/1 Georgia, serif; letter-spacing: -.08em; color: rgba(152,207,239,.055); pointer-events: none; }
++.site-footer::after { content: ''; position: absolute; z-index: -1; inset: 0; background: radial-gradient(circle at 7% 92%, rgba(48,139,202,.14), transparent 34%), linear-gradient(90deg, transparent 0 85%, rgba(136,204,246,.035) 85% 85.15%, transparent 85.15%); pointer-events: none; }
++.site-footer-main { width: min(100% - 64px, 1320px); margin: 0 auto; padding: 75px 0 70px; display: grid; grid-template-columns: minmax(250px, 1.7fr) minmax(170px, 1fr) minmax(145px, .9fr) minmax(205px, 1fr); column-gap: clamp(26px, 4vw, 65px); row-gap: 45px; }
++.site-footer-brand { min-width: 0; }
++.site-footer-brand a { display: inline-block; max-width: 100%; }
++.site-footer-brand img { display: block; width: min(100%, 405px); height: auto; }
++.site-footer-brand p { margin-top: 30px; font-size: 14px; line-height: 1.8; color: #d4e4f2; }
++.site-footer-brand-en { display: block; margin-top: 9px; font-size: 10px; letter-spacing: .17em; color: #8cbeda; }
++.site-footer-section { min-width: 0; }
++.site-footer-section h2 { margin: 8px 0 25px; font-size: 16px; letter-spacing: .08em; font-weight: 700; color: #fff; }
++.site-footer-section h2::after { content: ''; display: block; width: 28px; height: 2px; margin-top: 13px; background: #62bde9; }
++.site-footer-link-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 15px; }
++.site-footer-section a { color: #c3d9e9; font-size: 13px; transition: color .2s, transform .2s; }
++.site-footer-section a:hover, .site-footer-section a:focus-visible, .site-footer-contact a:hover { color: #92d7fa; }
++.site-footer-link-grid a:hover, .site-footer-related a:hover { transform: translateX(3px); }
++.site-footer-related { display: flex; flex-direction: column; align-items: flex-start; gap: 15px; }
++.site-footer-related h2 { margin-bottom: 10px; }
++.site-footer-related a { display: inline-flex; gap: 8px; align-items: center; }
++.site-footer-related a span { color: #80c4e9; }
++.site-footer-contact address { display: grid; gap: 12px; font-size: 13px; line-height: 1.7; font-style: normal; color: #c3d9e9; }
++.site-footer-contact p { display: grid; grid-template-columns: 31px minmax(0, 1fr); gap: 10px; }
++.site-footer-contact p > span { color: #83bde0; white-space: nowrap; }
++.site-footer-bottom { border-top: 1px solid rgba(197,224,244,.16); background: rgba(0,18,38,.18); }
++.site-footer-bottom-inner { width: min(100% - 64px, 1320px); min-height: 62px; margin: auto; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px 20px; padding: 18px 0; font-size: 12px; color: #a5c3d8; letter-spacing: .025em; }
++.site-footer-bottom-inner span:last-child { font-size: 10px; letter-spacing: .16em; }
++.site-footer a:focus-visible { outline: 3px solid #89d6ff; outline-offset: 4px; }
++@media (max-width: 1050px) {
++  .site-footer-main { grid-template-columns: repeat(2, minmax(0, 1fr)); }
++  .site-footer-brand { grid-column: span 2; }
++  .site-footer-brand img { width: min(100%, 420px); }
++}
++@media (max-width: 640px) {
++  .site-footer-main { width: min(100% - 36px, 1320px); grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 37px 22px; padding: 52px 0 55px; }
++  .site-footer-brand, .site-footer-contact { grid-column: span 2; }
++  .site-footer-brand p { margin-top: 22px; }
++  .site-footer-section h2 { margin-bottom: 20px; }
++  .site-footer-link-grid { grid-template-columns: 1fr; }
++  .site-footer-bottom-inner { width: min(100% - 36px, 1320px); }
++}
++@media (prefers-reduced-motion: reduce) {
++  .site-footer *, .site-footer *::before, .site-footer *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; }
++}
+diff --git a/frontend/components/layout/Footer.tsx b/frontend/components/layout/Footer.tsx
+index 6a32592..5f6c50b 100644
+--- a/frontend/components/layout/Footer.tsx
++++ b/frontend/components/layout/Footer.tsx
+@@ -1,69 +1,55 @@
+-'use client';
++import Link from 'next/link';
+ 
+-import { useEffect, useRef, useState } from 'react';
++const primaryLinks = [
++  { label: '学院概况', href: '/about/intro' },
++  { label: '新闻动态', href: '/news' },
++  { label: '通知公告', href: '/notice' },
++  { label: '招生信息', href: '/admission/master' },
++  { label: '科学研究', href: '/research/institutions' },
++  { label: '师资队伍', href: '/faculty/internal' },
++];
+ 
+ export default function Footer() {
+-  const [isVisible, setIsVisible] = useState(false);
+-  const footerRef = useRef<HTMLElement>(null);
+-
+-  useEffect(() => {
+-    const observer = new IntersectionObserver(
+-      (entries) => {
+-        entries.forEach((entry) => {
+-          if (entry.isIntersecting) setIsVisible(true);
+-        });
+-      },
+-      { threshold: 0.1 }
+-    );
+-
+-    if (footerRef.current) observer.observe(footerRef.current);
+-    return () => observer.disconnect();
+-  }, []);
+-
+   return (
+-    <footer
+-      ref={footerRef}
+-      className={`relative bg-[#003d82] text-white py-8 mt-0 overflow-hidden transition-all duration-700 ${
+-        isVisible ? 'opacity-100 translate-y-0' : 'opacity-100 translate-y-0'
+-      }`}
+-      style={{
+-        backgroundImage: 'url(/images/banner-bg.jpg)',
+-        backgroundSize: 'cover',
+-        backgroundPosition: 'center',
+-      }}
+-    >
+-      <div className="absolute inset-0 bg-[#043c7e]/85"></div>
++    <footer className="site-footer" aria-label="网站页脚">
++      <div className="site-footer-main">
++        <div className="site-footer-brand">
++          <Link href="/" aria-label="返回吉林大学国家卓越工程师学院（珠海）首页">
++            <img src="/images/logo.png" alt="吉林大学国家卓越工程师学院（珠海）" />
++          </Link>
++          <p>吉林大学国家卓越工程师学院（珠海）官方网站</p>
++          <span className="site-footer-brand-en">JILIN UNIVERSITY · ZHUHAI</span>
++        </div>
+ 
+-      <div className="max-w-7xl mx-auto px-4 relative z-10">
+-        {/* Logo和友情链接 */}
+-        <div className="flex items-center justify-between mb-6">
+-          <div className="flex-shrink-0">
+-            <img
+-              src="/images/logo.png"
+-              alt="Logo"
+-              className="h-20 w-auto object-contain"
+-            />
++        <nav className="site-footer-section" aria-label="页脚快捷导航">
++          <h2>快捷导航</h2>
++          <div className="site-footer-link-grid">
++            {primaryLinks.map(({ label, href }) => (
++              <Link key={href} href={href}>{label}</Link>
++            ))}
+           </div>
++        </nav>
+ 
+-          <div className="text-left">
+-            <h4 className="text-white text-sm mb-3">友情链接</h4>
+-            <div className="flex flex-col gap-2">
+-              <a href="https://www.jlu.edu.cn" target="_blank" rel="noopener noreferrer" className="text-white hover:text-blue-200 transition-colors duration-300">
+-                吉林大学
+-              </a>
+-              <a href="https://yjsy.jlu.edu.cn" target="_blank" rel="noopener noreferrer" className="text-white hover:text-blue-200 transition-colors duration-300">
+-                研究生院
+-              </a>
+-              <a href="#" className="text-white hover:text-blue-200 transition-colors duration-300">
+-                吉林大学国家卓越工程师学院
+-              </a>
+-            </div>
+-          </div>
++        <div className="site-footer-section site-footer-related">
++          <h2>相关链接</h2>
++          <a href="https://www.jlu.edu.cn" target="_blank" rel="noopener noreferrer">吉林大学 <span aria-hidden="true">↗</span></a>
++          <a href="https://yjsy.jlu.edu.cn" target="_blank" rel="noopener noreferrer">吉林大学研究生院 <span aria-hidden="true">↗</span></a>
++        </div>
++
++        <div className="site-footer-section site-footer-contact">
++          <h2>联系我们</h2>
++          <address>
++            <p><span>地址</span>广东省珠海市金湾区草堂</p>
++            <p><span>邮编</span>519041</p>
++            <p><span>电话</span><a href="tel:07567626386">0756-7626386</a></p>
++          </address>
+         </div>
++      </div>
+ 
+-        <div className="text-center text-xs text-white/80 border-t border-white/20 pt-4">
+-          <p className="mb-1">版权所有 © 2026 吉林大学国家卓越工程师学院（珠海） ALL RIGHTS RESERVED</p>
+-          <p>地址：广东省珠海市金湾区草堂 邮政编码：519041 | 联系电话：0756-7626386</p>
++      <div className="site-footer-bottom">
++        <div className="site-footer-bottom-inner">
++          <span>© 2026 吉林大学国家卓越工程师学院（珠海）</span>
++          <span>ALL RIGHTS RESERVED</span>
+         </div>
+       </div>
+     </footer>
