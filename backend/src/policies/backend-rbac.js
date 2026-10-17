@@ -114,8 +114,8 @@ async function hasActions(strapi, roleId, moduleId, actions, enforceScope = fals
   return true;
 }
 
-module.exports = async (policyContext, config = {}) => {
-  const { strapi } = policyContext;
+module.exports = async (policyContext, config = {}, { strapi } = {}) => {
+  if (!strapi) return false;
   const action = String(config.action || '').trim();
   const moduleName = String(config.moduleName || '').trim();
   if (!action || !moduleName) return false;
@@ -138,9 +138,12 @@ module.exports = async (policyContext, config = {}) => {
     if (!mayViewAllUsers && policyContext.request.method === 'GET') {
       const id = policyContext.params?.id;
       if (id) return String(id) === String(admin.id) || String(id) === String(admin.documentId);
-      policyContext.query = {
-        ...(policyContext.query || {}),
-        filters: { ...(policyContext.query?.filters || {}), email: { $eqi: admin.email } },
+      // Strapi's policy context is a shallow copy of the Koa context. Write
+      // through the shared request so the controller receives the restriction.
+      const query = policyContext.request.query || {};
+      policyContext.request.query = {
+        ...query,
+        filters: { ...(query.filters || {}), email: { $eqi: admin.email } },
       };
       return true;
     }
@@ -158,10 +161,11 @@ module.exports = async (policyContext, config = {}) => {
     if (!mayViewAllRoleGrants) {
       // All admin accounts may load their own permission grants; querying a
       // different role still requires the explicit roles.view permission.
-      policyContext.query = {
-        ...(policyContext.query || {}),
+      const query = policyContext.request.query || {};
+      policyContext.request.query = {
+        ...query,
         filters: {
-          ...(policyContext.query?.filters || {}),
+          ...(query.filters || {}),
           backend_role: { id: { $eq: role.id } },
         },
       };

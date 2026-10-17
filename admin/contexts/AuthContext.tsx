@@ -86,7 +86,7 @@ async function fetchCurrentAdmin(): Promise<User> {
     '&populate[backend_role]=true&populate[avatar]=true';
   const profileResponse = await strapiFetch(profileUrl);
   if (!profileResponse.ok) {
-    throw new Error('无法读取后台管理员资料，请联系管理员检查 Strapi API 权限。');
+    throw new Error(`无法读取后台管理员资料（HTTP ${profileResponse.status}），请联系管理员检查 Strapi API 权限。`);
   }
 
   const profileResult = (await profileResponse.json()) as { data?: unknown[] };

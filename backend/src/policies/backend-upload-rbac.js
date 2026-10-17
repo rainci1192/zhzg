@@ -8,13 +8,13 @@ const CONTENT_MODULES = new Set([
   'policy_documents', 'download_files', 'banners', 'links', 'settings',
 ]);
 
-module.exports = async (policyContext, config = {}) => {
+module.exports = async (policyContext, config = {}, { strapi } = {}) => {
   const method = policyContext.request.method;
   if (['GET', 'HEAD'].includes(method)) return true;
 
   const email = String(policyContext.state?.user?.email || '').trim().toLowerCase();
-  if (!email) return false;
-  const admin = await policyContext.strapi.db.query(ADMIN_UID).findOne({
+  if (!email || !strapi) return false;
+  const admin = await strapi.db.query(ADMIN_UID).findOne({
     where: { email: { $eqi: email } },
     populate: ['backend_role'],
   });
@@ -26,7 +26,7 @@ module.exports = async (policyContext, config = {}) => {
   // permanent media deletion exclusive to super administrators.
   if (method === 'DELETE') return false;
 
-  const grants = await policyContext.strapi.db.query(ROLE_PERMISSION_UID).findMany({
+  const grants = await strapi.db.query(ROLE_PERMISSION_UID).findMany({
     where: { backend_role: role.id },
     populate: ['permission_module', 'allowed_actions'],
   });

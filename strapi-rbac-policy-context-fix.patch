@@ -1,0 +1,89 @@
+diff --git a/admin/contexts/AuthContext.tsx b/admin/contexts/AuthContext.tsx
+index 00ef616..2f9c1e8 100644
+--- a/admin/contexts/AuthContext.tsx
++++ b/admin/contexts/AuthContext.tsx
+@@ -86,7 +86,7 @@ async function fetchCurrentAdmin(): Promise<User> {
+     '&populate[backend_role]=true&populate[avatar]=true';
+   const profileResponse = await strapiFetch(profileUrl);
+   if (!profileResponse.ok) {
+-    throw new Error('无法读取后台管理员资料，请联系管理员检查 Strapi API 权限。');
++    throw new Error(`无法读取后台管理员资料（HTTP ${profileResponse.status}），请联系管理员检查 Strapi API 权限。`);
+   }
+ 
+   const profileResult = (await profileResponse.json()) as { data?: unknown[] };
+diff --git a/backend/src/policies/backend-rbac.js b/backend/src/policies/backend-rbac.js
+index cf28f80..40844a3 100644
+--- a/backend/src/policies/backend-rbac.js
++++ b/backend/src/policies/backend-rbac.js
+@@ -114,8 +114,8 @@ async function hasActions(strapi, roleId, moduleId, actions, enforceScope = fals
+   return true;
+ }
+ 
+-module.exports = async (policyContext, config = {}) => {
+-  const { strapi } = policyContext;
++module.exports = async (policyContext, config = {}, { strapi } = {}) => {
++  if (!strapi) return false;
+   const action = String(config.action || '').trim();
+   const moduleName = String(config.moduleName || '').trim();
+   if (!action || !moduleName) return false;
+@@ -138,9 +138,12 @@ module.exports = async (policyContext, config = {}) => {
+     if (!mayViewAllUsers && policyContext.request.method === 'GET') {
+       const id = policyContext.params?.id;
+       if (id) return String(id) === String(admin.id) || String(id) === String(admin.documentId);
+-      policyContext.query = {
+-        ...(policyContext.query || {}),
+-        filters: { ...(policyContext.query?.filters || {}), email: { $eqi: admin.email } },
++      // Strapi's policy context is a shallow copy of the Koa context. Write
++      // through the shared request so the controller receives the restriction.
++      const query = policyContext.request.query || {};
++      policyContext.request.query = {
++        ...query,
++        filters: { ...(query.filters || {}), email: { $eqi: admin.email } },
+       };
+       return true;
+     }
+@@ -158,10 +161,11 @@ module.exports = async (policyContext, config = {}) => {
+     if (!mayViewAllRoleGrants) {
+       // All admin accounts may load their own permission grants; querying a
+       // different role still requires the explicit roles.view permission.
+-      policyContext.query = {
+-        ...(policyContext.query || {}),
++      const query = policyContext.request.query || {};
++      policyContext.request.query = {
++        ...query,
+         filters: {
+-          ...(policyContext.query?.filters || {}),
++          ...(query.filters || {}),
+           backend_role: { id: { $eq: role.id } },
+         },
+       };
+diff --git a/backend/src/policies/backend-upload-rbac.js b/backend/src/policies/backend-upload-rbac.js
+index 3a6d8c4..363d9ff 100644
+--- a/backend/src/policies/backend-upload-rbac.js
++++ b/backend/src/policies/backend-upload-rbac.js
+@@ -8,13 +8,13 @@ const CONTENT_MODULES = new Set([
+   'policy_documents', 'download_files', 'banners', 'links', 'settings',
+ ]);
+ 
+-module.exports = async (policyContext, config = {}) => {
++module.exports = async (policyContext, config = {}, { strapi } = {}) => {
+   const method = policyContext.request.method;
+   if (['GET', 'HEAD'].includes(method)) return true;
+ 
+   const email = String(policyContext.state?.user?.email || '').trim().toLowerCase();
+-  if (!email) return false;
+-  const admin = await policyContext.strapi.db.query(ADMIN_UID).findOne({
++  if (!email || !strapi) return false;
++  const admin = await strapi.db.query(ADMIN_UID).findOne({
+     where: { email: { $eqi: email } },
+     populate: ['backend_role'],
+   });
+@@ -26,7 +26,7 @@ module.exports = async (policyContext, config = {}) => {
+   // permanent media deletion exclusive to super administrators.
+   if (method === 'DELETE') return false;
+ 
+-  const grants = await policyContext.strapi.db.query(ROLE_PERMISSION_UID).findMany({
++  const grants = await strapi.db.query(ROLE_PERMISSION_UID).findMany({
+     where: { backend_role: role.id },
+     populate: ['permission_module', 'allowed_actions'],
+   });
