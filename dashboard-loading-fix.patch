@@ -1,0 +1,76 @@
+diff --git a/admin/app/(dashboard)/dashboard/page.tsx b/admin/app/(dashboard)/dashboard/page.tsx
+index 1b581d1..df6224b 100644
+--- a/admin/app/(dashboard)/dashboard/page.tsx
++++ b/admin/app/(dashboard)/dashboard/page.tsx
+@@ -91,35 +91,42 @@ export default function DashboardPage() {
+ 
+     async function load() {
+       if (!user) return;
+-      const isSuperAdmin = isSuperAdminRole(user.role);
+-      const grants = isSuperAdmin ? [] : await Promise.allSettled([
+-        getModuleActions(user.roleId, 'categories'),
+-        getModuleActions(user.roleId, 'banners'),
+-      ]);
+-      const canSeeCategories = isSuperAdmin || (grants[0]?.status === 'fulfilled' && grants[0].value.includes('view'));
+-      const canSeeBanners = isSuperAdmin || (grants[1]?.status === 'fulfilled' && grants[1].value.includes('view'));
+-      const requests = await Promise.allSettled([
+-        api.getWorkflowStats(),
+-        canSeeCategories ? api.getCategories('?pagination[pageSize]=1') : Promise.resolve(null),
+-        canSeeBanners ? api.getBanners('?pagination[pageSize]=1') : Promise.resolve(null),
+-      ]);
+-      if (!active) return;
+-      setVisibleExtra({ categories: canSeeCategories, banners: canSeeBanners });
+-      const stats = requests[0].status === 'fulfilled'
+-        ? (requests[0].value as { data?: { published?: number; pending?: number } }).data
+-        : undefined;
+-      const totalFrom = (index: number) => {
+-        if (requests[index].status !== 'fulfilled') return null;
+-        const total = (requests[index].value as { meta?: { pagination?: { total?: number } } }).meta?.pagination?.total;
+-        return typeof total === 'number' ? total : null;
+-      };
+-      setCounts({
+-        published: typeof stats?.published === 'number' ? stats.published : null,
+-        pending: typeof stats?.pending === 'number' ? stats.pending : null,
+-        categories: totalFrom(1),
+-        banners: totalFrom(2),
+-      });
+-      setLoading(false);
++      setLoading(true);
++      try {
++        const isSuperAdmin = isSuperAdminRole(user.role);
++        const grants = isSuperAdmin ? [] : await Promise.allSettled([
++          getModuleActions(user.roleId, 'categories'),
++          getModuleActions(user.roleId, 'banners'),
++        ]);
++        const canSeeCategories = isSuperAdmin || (grants[0]?.status === 'fulfilled' && grants[0].value.includes('view'));
++        const canSeeBanners = isSuperAdmin || (grants[1]?.status === 'fulfilled' && grants[1].value.includes('view'));
++        const requests = await Promise.allSettled([
++          api.getWorkflowStats(),
++          canSeeCategories ? api.getCategories('?pagination[pageSize]=1') : Promise.resolve(null),
++          canSeeBanners ? api.getBanners('?pagination[pageSize]=1') : Promise.resolve(null),
++        ]);
++        if (!active) return;
++        setVisibleExtra({ categories: canSeeCategories, banners: canSeeBanners });
++        const stats = requests[0].status === 'fulfilled'
++          ? (requests[0].value as { data?: { published?: number; pending?: number } }).data
++          : undefined;
++        const totalFrom = (index: number) => {
++          if (requests[index].status !== 'fulfilled') return null;
++          const total = (requests[index].value as { meta?: { pagination?: { total?: number } } } | null)?.meta?.pagination?.total;
++          return typeof total === 'number' ? total : null;
++        };
++        setCounts({
++          published: typeof stats?.published === 'number' ? stats.published : null,
++          pending: typeof stats?.pending === 'number' ? stats.pending : null,
++          categories: totalFrom(1),
++          banners: totalFrom(2),
++        });
++      } catch (error) {
++        console.error('dashboard counts error:', error);
++        if (active) setCounts(emptyCounts);
++      } finally {
++        if (active) setLoading(false);
++      }
+     }
+ 
+     if (user) {

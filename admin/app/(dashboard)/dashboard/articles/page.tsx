@@ -274,7 +274,7 @@ export default function ArticlesPage() {
 
   const fetchCategories = async () => {
     try {
-      const response = (await api.getCategories('?populate=*&sort=sort_order:asc')) as { data?: Category[] };
+      const response = (await api.getArticleCategoryOptions()) as { data?: Category[] };
       setCategories(response.data || []);
     } catch (error) {
       console.error('fetchCategories error:', error);
@@ -293,14 +293,17 @@ export default function ArticlesPage() {
   useEffect(() => {
     void (async () => {
       try {
-        const response = (await api.getArticlePublishers()) as { data?: Reviewer[] };
+        if (!user?.id) return;
+        const response = (await (isSuperAdmin
+          ? api.getArticlePublishers()
+          : api.getArticlePublisherFilterOptions())) as { data?: Reviewer[] };
         setPublishers(uniqueReviewers(response.data || []));
       } catch (error) {
         console.error('fetch article publishers error:', error);
         setPublishers([]);
       }
     })();
-  }, [isSuperAdmin]);
+  }, [isSuperAdmin, user?.id]);
 
   const primaryOptions = useMemo(
     () => categories.filter((category) => !category.parentCategory || category.level === 1),

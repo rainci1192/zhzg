@@ -176,18 +176,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const currentUser = await fetchCurrentAdmin();
       setUser(currentUser);
-
-      // Last-login tracking is useful, but a logging failure should not undo a valid login.
-      if (currentUser.documentId) {
-        try {
-          await strapiFetch(`${STRAPI_URL}/api/backend-admins/${currentUser.documentId}`, {
-            method: 'PUT',
-            body: JSON.stringify({ data: { last_login: new Date().toISOString() } }),
-          });
-        } catch (error) {
-          console.warn('更新最后登录时间失败:', error);
-        }
-      }
     } catch (error) {
       clearStoredSession();
       setUser(null);

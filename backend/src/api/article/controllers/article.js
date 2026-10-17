@@ -596,6 +596,58 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
     };
   },
 
+  // Article editors need category labels for the form and filters even when
+  // their role cannot manage categories. Return only the fields they need.
+  async categoryOptions(ctx) {
+    const admin = await getCurrentAdmin(ctx, strapi);
+    if (!admin) return;
+    if (!(await hasArticleAction(strapi, admin, 'view'))) return ctx.forbidden('当前角色没有查看文章的权限。');
+
+    const rows = await strapi.db.query('api::category.category').findMany({
+      where: { publishedAt: { $notNull: true } },
+      select: ['id', 'documentId', 'name', 'level', 'sort_order'],
+      populate: { parentCategory: { select: ['id', 'name'] } },
+      orderBy: { sort_order: 'asc' },
+    });
+    ctx.body = {
+      data: rows.map((category) => ({
+        id: category.id,
+        documentId: category.documentId,
+        name: category.name,
+        level: category.level,
+        parentCategory: category.parentCategory
+          ? { id: category.parentCategory.id, name: category.parentCategory.name }
+          : null,
+      })),
+    };
+  },
+
+  // Filtering visible articles by author does not grant permission to assign
+  // a different publisher to an article. Keep the assignment endpoint admin-only.
+  async publisherFilterOptions(ctx) {
+    const admin = await getCurrentAdmin(ctx, strapi);
+    if (!admin) return;
+    if (!(await hasArticleAction(strapi, admin, 'view'))) return ctx.forbidden('当前角色没有查看文章的权限。');
+
+    const rows = await strapi.db.query(ARTICLE_UID).findMany({
+      ...(isSuperAdmin(admin) || (await getArticleDataScope(strapi, admin)) === 'all'
+        ? {}
+        : { where: articleAccessFilter(admin) }),
+      select: ['id'],
+      populate: { created_by_admin: { select: ['id', 'documentId', 'name', 'email'] } },
+    });
+    ctx.body = {
+      data: uniqueAdmins(rows.map((row) => row.created_by_admin).filter(Boolean))
+        .map((owner) => ({
+          id: owner.id,
+          documentId: owner.documentId,
+          name: owner.name,
+          email: owner.email,
+        }))
+        .sort((left, right) => String(left.name || '').localeCompare(String(right.name || ''), 'zh-CN')),
+    };
+  },
+
   // Admin article lists must include draft and published Strapi documents.
   // The generated REST find endpoint defaults to the published content view,
   // which hides documents whose Strapi `publishedAt` is null even when the

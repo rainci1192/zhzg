@@ -5,6 +5,8 @@ import { sanitizeRichHtml } from '@/lib/sanitize-html';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
+import { useAuth } from '@/contexts/AuthContext';
+import { getModuleActions, isSuperAdminRole } from '@/lib/permissions';
 import { Bell, CheckCircle, Clock, Edit, Eye, History, Send, XCircle } from 'lucide-react';
 
 type Counts = {
@@ -47,7 +49,9 @@ const emptyCounts: Counts = {
 
 export default function DashboardPage() {
   const router = useRouter();
+  const { user } = useAuth();
   const [counts, setCounts] = useState<Counts>(emptyCounts);
+  const [visibleExtra, setVisibleExtra] = useState({ categories: false, banners: false });
   const [loading, setLoading] = useState(true);
   const [tasks, setTasks] = useState<WorkflowTask[]>([]);
   const [tasksLoading, setTasksLoading] = useState(true);
@@ -86,34 +90,52 @@ export default function DashboardPage() {
     let active = true;
 
     async function load() {
-      const requests = await Promise.allSettled([
-        api.getWorkflowStats(),
-        api.getCategories('?pagination[pageSize]=1'),
-        api.getBanners('?pagination[pageSize]=1'),
-      ]);
-      if (!active) return;
-      const stats = requests[0].status === 'fulfilled'
-        ? (requests[0].value as { data?: { published?: number; pending?: number } }).data
-        : undefined;
-      const totalFrom = (index: number) => {
-        if (requests[index].status !== 'fulfilled') return null;
-        const total = (requests[index].value as { meta?: { pagination?: { total?: number } } }).meta?.pagination?.total;
-        return typeof total === 'number' ? total : null;
-      };
-      setCounts({
-        published: typeof stats?.published === 'number' ? stats.published : null,
-        pending: typeof stats?.pending === 'number' ? stats.pending : null,
-        categories: totalFrom(1),
-        banners: totalFrom(2),
-      });
-      setLoading(false);
+      if (!user) return;
+      setLoading(true);
+      try {
+        const isSuperAdmin = isSuperAdminRole(user.role);
+        const grants = isSuperAdmin ? [] : await Promise.allSettled([
+          getModuleActions(user.roleId, 'categories'),
+          getModuleActions(user.roleId, 'banners'),
+        ]);
+        const canSeeCategories = isSuperAdmin || (grants[0]?.status === 'fulfilled' && grants[0].value.includes('view'));
+        const canSeeBanners = isSuperAdmin || (grants[1]?.status === 'fulfilled' && grants[1].value.includes('view'));
+        const requests = await Promise.allSettled([
+          api.getWorkflowStats(),
+          canSeeCategories ? api.getCategories('?pagination[pageSize]=1') : Promise.resolve(null),
+          canSeeBanners ? api.getBanners('?pagination[pageSize]=1') : Promise.resolve(null),
+        ]);
+        if (!active) return;
+        setVisibleExtra({ categories: canSeeCategories, banners: canSeeBanners });
+        const stats = requests[0].status === 'fulfilled'
+          ? (requests[0].value as { data?: { published?: number; pending?: number } }).data
+          : undefined;
+        const totalFrom = (index: number) => {
+          if (requests[index].status !== 'fulfilled') return null;
+          const total = (requests[index].value as { meta?: { pagination?: { total?: number } } } | null)?.meta?.pagination?.total;
+          return typeof total === 'number' ? total : null;
+        };
+        setCounts({
+          published: typeof stats?.published === 'number' ? stats.published : null,
+          pending: typeof stats?.pending === 'number' ? stats.pending : null,
+          categories: totalFrom(1),
+          banners: totalFrom(2),
+        });
+      } catch (error) {
+        console.error('dashboard counts error:', error);
+        if (active) setCounts(emptyCounts);
+      } finally {
+        if (active) setLoading(false);
+      }
     }
 
-    void load();
-    void loadTasks();
-    void loadHistory();
+    if (user) {
+      void load();
+      void loadTasks();
+      void loadHistory();
+    }
     return () => { active = false; };
-  }, []);
+  }, [user?.id, user?.role, user?.roleId]);
 
   const performTask = async (task: WorkflowTask, action: string) => {
     const id = task.article_document_id;
@@ -168,8 +190,8 @@ export default function DashboardPage() {
   const cards = [
     { label: '已发布文章', value: counts.published, color: 'text-blue-600' },
     { label: '待审核内容', value: counts.pending, color: 'text-amber-600' },
-    { label: '栏目总数', value: counts.categories, color: 'text-emerald-600' },
-    { label: '轮播图总数', value: counts.banners, color: 'text-purple-600' },
+    ...(visibleExtra.categories ? [{ label: '栏目总数', value: counts.categories, color: 'text-emerald-600' }] : []),
+    ...(visibleExtra.banners ? [{ label: '轮播图总数', value: counts.banners, color: 'text-purple-600' }] : []),
   ];
 
   const actionableTasks = tasks.filter((task) => task.action_required);
@@ -218,7 +240,7 @@ export default function DashboardPage() {
         {history.length > 12 && <div className="border-t border-gray-100 px-6 py-3 text-center text-sm text-gray-500">展示最近 12 条，共 {history.length} 条</div>}
       </section>
       {preview && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"><div className="max-h-[85vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white p-6"><h2 className="text-2xl font-bold text-gray-900">{preview.title}</h2>{preview.summary && <p className="mt-2 text-gray-500">{preview.summary}</p>}<div className="prose mt-6 max-w-none" dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(preview.content || '<p>暂无正文</p>') }} /><div className="mt-6 text-right"><button onClick={() => setPreview(null)} className="rounded-xl bg-gray-100 px-4 py-2 text-sm text-gray-700">关闭预览</button></div></div></div>}
-      {!loading && Object.values(counts).some((value) => value === null) && (
+      {!loading && cards.some((card) => card.value === null) && (
         <p role="alert" className="text-sm text-amber-700">
           部分统计暂时无法获取，请检查登录状态和 Strapi 接口权限。
         </p>

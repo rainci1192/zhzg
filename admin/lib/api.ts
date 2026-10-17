@@ -133,6 +133,8 @@ export const api = {
   getArticles: (q = '') => strapiRequest<unknown>(`/api/articles${q}`),
   getWorkflowArticles: (q = '') => strapiRequest<unknown>(`/api/article-workflow/list${q}`),
   getWorkflowStats: () => strapiRequest<unknown>('/api/article-workflow/stats'),
+  getArticleCategoryOptions: () => strapiRequest<unknown>('/api/article-workflow/category-options'),
+  getArticlePublisherFilterOptions: () => strapiRequest<unknown>('/api/article-workflow/publisher-filter-options'),
   getArticle: (id: string) =>
     strapiRequest<unknown>(`/api/article-workflow/${encodeURIComponent(id)}/preview`),
   createArticle: (data: unknown) => {

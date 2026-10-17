@@ -1,0 +1,248 @@
+diff --git a/admin/app/(dashboard)/dashboard/articles/page.tsx b/admin/app/(dashboard)/dashboard/articles/page.tsx
+index 1fce7d1..4b719b6 100644
+--- a/admin/app/(dashboard)/dashboard/articles/page.tsx
++++ b/admin/app/(dashboard)/dashboard/articles/page.tsx
+@@ -274,7 +274,7 @@ export default function ArticlesPage() {
+ 
+   const fetchCategories = async () => {
+     try {
+-      const response = (await api.getCategories('?populate=*&sort=sort_order:asc')) as { data?: Category[] };
++      const response = (await api.getArticleCategoryOptions()) as { data?: Category[] };
+       setCategories(response.data || []);
+     } catch (error) {
+       console.error('fetchCategories error:', error);
+@@ -293,14 +293,17 @@ export default function ArticlesPage() {
+   useEffect(() => {
+     void (async () => {
+       try {
+-        const response = (await api.getArticlePublishers()) as { data?: Reviewer[] };
++        if (!user?.id) return;
++        const response = (await (isSuperAdmin
++          ? api.getArticlePublishers()
++          : api.getArticlePublisherFilterOptions())) as { data?: Reviewer[] };
+         setPublishers(uniqueReviewers(response.data || []));
+       } catch (error) {
+         console.error('fetch article publishers error:', error);
+         setPublishers([]);
+       }
+     })();
+-  }, [isSuperAdmin]);
++  }, [isSuperAdmin, user?.id]);
+ 
+   const primaryOptions = useMemo(
+     () => categories.filter((category) => !category.parentCategory || category.level === 1),
+diff --git a/admin/app/(dashboard)/dashboard/page.tsx b/admin/app/(dashboard)/dashboard/page.tsx
+index 59628f0..1b581d1 100644
+--- a/admin/app/(dashboard)/dashboard/page.tsx
++++ b/admin/app/(dashboard)/dashboard/page.tsx
+@@ -5,6 +5,8 @@ import { sanitizeRichHtml } from '@/lib/sanitize-html';
+ import { useEffect, useState } from 'react';
+ import { useRouter } from 'next/navigation';
+ import { api } from '@/lib/api';
++import { useAuth } from '@/contexts/AuthContext';
++import { getModuleActions, isSuperAdminRole } from '@/lib/permissions';
+ import { Bell, CheckCircle, Clock, Edit, Eye, History, Send, XCircle } from 'lucide-react';
+ 
+ type Counts = {
+@@ -47,7 +49,9 @@ const emptyCounts: Counts = {
+ 
+ export default function DashboardPage() {
+   const router = useRouter();
++  const { user } = useAuth();
+   const [counts, setCounts] = useState<Counts>(emptyCounts);
++  const [visibleExtra, setVisibleExtra] = useState({ categories: false, banners: false });
+   const [loading, setLoading] = useState(true);
+   const [tasks, setTasks] = useState<WorkflowTask[]>([]);
+   const [tasksLoading, setTasksLoading] = useState(true);
+@@ -86,12 +90,21 @@ export default function DashboardPage() {
+     let active = true;
+ 
+     async function load() {
++      if (!user) return;
++      const isSuperAdmin = isSuperAdminRole(user.role);
++      const grants = isSuperAdmin ? [] : await Promise.allSettled([
++        getModuleActions(user.roleId, 'categories'),
++        getModuleActions(user.roleId, 'banners'),
++      ]);
++      const canSeeCategories = isSuperAdmin || (grants[0]?.status === 'fulfilled' && grants[0].value.includes('view'));
++      const canSeeBanners = isSuperAdmin || (grants[1]?.status === 'fulfilled' && grants[1].value.includes('view'));
+       const requests = await Promise.allSettled([
+         api.getWorkflowStats(),
+-        api.getCategories('?pagination[pageSize]=1'),
+-        api.getBanners('?pagination[pageSize]=1'),
++        canSeeCategories ? api.getCategories('?pagination[pageSize]=1') : Promise.resolve(null),
++        canSeeBanners ? api.getBanners('?pagination[pageSize]=1') : Promise.resolve(null),
+       ]);
+       if (!active) return;
++      setVisibleExtra({ categories: canSeeCategories, banners: canSeeBanners });
+       const stats = requests[0].status === 'fulfilled'
+         ? (requests[0].value as { data?: { published?: number; pending?: number } }).data
+         : undefined;
+@@ -109,11 +122,13 @@ export default function DashboardPage() {
+       setLoading(false);
+     }
+ 
+-    void load();
+-    void loadTasks();
+-    void loadHistory();
++    if (user) {
++      void load();
++      void loadTasks();
++      void loadHistory();
++    }
+     return () => { active = false; };
+-  }, []);
++  }, [user?.id, user?.role, user?.roleId]);
+ 
+   const performTask = async (task: WorkflowTask, action: string) => {
+     const id = task.article_document_id;
+@@ -168,8 +183,8 @@ export default function DashboardPage() {
+   const cards = [
+     { label: '已发布文章', value: counts.published, color: 'text-blue-600' },
+     { label: '待审核内容', value: counts.pending, color: 'text-amber-600' },
+-    { label: '栏目总数', value: counts.categories, color: 'text-emerald-600' },
+-    { label: '轮播图总数', value: counts.banners, color: 'text-purple-600' },
++    ...(visibleExtra.categories ? [{ label: '栏目总数', value: counts.categories, color: 'text-emerald-600' }] : []),
++    ...(visibleExtra.banners ? [{ label: '轮播图总数', value: counts.banners, color: 'text-purple-600' }] : []),
+   ];
+ 
+   const actionableTasks = tasks.filter((task) => task.action_required);
+@@ -218,7 +233,7 @@ export default function DashboardPage() {
+         {history.length > 12 && <div className="border-t border-gray-100 px-6 py-3 text-center text-sm text-gray-500">展示最近 12 条，共 {history.length} 条</div>}
+       </section>
+       {preview && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"><div className="max-h-[85vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white p-6"><h2 className="text-2xl font-bold text-gray-900">{preview.title}</h2>{preview.summary && <p className="mt-2 text-gray-500">{preview.summary}</p>}<div className="prose mt-6 max-w-none" dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(preview.content || '<p>暂无正文</p>') }} /><div className="mt-6 text-right"><button onClick={() => setPreview(null)} className="rounded-xl bg-gray-100 px-4 py-2 text-sm text-gray-700">关闭预览</button></div></div></div>}
+-      {!loading && Object.values(counts).some((value) => value === null) && (
++      {!loading && cards.some((card) => card.value === null) && (
+         <p role="alert" className="text-sm text-amber-700">
+           部分统计暂时无法获取，请检查登录状态和 Strapi 接口权限。
+         </p>
+diff --git a/admin/contexts/AuthContext.tsx b/admin/contexts/AuthContext.tsx
+index 57fee2c..3c8a04b 100644
+--- a/admin/contexts/AuthContext.tsx
++++ b/admin/contexts/AuthContext.tsx
+@@ -176,18 +176,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
+ 
+       const currentUser = await fetchCurrentAdmin();
+       setUser(currentUser);
+-
+-      // Last-login tracking is useful, but a logging failure should not undo a valid login.
+-      if (currentUser.documentId) {
+-        try {
+-          await strapiFetch(`${STRAPI_URL}/api/backend-admins/${currentUser.documentId}`, {
+-            method: 'PUT',
+-            body: JSON.stringify({ data: { last_login: new Date().toISOString() } }),
+-          });
+-        } catch (error) {
+-          console.warn('更新最后登录时间失败:', error);
+-        }
+-      }
+     } catch (error) {
+       clearStoredSession();
+       setUser(null);
+diff --git a/admin/lib/api.ts b/admin/lib/api.ts
+index 116e780..8edb7e9 100644
+--- a/admin/lib/api.ts
++++ b/admin/lib/api.ts
+@@ -133,6 +133,8 @@ export const api = {
+   getArticles: (q = '') => strapiRequest<unknown>(`/api/articles${q}`),
+   getWorkflowArticles: (q = '') => strapiRequest<unknown>(`/api/article-workflow/list${q}`),
+   getWorkflowStats: () => strapiRequest<unknown>('/api/article-workflow/stats'),
++  getArticleCategoryOptions: () => strapiRequest<unknown>('/api/article-workflow/category-options'),
++  getArticlePublisherFilterOptions: () => strapiRequest<unknown>('/api/article-workflow/publisher-filter-options'),
+   getArticle: (id: string) =>
+     strapiRequest<unknown>(`/api/article-workflow/${encodeURIComponent(id)}/preview`),
+   createArticle: (data: unknown) => {
+diff --git a/backend/src/api/article/controllers/article.js b/backend/src/api/article/controllers/article.js
+index f15f453..e2641eb 100644
+--- a/backend/src/api/article/controllers/article.js
++++ b/backend/src/api/article/controllers/article.js
+@@ -596,6 +596,58 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
+     };
+   },
+ 
++  // Article editors need category labels for the form and filters even when
++  // their role cannot manage categories. Return only the fields they need.
++  async categoryOptions(ctx) {
++    const admin = await getCurrentAdmin(ctx, strapi);
++    if (!admin) return;
++    if (!(await hasArticleAction(strapi, admin, 'view'))) return ctx.forbidden('当前角色没有查看文章的权限。');
++
++    const rows = await strapi.db.query('api::category.category').findMany({
++      where: { publishedAt: { $notNull: true } },
++      select: ['id', 'documentId', 'name', 'level', 'sort_order'],
++      populate: { parentCategory: { select: ['id', 'name'] } },
++      orderBy: { sort_order: 'asc' },
++    });
++    ctx.body = {
++      data: rows.map((category) => ({
++        id: category.id,
++        documentId: category.documentId,
++        name: category.name,
++        level: category.level,
++        parentCategory: category.parentCategory
++          ? { id: category.parentCategory.id, name: category.parentCategory.name }
++          : null,
++      })),
++    };
++  },
++
++  // Filtering visible articles by author does not grant permission to assign
++  // a different publisher to an article. Keep the assignment endpoint admin-only.
++  async publisherFilterOptions(ctx) {
++    const admin = await getCurrentAdmin(ctx, strapi);
++    if (!admin) return;
++    if (!(await hasArticleAction(strapi, admin, 'view'))) return ctx.forbidden('当前角色没有查看文章的权限。');
++
++    const rows = await strapi.db.query(ARTICLE_UID).findMany({
++      ...(isSuperAdmin(admin) || (await getArticleDataScope(strapi, admin)) === 'all'
++        ? {}
++        : { where: articleAccessFilter(admin) }),
++      select: ['id'],
++      populate: { created_by_admin: { select: ['id', 'documentId', 'name', 'email'] } },
++    });
++    ctx.body = {
++      data: uniqueAdmins(rows.map((row) => row.created_by_admin).filter(Boolean))
++        .map((owner) => ({
++          id: owner.id,
++          documentId: owner.documentId,
++          name: owner.name,
++          email: owner.email,
++        }))
++        .sort((left, right) => String(left.name || '').localeCompare(String(right.name || ''), 'zh-CN')),
++    };
++  },
++
+   // Admin article lists must include draft and published Strapi documents.
+   // The generated REST find endpoint defaults to the published content view,
+   // which hides documents whose Strapi `publishedAt` is null even when the
+diff --git a/backend/src/api/article/routes/article-workflow.js b/backend/src/api/article/routes/article-workflow.js
+index 517f9ce..dd17821 100644
+--- a/backend/src/api/article/routes/article-workflow.js
++++ b/backend/src/api/article/routes/article-workflow.js
+@@ -22,6 +22,26 @@ module.exports = {
+         middlewares: [],
+       },
+     },
++    {
++      method: 'GET',
++      path: '/article-workflow/category-options',
++      handler: 'api::article.article.categoryOptions',
++      config: {
++        auth: { scope: ['api::article.article.find'] },
++        policies: [],
++        middlewares: [],
++      },
++    },
++    {
++      method: 'GET',
++      path: '/article-workflow/publisher-filter-options',
++      handler: 'api::article.article.publisherFilterOptions',
++      config: {
++        auth: { scope: ['api::article.article.find'] },
++        policies: [],
++        middlewares: [],
++      },
++    },
+     {
+       method: 'GET',
+       path: '/article-workflow/:id/preview',

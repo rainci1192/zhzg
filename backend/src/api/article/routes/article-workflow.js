@@ -24,6 +24,26 @@ module.exports = {
     },
     {
       method: 'GET',
+      path: '/article-workflow/category-options',
+      handler: 'api::article.article.categoryOptions',
+      config: {
+        auth: { scope: ['api::article.article.find'] },
+        policies: [],
+        middlewares: [],
+      },
+    },
+    {
+      method: 'GET',
+      path: '/article-workflow/publisher-filter-options',
+      handler: 'api::article.article.publisherFilterOptions',
+      config: {
+        auth: { scope: ['api::article.article.find'] },
+        policies: [],
+        middlewares: [],
+      },
+    },
+    {
+      method: 'GET',
       path: '/article-workflow/:id/preview',
       handler: 'api::article.article.preview',
       config: {
