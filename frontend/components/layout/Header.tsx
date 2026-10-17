@@ -2,10 +2,11 @@
 
 import Link from 'next/link';
 import { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 
 export default function Header() {
   const router = useRouter();
+  const isHome = usePathname() === '/';
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -156,7 +157,7 @@ export default function Header() {
   }, [scrolled]);
 
   return (
-    <header className="bg-[#003d82] shadow-md sticky top-0 z-50 transition-all duration-300">
+    <header className={`z-50 w-full transition-all duration-300 ${isHome ? `fixed left-0 top-0 ${scrolled ? 'bg-[#082f62]/95 shadow-lg backdrop-blur-xl' : 'bg-gradient-to-b from-[#071d37]/85 to-transparent'}` : 'sticky top-0 bg-[#003d82] shadow-md'}`}>
       <div className="max-w-[1600px] mx-auto px-2">
         <div className={`flex items-center transition-all duration-300 ${scrolled ? 'h-16' : 'h-28'}`}>
           <Link
@@ -180,7 +181,7 @@ export default function Header() {
               >
                 <Link
                   href={item.href}
-                  className="px-1.5 xl:px-2 2xl:px-3 py-2 text-white text-base 2xl:text-lg font-medium hover:bg-white/10 rounded transition-colors inline-block whitespace-nowrap"
+                  className="home-nav-link px-1.5 xl:px-2 2xl:px-3 py-2 text-white text-base 2xl:text-lg font-medium rounded transition-colors inline-block whitespace-nowrap"
                 >
                   {item.name}
                 </Link>

@@ -1,48 +1,51 @@
+import Link from 'next/link';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import Banner from '@/components/home/Banner';
 import NewsList from '@/components/home/NewsList';
 import NoticeList from '@/components/home/NoticeList';
-// 引入我们在上一步编写的 API 方法
-import { getActiveBanners } from '@/lib/api'; 
+import { getActiveBanners } from '@/lib/api';
 
-// 保证首页每次请求都可拿到最新 CMS 数据（开发阶段建议开启）
 export const dynamic = 'force-dynamic';
 
-// ✅ 将组件改为 async 函数，以便在服务端请求数据
+const pathways = [
+  { number: '01', name: '学院概况', english: 'ABOUT US', href: '/about/intro', icon: '◈' },
+  { number: '02', name: '招生信息', english: 'ADMISSIONS', href: '/admission/master', icon: '⌁' },
+  { number: '03', name: '校企合作', english: 'PARTNERSHIP', href: '/cooperation/partner', icon: '◎' },
+  { number: '04', name: '管理文件', english: 'DOCUMENTS', href: '/documents/policies', icon: '▤' },
+];
+
 export default async function Home() {
-  // ✅ 在服务端获取已启用的轮播图数据
   const banners = await getActiveBanners();
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="home-page min-h-screen">
       <Header />
-
-      <main className="flex-1">
-        {/* ✅ 将获取到的 banners 数据作为属性传递给 Banner 组件 */}
+      <main id="main-content">
         <Banner banners={banners} />
-
-        {/* 背景图从这里开始（轮播图下方） */}
-        <section
-          className="
-            w-full
-            bg-[url('/images/home-bg.jpg')]
-            bg-cover
-            bg-no-repeat
-            bg-fixed
-            bg-top
-          "
-        >
-          {/* 蒙层与内容容器，宽度与轮播图一致（同为 px-6） */}
-          <div className="w-full px-6 py-8 bg-white/82">
-            <div className="flex flex-col gap-8">
-              <NewsList />
-              <NoticeList />
-            </div>
+        <nav className="home-pathways home-container" aria-label="首页快捷入口">
+          {pathways.map((item) => (
+            <Link href={item.href} className="home-pathway" key={item.number}>
+              <span className="home-pathway-symbol" aria-hidden="true">{item.icon}</span>
+              <span className="home-pathway-copy"><strong>{item.name}</strong><small>{item.english}</small></span>
+              <span className="home-pathway-arrow" aria-hidden="true">↗</span>
+            </Link>
+          ))}
+        </nav>
+        <section className="home-news-section" id="home-news">
+          <div className="home-container"><NewsList /></div>
+        </section>
+        <section className="home-notice-section" id="home-notices">
+          <div className="home-container"><NoticeList /></div>
+        </section>
+        <section className="home-discover" aria-labelledby="home-discover-title">
+          <div className="home-discover-background" aria-hidden="true" />
+          <div className="home-container home-discover-content">
+            <div><span className="home-section-kicker">EXPLORE OUR CAMPUS</span><h2 id="home-discover-title">扎根湾区，连接产业与学术</h2><p>以实践为导向，让创新成果在真实场景中生长。</p></div>
+            <Link href="/about/intro">了解学院 <span aria-hidden="true">↗</span></Link>
           </div>
         </section>
       </main>
-
       <Footer />
     </div>
   );

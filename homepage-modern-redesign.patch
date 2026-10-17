@@ -1,0 +1,1014 @@
+diff --git a/frontend/app/globals.css b/frontend/app/globals.css
+index f5eebf8..db9731e 100644
+--- a/frontend/app/globals.css
++++ b/frontend/app/globals.css
+@@ -19,6 +19,164 @@ a {
+   color: inherit;
+ }
+ 
++/* 首页：视觉首屏、内容分区与轻量交互 */
++.home-page { overflow-x: clip; background: #f7f9fc; }
++.home-container { width: min(100% - 64px, 1360px); margin-inline: auto; }
++.home-page a:focus-visible, .home-page button:focus-visible, .home-nav-link:focus-visible { outline: 3px solid #78cbff; outline-offset: 4px; }
++.home-nav-link { position: relative; }
++.home-nav-link::after { content: ''; position: absolute; left: 12px; right: 12px; bottom: 2px; height: 2px; background: #8bd7ff; transform: scaleX(0); transform-origin: left; transition: transform .25s ease; }
++.home-nav-link:hover::after, .home-nav-link:focus-visible::after { transform: scaleX(1); }
++
++.home-hero { min-height: 660px; height: min(88svh, 820px); position: relative; display: flex; align-items: center; isolation: isolate; overflow: hidden; color: white; background: #113761; }
++.home-hero-slide { position: absolute; inset: 0; opacity: 0; transition: opacity 1.1s ease; z-index: -2; }
++.home-hero-slide.is-active { opacity: 1; }
++.home-hero-image { object-fit: cover; object-position: center; transform: scale(1.035); transition: transform 7s ease; }
++.home-hero-slide.is-active .home-hero-image { transform: scale(1); }
++.home-hero-shade { position: absolute; inset: 0; z-index: -1; background: linear-gradient(90deg, rgba(5, 28, 61, .89) 0%, rgba(5, 36, 76, .69) 38%, rgba(5, 35, 70, .22) 78%), linear-gradient(0deg, rgba(2, 24, 49, .70) 0%, transparent 35%); }
++.home-hero-content { padding-top: 76px; }
++.home-hero-eyebrow, .home-section-kicker { display: inline-flex; align-items: center; gap: 16px; font-size: 12px; font-weight: 700; letter-spacing: .22em; }
++.home-hero-eyebrow::before { content: ''; width: 34px; height: 2px; background: #7ed4ff; }
++.home-hero h1 { margin-top: 25px; max-width: 860px; font-size: clamp(38px, 5vw, 76px); line-height: 1.18; font-weight: 700; letter-spacing: .04em; text-wrap: balance; text-shadow: 0 6px 26px rgba(0, 17, 44, .25); }
++.home-hero h1 span { display: block; font-size: .72em; margin-top: 8px; }
++.home-hero-content > p { margin-top: 27px; font-size: clamp(16px, 1.5vw, 22px); letter-spacing: .1em; color: #e5f1ff; }
++.home-hero-actions { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 42px; }
++.home-hero-actions a { min-width: 178px; min-height: 52px; padding: 13px 24px; display: inline-flex; align-items: center; justify-content: space-between; gap: 30px; font-weight: 600; transition: background .25s, transform .25s, border-color .25s; }
++.home-hero-actions a:hover { transform: translateY(-3px); }
++.home-hero-primary { background: #fff; color: #11467c; }
++.home-hero-primary:hover { background: #dceffc; }
++.home-hero-secondary { border: 1px solid rgba(255,255,255,.65); background: rgba(255,255,255,.1); backdrop-filter: blur(8px); }
++.home-hero-secondary:hover { background: rgba(255,255,255,.23); }
++.home-hero-bottom { position: absolute; bottom: 93px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; justify-content: space-between; }
++.home-hero-scroll { display: flex; align-items: center; gap: 15px; font-size: 12px; letter-spacing: .18em; color: #e2ecf7; }
++.home-hero-scroll-line { width: 48px; height: 1px; background: rgba(255,255,255,.7); }
++.home-hero-controls { display: flex; gap: 14px; align-items: center; }
++.home-hero-controls button { border: 1px solid rgba(255,255,255,.5); width: 42px; height: 42px; border-radius: 50%; font-size: 21px; transition: background .25s, transform .25s; }
++.home-hero-controls button:hover { background: rgba(255,255,255,.25); transform: translateY(-2px); }
++.home-hero-count { display: inline-flex; align-items: center; gap: 8px; font-variant-numeric: tabular-nums; font-size: 13px; }
++.home-hero-count i { width: 30px; height: 1px; background: rgba(255,255,255,.65); }
++
++.home-pathways { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); position: relative; z-index: 2; margin-top: -60px; background: white; box-shadow: 0 18px 52px rgba(12, 47, 89, .13); }
++.home-pathway { min-height: 120px; padding: 26px 25px; display: flex; align-items: center; gap: 17px; position: relative; border-right: 1px solid #edf1f5; overflow: hidden; transition: background .3s; }
++.home-pathway:last-child { border-right: 0; }
++.home-pathway::before { content: ''; position: absolute; inset: 0; background: linear-gradient(125deg, #0a4c92, #087aba); transform: translateY(101%); transition: transform .35s ease; }
++.home-pathway:hover::before, .home-pathway:focus-visible::before { transform: translateY(0); }
++.home-pathway-symbol, .home-pathway-copy, .home-pathway-arrow { z-index: 1; position: relative; transition: color .3s, transform .3s; }
++.home-pathway-symbol { width: 46px; height: 46px; flex: 0 0 46px; display: grid; place-items: center; border-radius: 50%; color: #1464a5; background: #eaf4fa; font-size: 28px; }
++.home-pathway-copy { display: flex; flex-direction: column; gap: 3px; }
++.home-pathway-copy strong { color: #17375c; font-size: 20px; letter-spacing: .06em; }
++.home-pathway-copy small { font-size: 10px; letter-spacing: .11em; color: #708ca7; }
++.home-pathway-arrow { margin-left: auto; color: #1c6faf; font-size: 24px; }
++.home-pathway:hover .home-pathway-copy strong, .home-pathway:hover .home-pathway-copy small, .home-pathway:hover .home-pathway-arrow, .home-pathway:focus-visible .home-pathway-copy strong, .home-pathway:focus-visible .home-pathway-copy small, .home-pathway:focus-visible .home-pathway-arrow { color: #fff; }
++.home-pathway:hover .home-pathway-symbol, .home-pathway:focus-visible .home-pathway-symbol { color: white; background: rgba(255,255,255,.18); transform: rotate(-12deg); }
++.home-pathway:hover .home-pathway-arrow { transform: translate(3px, -3px); }
++
++.home-news-section { padding: 100px 0 112px; background: radial-gradient(circle at 3% 95%, #e9f4fb 0, transparent 32%), #f8fafc; }
++.home-notice-section { padding: 100px 0 110px; background: linear-gradient(120deg, #e9f2f9 0%, #f5f9fc 58%, #eaf4f9 100%); position: relative; }
++.home-notice-section::before { content: 'JLU'; position: absolute; right: -15px; top: -110px; font-size: min(24vw, 350px); line-height: 1; letter-spacing: -.1em; font-weight: 800; color: rgba(19, 87, 150, .035); pointer-events: none; }
++.home-section-inner { position: relative; }
++.home-section-heading { display: flex; align-items: end; justify-content: space-between; gap: 24px; margin-bottom: 32px; }
++.home-section-kicker { color: #237db5; }
++.home-section-kicker span { color: #8ca9c1; font-weight: 500; letter-spacing: .08em; }
++.home-section-heading h2 { font-size: clamp(32px, 3vw, 48px); font-weight: 700; letter-spacing: .08em; line-height: 1.2; color: #133b68; margin: 12px 0 7px; }
++.home-section-heading p { color: #627990; font-size: 15px; }
++.home-section-more { color: #135e9c; font-size: 14px; font-weight: 700; display: inline-flex; align-items: center; gap: 16px; padding-bottom: 7px; border-bottom: 1px solid #8eb5d0; white-space: nowrap; transition: gap .2s, color .2s; }
++.home-section-more:hover { gap: 24px; color: #073b71; }
++.home-section-more span { font-size: 20px; }
++.home-news-grid { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr); gap: 25px; min-height: 510px; }
++.home-news-feature { min-height: 510px; position: relative; overflow: hidden; color: #fff; background: #16446e; }
++.home-news-feature-image { object-fit: cover; transition: transform .75s ease; }
++.home-news-feature:hover .home-news-feature-image { transform: scale(1.07); }
++.home-news-feature-shade { position: absolute; inset: 0; background: linear-gradient(0deg, rgba(4,28,57,.96), rgba(4,28,57,.2) 75%); transition: background .3s; }
++.home-news-feature-copy { position: absolute; bottom: 0; left: 0; right: 0; padding: clamp(22px, 4vw, 48px); }
++.home-news-feature-copy > span:first-child { font-size: 13px; color: #bfe1f6; letter-spacing: .1em; }
++.home-news-feature-copy h3 { font-size: clamp(22px, 2.1vw, 33px); line-height: 1.35; margin-top: 15px; font-weight: 700; max-width: 620px; }
++.home-news-feature-copy p { font-size: 14px; line-height: 1.6; margin-top: 12px; color: #d8e8f4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
++.home-news-feature-link { margin-top: 24px; display: inline-flex; gap: 28px; align-items: center; font-size: 14px; font-weight: 600; border-bottom: 1px solid #afd7f1; padding-bottom: 7px; }
++.home-news-feature-link b { font-size: 20px; transition: transform .2s; }
++.home-news-feature:hover .home-news-feature-link b { transform: translate(3px, -3px); }
++.home-news-list { display: grid; grid-template-rows: repeat(4, minmax(0, 1fr)); gap: 12px; }
++.home-news-item { display: flex; align-items: center; gap: 24px; min-height: 115px; position: relative; overflow: hidden; background: #fff; border: 1px solid #edf1f5; padding: 17px 24px; transition: transform .3s, box-shadow .3s; }
++.home-news-item:hover { transform: translateX(6px); box-shadow: 0 12px 30px rgba(8,55,105,.18); }
++.home-news-item-bg { position: absolute; inset: 0; background: linear-gradient(110deg, #075b9a, #063869); background-position: center; background-size: cover; opacity: 0; transform: scale(1.08); transition: opacity .35s, transform .55s; }
++.home-news-item-bg::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(4,45,86,.94), rgba(4,45,86,.78)); }
++.home-news-item:hover .home-news-item-bg, .home-news-item:focus-visible .home-news-item-bg { opacity: 1; transform: scale(1); }
++.home-news-item-index { position: relative; z-index: 1; font-size: 32px; font-weight: 700; color: #c6d9e8; font-family: Georgia, serif; }
++.home-news-item-content { position: relative; z-index: 1; display: flex; flex-direction: column; min-width: 0; flex: 1; gap: 3px; }
++.home-news-item-content time { color: #2382b9; font-size: 12px; font-weight: 700; letter-spacing: .08em; }
++.home-news-item-content strong { font-size: 17px; font-weight: 650; color: #183b63; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
++.home-news-item-content > span { color: #7a8da0; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
++.home-news-item-arrow { position: relative; z-index: 1; align-self: flex-start; color: #2d85bd; font-size: 24px; transition: transform .2s; }
++.home-news-item:hover .home-news-item-arrow { transform: translate(3px, -3px); }
++.home-news-item:hover .home-news-item-index, .home-news-item:hover .home-news-item-content time, .home-news-item:hover .home-news-item-content strong, .home-news-item:hover .home-news-item-content > span, .home-news-item:hover .home-news-item-arrow, .home-news-item:focus-visible .home-news-item-index, .home-news-item:focus-visible .home-news-item-content time, .home-news-item:focus-visible .home-news-item-content strong, .home-news-item:focus-visible .home-news-item-content > span, .home-news-item:focus-visible .home-news-item-arrow { color: #fff; }
++.home-news-list-empty { display: grid; place-items: center; color: #71879b; background: white; }
++
++.home-notice-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
++.home-notice-item { position: relative; display: flex; align-items: center; min-height: 120px; padding: 20px 27px; gap: 24px; overflow: hidden; background: #fff; border: 1px solid #dce9f2; box-shadow: 0 8px 28px rgba(25,69,108,.04); transition: box-shadow .3s, transform .3s; }
++.home-notice-item::before { content: ''; position: absolute; inset: 0; background: linear-gradient(105deg, #075ca6, #06396f); transform: translateY(101%); transition: transform .35s ease; }
++.home-notice-item:hover, .home-notice-item:focus-visible { transform: translateY(-4px); box-shadow: 0 20px 35px rgba(7,61,112,.18); }
++.home-notice-item:hover::before, .home-notice-item:focus-visible::before { transform: translateY(0); }
++.home-notice-date, .home-notice-title, .home-notice-arrow { z-index: 1; position: relative; transition: color .25s, border-color .25s; }
++.home-notice-date { min-width: 77px; display: flex; flex-direction: column; align-items: flex-start; border-right: 1px solid #dae7f1; padding-right: 23px; }
++.home-notice-date strong { font-family: Georgia, serif; font-weight: 700; font-size: 37px; color: #1e70a9; line-height: 1.05; }
++.home-notice-date span { font-size: 11px; color: #8295a9; white-space: nowrap; }
++.home-notice-title { font-size: 17px; font-weight: 600; color: #1c3c60; line-height: 1.55; flex: 1; min-width: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
++.home-notice-arrow { color: #2387bf; font-size: 24px; }
++.home-notice-item:hover .home-notice-date, .home-notice-item:focus-visible .home-notice-date { border-color: rgba(255,255,255,.45); }
++.home-notice-item:hover .home-notice-date strong, .home-notice-item:hover .home-notice-date span, .home-notice-item:hover .home-notice-title, .home-notice-item:hover .home-notice-arrow, .home-notice-item:focus-visible .home-notice-date strong, .home-notice-item:focus-visible .home-notice-date span, .home-notice-item:focus-visible .home-notice-title, .home-notice-item:focus-visible .home-notice-arrow { color: #fff; }
++.home-loading-block { min-height: 120px; background: linear-gradient(90deg, #ecf3f8, #fff, #ecf3f8); background-size: 200% 100%; animation: home-loading 1.8s ease-in-out infinite; }
++.home-empty { padding: 70px 20px; background: #fff; text-align: center; color: #6b8298; border: 1px solid #e0e9f1; }
++@keyframes home-loading { to { background-position-x: -200%; } }
++
++.home-discover { min-height: 330px; position: relative; isolation: isolate; display: flex; align-items: center; color: #fff; background: #074780; overflow: hidden; }
++.home-discover-background { position: absolute; inset: 0; z-index: -1; background: linear-gradient(90deg, rgba(3,46,88,.96), rgba(3,50,96,.82) 50%, rgba(5,61,111,.48)), url('/images/zh-banner3.png') center 54% / cover no-repeat; transition: transform .8s; }
++.home-discover:hover .home-discover-background { transform: scale(1.03); }
++.home-discover-content { display: flex; justify-content: space-between; align-items: end; gap: 28px; padding-block: 70px; }
++.home-discover .home-section-kicker { color: #8fdcff; }
++.home-discover h2 { margin-top: 17px; font-size: clamp(30px, 3vw, 46px); line-height: 1.3; font-weight: 700; }
++.home-discover p { margin-top: 14px; color: #d8e9f8; }
++.home-discover-content > a { min-width: 175px; padding: 16px 20px; border: 1px solid rgba(255,255,255,.7); display: flex; justify-content: space-between; align-items: center; transition: background .25s, color .25s; }
++.home-discover-content > a:hover { background: #fff; color: #07518f; }
++
++@media (max-width: 1050px) {
++  .home-pathway { padding: 20px 14px; gap: 10px; }
++  .home-pathway-symbol { width: 38px; height: 38px; flex-basis: 38px; font-size: 22px; }
++  .home-pathway-copy strong { font-size: 17px; }
++  .home-pathway-copy small { font-size: 9px; }
++  .home-news-grid { grid-template-columns: 1fr; }
++  .home-news-feature { min-height: 440px; }
++}
++@media (max-width: 720px) {
++  .home-container { width: min(100% - 36px, 1360px); }
++  .home-hero { min-height: 610px; height: 78svh; }
++  .home-hero-image { object-position: 55% center; }
++  .home-hero-shade { background: linear-gradient(90deg, rgba(4,26,58,.83), rgba(5,35,70,.3)), linear-gradient(0deg, rgba(4,25,55,.8), transparent 42%); }
++  .home-hero-content { padding-top: 40px; }
++  .home-hero h1 { font-size: clamp(33px, 8vw, 55px); }
++  .home-hero-content > p { line-height: 1.6; max-width: 300px; }
++  .home-hero-actions a { min-width: 145px; min-height: 48px; padding: 12px 15px; gap: 10px; font-size: 13px; }
++  .home-hero-bottom { bottom: 36px; }
++  .home-pathways { margin-top: 0; width: 100%; grid-template-columns: repeat(2, minmax(0, 1fr)); box-shadow: none; }
++  .home-pathway { min-height: 94px; border-bottom: 1px solid #edf1f5; }
++  .home-pathway:nth-child(even) { border-right: 0; }
++  .home-pathway-arrow { display: none; }
++  .home-news-section, .home-notice-section { padding-block: 72px; }
++  .home-section-heading { align-items: end; }
++  .home-section-heading p { font-size: 13px; }
++  .home-section-more { gap: 5px; font-size: 12px; }
++  .home-news-grid { min-height: 0; }
++  .home-news-feature { min-height: 390px; }
++  .home-news-list { gap: 9px; }
++  .home-news-item { min-height: 108px; padding: 12px 15px; gap: 14px; }
++  .home-news-item-content strong { font-size: 15px; }
++  .home-notice-grid { grid-template-columns: 1fr; }
++  .home-notice-item { min-height: 108px; padding: 16px; gap: 15px; }
++  .home-notice-title { font-size: 15px; }
++  .home-discover-content { flex-direction: column; align-items: flex-start; }
++}
++@media (prefers-reduced-motion: reduce) {
++  .home-page *, .home-page *::before, .home-page *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
++}
++
+ /* ========================================
+    政府网站文章内容样式规范
+    ======================================== */
+diff --git a/frontend/app/page.tsx b/frontend/app/page.tsx
+index a399229..ae0c7fe 100644
+--- a/frontend/app/page.tsx
++++ b/frontend/app/page.tsx
+@@ -1,48 +1,51 @@
++import Link from 'next/link';
+ import Header from '@/components/layout/Header';
+ import Footer from '@/components/layout/Footer';
+ import Banner from '@/components/home/Banner';
+ import NewsList from '@/components/home/NewsList';
+ import NoticeList from '@/components/home/NoticeList';
+-// 引入我们在上一步编写的 API 方法
+-import { getActiveBanners } from '@/lib/api'; 
++import { getActiveBanners } from '@/lib/api';
+ 
+-// 保证首页每次请求都可拿到最新 CMS 数据（开发阶段建议开启）
+ export const dynamic = 'force-dynamic';
+ 
+-// ✅ 将组件改为 async 函数，以便在服务端请求数据
++const pathways = [
++  { number: '01', name: '学院概况', english: 'ABOUT US', href: '/about/intro', icon: '◈' },
++  { number: '02', name: '招生信息', english: 'ADMISSIONS', href: '/admission/master', icon: '⌁' },
++  { number: '03', name: '校企合作', english: 'PARTNERSHIP', href: '/cooperation/partner', icon: '◎' },
++  { number: '04', name: '管理文件', english: 'DOCUMENTS', href: '/documents/policies', icon: '▤' },
++];
++
+ export default async function Home() {
+-  // ✅ 在服务端获取已启用的轮播图数据
+   const banners = await getActiveBanners();
+ 
+   return (
+-    <div className="min-h-screen flex flex-col">
++    <div className="home-page min-h-screen">
+       <Header />
+-
+-      <main className="flex-1">
+-        {/* ✅ 将获取到的 banners 数据作为属性传递给 Banner 组件 */}
++      <main id="main-content">
+         <Banner banners={banners} />
+-
+-        {/* 背景图从这里开始（轮播图下方） */}
+-        <section
+-          className="
+-            w-full
+-            bg-[url('/images/home-bg.jpg')]
+-            bg-cover
+-            bg-no-repeat
+-            bg-fixed
+-            bg-top
+-          "
+-        >
+-          {/* 蒙层与内容容器，宽度与轮播图一致（同为 px-6） */}
+-          <div className="w-full px-6 py-8 bg-white/82">
+-            <div className="flex flex-col gap-8">
+-              <NewsList />
+-              <NoticeList />
+-            </div>
++        <nav className="home-pathways home-container" aria-label="首页快捷入口">
++          {pathways.map((item) => (
++            <Link href={item.href} className="home-pathway" key={item.number}>
++              <span className="home-pathway-symbol" aria-hidden="true">{item.icon}</span>
++              <span className="home-pathway-copy"><strong>{item.name}</strong><small>{item.english}</small></span>
++              <span className="home-pathway-arrow" aria-hidden="true">↗</span>
++            </Link>
++          ))}
++        </nav>
++        <section className="home-news-section" id="home-news">
++          <div className="home-container"><NewsList /></div>
++        </section>
++        <section className="home-notice-section" id="home-notices">
++          <div className="home-container"><NoticeList /></div>
++        </section>
++        <section className="home-discover" aria-labelledby="home-discover-title">
++          <div className="home-discover-background" aria-hidden="true" />
++          <div className="home-container home-discover-content">
++            <div><span className="home-section-kicker">EXPLORE OUR CAMPUS</span><h2 id="home-discover-title">扎根湾区，连接产业与学术</h2><p>以实践为导向，让创新成果在真实场景中生长。</p></div>
++            <Link href="/about/intro">了解学院 <span aria-hidden="true">↗</span></Link>
+           </div>
+         </section>
+       </main>
+-
+       <Footer />
+     </div>
+   );
+diff --git a/frontend/components/home/Banner.tsx b/frontend/components/home/Banner.tsx
+index 7f1a072..0b29bc3 100644
+--- a/frontend/components/home/Banner.tsx
++++ b/frontend/components/home/Banner.tsx
+@@ -1,129 +1,89 @@
+ 'use client';
+ 
+-import { useState, useEffect } from 'react';
++import { useEffect, useState } from 'react';
+ import Image from 'next/image';
++import Link from 'next/link';
+ 
+ export interface BannerItem {
+   id: number;
+   documentId?: string;
+   title?: string;
+   link?: string | null;
+-  image?: {
+-    url: string;
+-  };
++  image?: { url: string };
+ }
+ 
+-interface BannerProps {
+-  banners: BannerItem[];
++const fallbackBanners: BannerItem[] = [
++  { id: -1, title: '珠海校区', image: { url: '/images/zh-banner2.png' } },
++  { id: -2, title: '吉林大学珠海校区', image: { url: '/images/zh-banner1.png' } },
++  { id: -3, title: '校园风光', image: { url: '/images/zh-banner3.png' } },
++];
++
++function imageUrl(url: string) {
++  if (url.startsWith('http://') || url.startsWith('https://')) return url;
++  if (url.startsWith('/images/')) return url;
++  const origin = process.env.NEXT_PUBLIC_STRAPI_URL || 'http://localhost:1337';
++  return `${origin}${url.startsWith('/') ? '' : '/'}${url}`;
+ }
+ 
+-export default function Banner({ banners = [] }: BannerProps) {
++export default function Banner({ banners = [] }: { banners: BannerItem[] }) {
++  const slides = banners.filter((item) => item.image?.url).length > 0
++    ? banners.filter((item) => item.image?.url)
++    : fallbackBanners;
+   const [current, setCurrent] = useState(0);
+-
+-  const STRAPI_URL = process.env.NEXT_PUBLIC_STRAPI_URL || 'http://localhost:1337';
++  const [paused, setPaused] = useState(false);
+ 
+   useEffect(() => {
+-    if (banners.length <= 1) return;
+-
+-    const timer = setInterval(() => {
+-      setCurrent((prev) => (prev + 1) % banners.length);
+-    }, 5000);
+-    return () => clearInterval(timer);
+-  }, [banners.length]);
++    if (slides.length < 2 || paused || document.hidden || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
++    const timer = window.setInterval(() => setCurrent((index) => (index + 1) % slides.length), 6500);
++    return () => window.clearInterval(timer);
++  }, [slides.length, paused]);
+ 
+-  if (!banners || banners.length === 0) {
+-    return (
+-      <div className="w-full h-[600px] md:h-[700px] bg-gray-200 flex items-center justify-center">
+-        <span className="text-gray-500">暂无轮播图数据，请在后台添加</span>
+-      </div>
+-    );
+-  }
+-
+-  const goPrev = () => setCurrent((prev) => (prev - 1 + banners.length) % banners.length);
+-  const goNext = () => setCurrent((prev) => (prev + 1) % banners.length);
++  const active = current % slides.length;
++  const slideLink = slides[active]?.link;
++  const safeSlideLink = slideLink && ((slideLink.startsWith('/') && !slideLink.startsWith('//')) || /^https?:\/\//.test(slideLink))
++    ? slideLink
++    : null;
+ 
+   return (
+-    <div className="relative w-full h-[600px] md:h-[700px] overflow-hidden bg-gray-200">
+-      {banners.map((slide, index) => {
+-        const imageUrl = slide.image?.url ? `${STRAPI_URL}${slide.image.url}` : '';
+-
+-        return (
+-          <div
+-            key={slide.documentId || slide.id}
+-            className={`absolute inset-0 transition-opacity duration-1000 ${
+-              index === current ? 'opacity-100 z-10' : 'opacity-0 z-0'
+-            }`}
+-          >
+-            {slide.link ? (
+-              <a href={slide.link} target="_blank" rel="noopener noreferrer" className="block w-full h-full relative">
+-                {imageUrl && (
+-                  <Image
+-                    src={imageUrl}
+-                    alt={slide.title || 'banner'}
+-                    fill
+-                    priority={index === 0}
+-                    // ✅ 核心修改：使用 object-cover 和 object-center，保证铺满不留白，且始终以中心点为基准裁切
+-                    className="object-cover object-center"
+-                  />
+-                )}
+-              </a>
+-            ) : (
+-              <div className="w-full h-full relative">
+-                {imageUrl && (
+-                  <Image
+-                    src={imageUrl}
+-                    alt={slide.title || 'banner'}
+-                    fill
+-                    priority={index === 0}
+-                    // ✅ 核心修改：使用 object-cover 和 object-center
+-                    className="object-cover object-center"
+-                  />
+-                )}
+-              </div>
+-            )}
+-          </div>
+-        );
+-      })}
+-
+-      {banners.length > 1 && (
+-        <>
+-          {/* 左箭头 */}
+-          <button
+-            onClick={goPrev}
+-            aria-label="上一张"
+-            className="absolute left-4 top-1/2 -translate-y-1/2 z-20 flex items-center justify-center w-10 h-10 rounded-full bg-black/30 hover:bg-black/50 transition-colors duration-200 group"
+-          >
+-            <svg className="w-5 h-5 text-white/80 group-hover:text-white transition-colors" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+-              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+-            </svg>
+-          </button>
+-
+-          {/* 右箭头 */}
+-          <button
+-            onClick={goNext}
+-            aria-label="下一张"
+-            className="absolute right-4 top-1/2 -translate-y-1/2 z-20 flex items-center justify-center w-10 h-10 rounded-full bg-black/30 hover:bg-black/50 transition-colors duration-200 group"
+-          >
+-            <svg className="w-5 h-5 text-white/80 group-hover:text-white transition-colors" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+-              <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+-            </svg>
+-          </button>
+-
+-          {/* 底部指示点 */}
+-          <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-2 z-20">
+-            {banners.map((_, index) => (
+-              <button
+-                key={index}
+-                onClick={() => setCurrent(index)}
+-                // ✅ 因为图片铺满全屏，指示器恢复为明显的白色/半透明白色
+-                className={`w-3 h-3 rounded-full transition-colors duration-300 ${
+-                  index === current ? 'bg-white' : 'bg-white/50'
+-                }`}
+-              />
+-            ))}
+-          </div>
+-        </>
+-      )}
+-    </div>
++    <section
++      className="home-hero"
++      aria-label="学院形象展示"
++      onMouseEnter={() => setPaused(true)}
++      onMouseLeave={() => setPaused(false)}
++      onFocusCapture={() => setPaused(true)}
++      onBlurCapture={() => setPaused(false)}
++    >
++      {slides.map((slide, index) => (
++        <div className={`home-hero-slide ${index === active ? 'is-active' : ''}`} key={slide.documentId || slide.id} aria-hidden={index !== active}>
++          <Image
++            src={imageUrl(slide.image!.url)}
++            alt={slide.title || '吉林大学珠海校区校园景观'}
++            fill
++            priority={index === 0}
++            sizes="100vw"
++            className="home-hero-image"
++          />
++        </div>
++      ))}
++      <div className="home-hero-shade" aria-hidden="true" />
++      <div className="home-hero-content home-container">
++        <span className="home-hero-eyebrow">JILIN UNIVERSITY · ZHUHAI</span>
++        <h1>国家卓越工程师学院<span>（珠海）</span></h1>
++        <p>面向国家战略需求 · 培养卓越工程人才</p>
++        <div className="home-hero-actions">
++          <Link href="/about/intro" className="home-hero-primary">走进学院 <span aria-hidden="true">↗</span></Link>
++          <Link href="/news" className="home-hero-secondary">了解最新动态 <span aria-hidden="true">→</span></Link>
++          {safeSlideLink && <a href={safeSlideLink} className="home-hero-secondary" target="_blank" rel="noopener noreferrer">查看轮播专题 <span aria-hidden="true">↗</span></a>}
++        </div>
++      </div>
++      <div className="home-hero-bottom home-container">
++        <div className="home-hero-scroll"><span className="home-hero-scroll-line" />向下探索</div>
++        <div className="home-hero-controls" aria-label="轮播图控制">
++          <button type="button" onClick={() => setCurrent((active - 1 + slides.length) % slides.length)} aria-label="上一张轮播图">←</button>
++          <span className="home-hero-count">{String(active + 1).padStart(2, '0')} <i /> {String(slides.length).padStart(2, '0')}</span>
++          <button type="button" onClick={() => setCurrent((active + 1) % slides.length)} aria-label="下一张轮播图">→</button>
++        </div>
++      </div>
++    </section>
+   );
+ }
+diff --git a/frontend/components/home/NewsList.tsx b/frontend/components/home/NewsList.tsx
+index 168232f..65ada43 100644
+--- a/frontend/components/home/NewsList.tsx
++++ b/frontend/components/home/NewsList.tsx
+@@ -1,292 +1,66 @@
+ 'use client';
+ 
+-import { useEffect, useRef, useState } from 'react';
+-import Link from 'next/link';
++import { useEffect, useState } from 'react';
+ import Image from 'next/image';
+-import { getHomeNews } from '@/lib/api';
+-import HomeSectionSkeleton from '@/components/home/HomeSectionSkeleton';
++import Link from 'next/link';
++import { getHomeNews, type ArticleItem } from '@/lib/api';
+ 
+-interface MediaItem {
+-  url?: string;
+-}
++const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:1337';
+ 
+-interface NewsItem {
+-  id: number;
+-  title: string;
+-  slug: string;
+-  summary?: string;
+-  publish_time?: string;
+-  cover?: MediaItem | null;
++function coverUrl(url?: string) {
++  if (!url) return '/images/zh-banner2.png';
++  return /^https?:\/\//.test(url) ? url : `${API_BASE}${url.startsWith('/') ? '' : '/'}${url}`;
+ }
+ 
+-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:1337';
+-
+-function toAbsoluteUrl(url?: string | null) {
+-  if (!url) return null;
+-  if (url.startsWith('http://') || url.startsWith('https://')) return url;
+-  return `${API_BASE}${url}`;
++function displayDate(value?: string) {
++  if (!value) return '—';
++  const date = new Date(value);
++  return Number.isNaN(date.getTime()) ? '—' : date.toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' });
+ }
+ 
+ export default function NewsList() {
+-  const [newsData, setNewsData] = useState<NewsItem[]>([]);
+-  const [currentSlide, setCurrentSlide] = useState(0);
+-  const [containerVisible, setContainerVisible] = useState(false);
++  const [articles, setArticles] = useState<ArticleItem[]>([]);
+   const [loading, setLoading] = useState(true);
+-  const containerRef = useRef<HTMLDivElement>(null);
+ 
+   useEffect(() => {
+-    let mounted = true;
+-    (async () => {
+-      try {
+-        const json = await getHomeNews();
+-        if (!mounted) return;
+-        setNewsData(Array.isArray(json?.data) ? (json.data as NewsItem[]) : []);
+-      } catch (e) {
+-        console.error('getHomeNews error:', e);
+-      } finally {
+-        if (mounted) setLoading(false);
+-      }
+-    })();
+-    return () => { mounted = false; };
++    let alive = true;
++    getHomeNews()
++      .then((result) => { if (alive) setArticles(Array.isArray(result?.data) ? result.data : []); })
++      .catch((error) => { console.error('首页新闻加载失败:', error); })
++      .finally(() => { if (alive) setLoading(false); });
++    return () => { alive = false; };
+   }, []);
+ 
+-  useEffect(() => {
+-    const observer = new IntersectionObserver(
+-      (entries) => { if (entries[0]?.isIntersecting) setContainerVisible(true); },
+-      { threshold: 0.1 }
+-    );
+-    if (containerRef.current) observer.observe(containerRef.current);
+-    return () => observer.disconnect();
+-  }, []);
+-
+-  useEffect(() => {
+-    if (newsData.length === 0) return;
+-    const slideCount = Math.min(newsData.length, 5);
+-    const timer = setInterval(() => {
+-      setCurrentSlide((prev) => (prev + 1) % slideCount);
+-    }, 4000);
+-    return () => clearInterval(timer);
+-  }, [newsData]);
+-
+-  const formatDate = (dateStr?: string) => {
+-    if (!dateStr) return { mmdd: '--', day: '--', month: '--', year: '--', ym: '' };
+-    const d = new Date(dateStr);
+-    if (Number.isNaN(d.getTime())) return { mmdd: '--', day: '--', month: '--', year: '--', ym: '' };
+-    const mm = String(d.getMonth() + 1).padStart(2, '0');
+-    const dd = String(d.getDate()).padStart(2, '0');
+-    return {
+-      mmdd: `${mm}-${dd}`,
+-      day: dd,
+-      month: mm,
+-      year: String(d.getFullYear()),
+-      ym: `${d.getFullYear()}-${mm}`,
+-    };
+-  };
+-
+-  const getImage = (item: NewsItem) => {
+-    const raw = item.cover?.url || null;
+-    return toAbsoluteUrl(raw);
+-  };
+-
+-  const slideCount = Math.min(newsData.length, 5);
+-  const safeSlideIndex = slideCount > 0 ? currentSlide % slideCount : 0;
+-  const activeItem = newsData[safeSlideIndex] || newsData[0];
+-
+-  // 右侧列表数据：取 newsData[0] 作为首条放大，newsData[1~6] 作为双列卡片（3行×2列=6条）
+-  const firstItem = newsData[0];
+-  const gridItems = newsData.slice(1, 7); // 最多6条，3行×2列
++  const lead = articles[0];
+ 
+   return (
+-    <div
+-      ref={containerRef}
+-      className={`px-12 py-8 transition-all duration-1000 ${
+-        containerVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
+-      }`}
+-    >
+-      {/* 标题区 + 分割线 */}
+-      <div className="mb-6">
+-        <div className="flex items-center justify-between">
+-          <div className="flex items-center gap-3">
+-            <h2 className="text-4xl font-bold text-blue-800">新闻动态</h2>
+-            <span className="text-base text-gray-400">/ News</span>
+-          </div>
+-          <Link
+-            href="/news"
+-            className="group relative flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-full font-medium overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
+-          >
+-            <span className="absolute inset-0 bg-gradient-to-r from-blue-600 to-blue-700 transform translate-x-full group-hover:translate-x-0 transition-transform duration-300"></span>
+-            <svg
+-              className="w-5 h-5 relative z-10 transform group-hover:rotate-45 group-hover:-translate-y-1 group-hover:translate-x-1 transition-all duration-500"
+-              fill="currentColor"
+-              viewBox="0 0 24 24"
+-            >
+-              <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
+-            </svg>
+-            <span className="relative z-10">查看更多</span>
+-          </Link>
+-        </div>
+-        <div className="mt-4 h-px w-full bg-gradient-to-r from-blue-200 via-gray-300 to-gray-200" />
++    <div className="home-section-inner">
++      <div className="home-section-heading">
++        <div><span className="home-section-kicker">COLLEGE NEWS <span>01 / 03</span></span><h2>新闻动态</h2><p>聚焦学院发展，记录创新实践中的每一步。</p></div>
++        <Link href="/news" className="home-section-more">全部新闻 <span aria-hidden="true">↗</span></Link>
+       </div>
+ 
+       {loading ? (
+-        <HomeSectionSkeleton mode="news" />
+-      ) : newsData.length === 0 ? (
+-        <div className="text-gray-500 text-center py-12">暂无新闻数据</div>
++        <div className="home-news-grid" aria-label="新闻加载中"><div className="home-loading-block" /><div className="home-loading-block" /></div>
++      ) : !lead ? (
++        <div className="home-empty">暂无新闻动态，欢迎稍后再来。</div>
+       ) : (
+-        <div className="flex gap-8 items-stretch">
+-          {/* 左侧轮播卡片（保持原有逻辑不变） */}
+-          <div className="w-1/3 flex-shrink-0">
+-            <Link href={`/article/${activeItem.slug}?from=news`} className="block group h-full flex flex-col">
+-              <div className="relative w-full aspect-[3/2] overflow-hidden bg-gray-200">
+-                {getImage(activeItem) ? (
+-                  <Image
+-                    src={getImage(activeItem)!}
+-                    alt={activeItem.title}
+-                    fill
+-                    className="object-cover transition-transform duration-500 group-hover:scale-105"
+-                    sizes="40vw"
+-                    priority
+-                  />
+-                ) : (
+-                  <div className="absolute inset-0 bg-gradient-to-br from-blue-600 to-blue-400 flex items-center justify-center">
+-                    <span className="text-white text-6xl font-bold">
+-                      {formatDate(activeItem.publish_time).day}
+-                    </span>
+-                  </div>
+-                )}
+-                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-2 z-10">
+-                  {newsData.slice(0, 5).map((_, i) => (
+-                    <button
+-                      key={i}
+-                      onClick={(e) => { e.preventDefault(); setCurrentSlide(i); }}
+-                      className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${
+-                        i === safeSlideIndex ? 'bg-blue-500 scale-125' : 'bg-white/70'
+-                      }`}
+-                    />
+-                  ))}
+-                </div>
+-              </div>
+-              <div className="bg-blue-700 text-white p-4 flex-1">
+-                <div className="flex items-start gap-3">
+-                  <div className="flex-shrink-0 text-center">
+-                    <div className="text-3xl font-bold leading-none">
+-                      {formatDate(activeItem.publish_time).day}
+-                    </div>
+-                    <div className="text-xs opacity-80 mt-1">
+-                      {formatDate(activeItem.publish_time).ym}
+-                    </div>
+-                  </div>
+-                  <div className="flex-1 min-w-0">
+-                    <h3 className="font-bold text-base leading-tight line-clamp-1 group-hover:underline">
+-                      {activeItem.title}
+-                    </h3>
+-                    <p className="text-xs opacity-80 mt-1 line-clamp-2 leading-relaxed">
+-                      {activeItem.summary || ''}
+-                    </p>
+-                  </div>
+-                </div>
+-              </div>
+-            </Link>
+-          </div>
+-
+-          {/* 右侧：政策文件首条放大 + 录取公示双列卡片 */}
+-          <div className="flex-1 flex flex-col gap-4">
+-
+-            {/* ===== 第一行：政策文件放大特效 ===== */}
+-            {firstItem && (
+-              <Link
+-                href={`/article/${firstItem.slug}?from=news`}
+-                className="group flex items-center gap-5 px-5 py-4 bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-md hover:border-blue-200 transition-all duration-300"
+-              >
+-                {/* 醒目大日历方块 */}
+-                <div className="flex-shrink-0 flex flex-col items-center justify-center w-[80px] h-[80px] bg-blue-600 rounded-xl shadow group-hover:scale-105 group-hover:bg-blue-700 transition-all duration-300">
+-                  <span className="text-3xl font-bold font-mono text-white leading-none">
+-                    {formatDate(firstItem.publish_time).day}
+-                  </span>
+-                  <span className="text-[11px] font-mono text-blue-100 mt-1">
+-                    {formatDate(firstItem.publish_time).year}.{formatDate(firstItem.publish_time).month}
+-                  </span>
+-                </div>
+-
+-                {/* 大字号标题与摘要 */}
+-                <div className="flex-1 min-w-0">
+-                  <h4 className="text-lg font-bold text-gray-900 line-clamp-1 leading-snug group-hover:text-blue-600 group-hover:translate-x-1.5 transition-all duration-300">
+-                    {firstItem.title}
+-                  </h4>
+-                  {firstItem.summary && (
+-                    <p className="text-sm text-gray-500 mt-1.5 line-clamp-1 group-hover:translate-x-1.5 transition-all duration-300">
+-                      {firstItem.summary}
+-                    </p>
+-                  )}
+-                </div>
+-
+-                {/* 滑入箭头 */}
+-                <div className="flex-shrink-0 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300 text-blue-500">
+-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+-                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+-                  </svg>
+-                </div>
++        <div className="home-news-grid">
++          <Link className="home-news-feature" href={`/article/${lead.slug}?from=news`}>
++            <Image src={coverUrl(lead.cover?.url)} alt={lead.title} fill sizes="(max-width: 860px) 100vw, 48vw" className="home-news-feature-image" />
++            <div className="home-news-feature-shade" />
++            <div className="home-news-feature-copy"><span>学院要闻 · {displayDate(lead.publish_time)}</span><h3>{lead.title}</h3><p>{lead.summary || '查看新闻详情，了解学院最新动态。'}</p><span className="home-news-feature-link">阅读更多 <b aria-hidden="true">↗</b></span></div>
++          </Link>
++          <div className="home-news-list">
++            {articles.slice(1, 5).map((article, index) => (
++              <Link href={`/article/${article.slug}?from=news`} className="home-news-item" key={article.id}>
++                <span className="home-news-item-bg" style={article.cover?.url ? { backgroundImage: `url("${coverUrl(article.cover.url)}")` } : undefined} aria-hidden="true" />
++                <span className="home-news-item-index">{String(index + 2).padStart(2, '0')}</span>
++                <span className="home-news-item-content"><time>{displayDate(article.publish_time)}</time><strong>{article.title}</strong><span>{article.summary || '了解学院最新动态'}</span></span>
++                <span className="home-news-item-arrow" aria-hidden="true">↗</span>
+               </Link>
+-            )}
+-
+-            {/* ===== 第二行起：录取公示双列卡片 + 悬停背景图特效 ===== */}
+-            <div className="grid grid-cols-2 gap-4 flex-1">
+-              {gridItems.map((news) => {
+-                const { day, month, year } = formatDate(news.publish_time);
+-                const bgImg = getImage(news);
+-
+-                return (
+-                  <Link
+-                    key={news.id}
+-                    href={`/article/${news.slug}?from=news`}
+-                    className="group relative rounded-xl border border-gray-100 bg-white shadow-sm hover:shadow-lg overflow-hidden transition-all duration-500 min-h-[100px] flex flex-col justify-between p-4"
+-                  >
+-                    {/* 悬停背景图显现层 */}
+-                    <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 z-0">
+-                      {bgImg ? (
+-                        <Image
+-                          src={bgImg}
+-                          alt={news.title}
+-                          fill
+-                          className="object-cover brightness-[0.3] scale-105 group-hover:scale-100 transition-transform duration-700"
+-                        />
+-                      ) : (
+-                        <div className="absolute inset-0 bg-gradient-to-br from-blue-800 to-indigo-900" />
+-                      )}
+-                    </div>
+-
+-                    {/* 内容区（悬停时文字反白） */}
+-                    <div className="relative z-10 flex flex-col h-full gap-3">
+-                      <h4 className="text-[14px] font-semibold text-gray-800 group-hover:text-white line-clamp-2 leading-snug tracking-wide group-hover:translate-x-0.5 transition-all duration-300">
+-                        {news.title}
+-                      </h4>
+-
+-                      {/* 日期行：时钟图标 + 完整日期 */}
+-                      <div className="flex items-center gap-1.5 text-xs text-gray-400 group-hover:text-blue-200 font-mono transition-colors duration-300 mt-auto">
+-                        <svg
+-                          className="w-3.5 h-3.5"
+-                          fill="none"
+-                          stroke="currentColor"
+-                          viewBox="0 0 24 24"
+-                          strokeWidth={2}
+-                        >
+-                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+-                        </svg>
+-                        <span>{year}-{month}-{day}</span>
+-                      </div>
+-                    </div>
+-
+-                    {/* 右下角滑出箭头 */}
+-                    <div className="absolute right-3 bottom-3 opacity-0 translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300 text-white z-10">
+-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+-                        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 19.5l15-15m0 0H8.25m11.25 0v11.25" />
+-                      </svg>
+-                    </div>
+-                  </Link>
+-                );
+-              })}
+-            </div>
+-
++            ))}
++            {articles.length === 1 && <div className="home-news-list-empty">更多学院动态，敬请期待。</div>}
+           </div>
+         </div>
+       )}
+diff --git a/frontend/components/home/NoticeList.tsx b/frontend/components/home/NoticeList.tsx
+index 956a2a9..0fe6ce2 100644
+--- a/frontend/components/home/NoticeList.tsx
++++ b/frontend/components/home/NoticeList.tsx
+@@ -2,147 +2,46 @@
+ 
+ import { useEffect, useState } from 'react';
+ import Link from 'next/link';
+-import { getHomeNotices } from '@/lib/api';
+-import HomeSectionSkeleton from '@/components/home/HomeSectionSkeleton';
++import { getHomeNotices, type ArticleItem } from '@/lib/api';
+ 
+-interface ArticleItem {
+-  id: number;
+-  title: string;
+-  slug: string;
+-  summary?: string;
+-  publish_time?: string;
++function parts(value?: string) {
++  const date = value ? new Date(value) : null;
++  if (!date || Number.isNaN(date.getTime())) return { day: '--', month: '----.--' };
++  return { day: String(date.getDate()).padStart(2, '0'), month: `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}` };
+ }
+ 
+ export default function NoticeList() {
+-  const [list, setList] = useState<ArticleItem[]>([]);
++  const [articles, setArticles] = useState<ArticleItem[]>([]);
+   const [loading, setLoading] = useState(true);
+-  const [error, setError] = useState<string | null>(null);
+ 
+   useEffect(() => {
+-    let mounted = true;
+-
+-    (async () => {
+-      try {
+-        const json = await getHomeNotices();
+-        if (!mounted) return;
+-        const data = Array.isArray(json?.data) ? json.data : [];
+-        setList(data);
+-      } catch (err: unknown) {
+-        if (!mounted) return;
+-        console.error('getHomeNotices error:', err);
+-        const msg = err instanceof Error ? err.message : '加载失败';
+-        setError(msg);
+-      } finally {
+-        if (mounted) setLoading(false);
+-      }
+-    })();
+-
+-    return () => {
+-      mounted = false;
+-    };
++    let alive = true;
++    getHomeNotices()
++      .then((result) => { if (alive) setArticles(Array.isArray(result?.data) ? result.data : []); })
++      .catch((error) => { console.error('首页公告加载失败:', error); })
++      .finally(() => { if (alive) setLoading(false); });
++    return () => { alive = false; };
+   }, []);
+ 
+-  const formatDate = (dateStr?: string) => {
+-    if (!dateStr) return { day: '--', yearMonth: '--' };
+-    const d = new Date(dateStr);
+-    if (Number.isNaN(d.getTime())) return { day: '--', yearMonth: '--' };
+-    const day = String(d.getDate()).padStart(2, '0');
+-    const year = d.getFullYear();
+-    const month = String(d.getMonth() + 1).padStart(2, '0');
+-    return { day, yearMonth: `${year}.${month}` };
+-  };
+-
+-  if (loading) {
+-    return (
+-      <div className="px-12 py-8">
+-        <HomeSectionSkeleton mode="notice" />
+-      </div>
+-    );
+-  }
+-
+-  if (error) {
+-    return (
+-      <div className="px-12 py-8 text-red-500">
+-        通知公告加载失败：{error}
+-      </div>
+-    );
+-  }
+-
+-  const displayList = list.slice(0, 6);
+-
+   return (
+-    <div className="px-12 py-8">
+-      {/* 标题区 - 与新闻动态完全一致的样式 */}
+-      <div className="mb-6">
+-        <div className="flex items-center justify-between">
+-          <div className="flex items-center gap-3">
+-            <h2 className="text-4xl font-bold text-blue-800">通知公告</h2>
+-            <span className="text-base text-gray-400">/ Notice</span>
+-          </div>
+-          <Link
+-            href="/notice"
+-            className="group relative flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-full font-medium overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
+-          >
+-            <span className="absolute inset-0 bg-gradient-to-r from-blue-600 to-blue-700 transform translate-x-full group-hover:translate-x-0 transition-transform duration-300"></span>
+-            <svg
+-              className="w-5 h-5 relative z-10 transform group-hover:rotate-45 group-hover:-translate-y-1 group-hover:translate-x-1 transition-all duration-500"
+-              fill="currentColor"
+-              viewBox="0 0 24 24"
+-            >
+-              <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
+-            </svg>
+-            <span className="relative z-10">查看更多</span>
+-          </Link>
+-        </div>
+-        <div className="mt-4 h-px w-full bg-gradient-to-r from-blue-200 via-gray-300 to-gray-200" />
++    <div className="home-section-inner">
++      <div className="home-section-heading">
++        <div><span className="home-section-kicker">NOTICES & ANNOUNCEMENTS <span>02 / 03</span></span><h2>通知公告</h2><p>重要信息及时发布，为学习与工作提供清晰指引。</p></div>
++        <Link href="/notice" className="home-section-more">全部公告 <span aria-hidden="true">↗</span></Link>
+       </div>
+-
+-      {displayList.length === 0 ? (
+-        <div className="text-gray-400 text-center py-12 bg-white rounded-xl border border-dashed border-gray-200">
+-          暂无通知公告
+-        </div>
++      {loading ? (
++        <div className="home-notice-grid" aria-label="公告加载中">{Array.from({ length: 4 }, (_, index) => <div className="home-loading-block" key={index} />)}</div>
++      ) : articles.length === 0 ? (
++        <div className="home-empty">暂无通知公告，欢迎稍后再来。</div>
+       ) : (
+-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+-          {displayList.map((notice) => {
+-            const { day, yearMonth } = formatDate(notice.publish_time);
+-
++        <div className="home-notice-grid">
++          {articles.slice(0, 6).map((article) => {
++            const date = parts(article.publish_time);
+             return (
+-              <Link
+-                key={notice.id}
+-                href={`/article/${notice.slug}?from=notice`}
+-                className="group relative flex items-center gap-5 p-4 bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-md hover:border-blue-100 hover:-translate-y-0.5 transition-all duration-300 cursor-pointer overflow-hidden"
+-              >
+-                <div className="flex-shrink-0 flex flex-col items-center justify-center w-[72px] h-[72px] bg-gray-50 rounded-xl group-hover:bg-blue-600 group-hover:scale-105 transition-all duration-300 ease-out shadow-inner">
+-                  <span className="text-2xl font-bold font-mono tracking-tight text-gray-800 group-hover:text-white transition-colors duration-300">
+-                    {day}
+-                  </span>
+-                  <span className="text-[11px] font-mono mt-0.5 text-gray-400 group-hover:text-blue-100 transition-colors duration-300">
+-                    {yearMonth}
+-                  </span>
+-                </div>
+-
+-                <div className="flex-1 min-w-0 pr-4">
+-                  <h4 className="text-[15px] font-semibold text-gray-700 leading-snug tracking-wide line-clamp-2 group-hover:text-blue-600 group-hover:translate-x-1.5 transition-all duration-300 ease-out">
+-                    {notice.title}
+-                  </h4>
+-                  {notice.summary && (
+-                    <p className="text-xs mt-1.5 text-gray-400 line-clamp-1 group-hover:text-blue-500/80 group-hover:translate-x-1.5 transition-all duration-300 ease-out">
+-                      {notice.summary}
+-                    </p>
+-                  )}
+-                </div>
+-
+-                <div className="absolute right-3 bottom-3 opacity-0 translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300 text-blue-500">
+-                  <svg
+-                    className="w-4 h-4"
+-                    fill="none"
+-                    stroke="currentColor"
+-                    viewBox="0 0 24 24"
+-                    strokeWidth={2.5}
+-                  >
+-                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 19.5l15-15m0 0H8.25m11.25 0v11.25" />
+-                  </svg>
+-                </div>
++              <Link href={`/article/${article.slug}?from=notice`} className="home-notice-item" key={article.id}>
++                <time className="home-notice-date"><strong>{date.day}</strong><span>{date.month}</span></time>
++                <span className="home-notice-title">{article.title}</span>
++                <span className="home-notice-arrow" aria-hidden="true">↗</span>
+               </Link>
+             );
+           })}
+diff --git a/frontend/components/layout/Header.tsx b/frontend/components/layout/Header.tsx
+index 516d15a..7a5aba7 100644
+--- a/frontend/components/layout/Header.tsx
++++ b/frontend/components/layout/Header.tsx
+@@ -2,10 +2,11 @@
+ 
+ import Link from 'next/link';
+ import { useState, useEffect, useRef } from 'react';
+-import { useRouter } from 'next/navigation';
++import { usePathname, useRouter } from 'next/navigation';
+ 
+ export default function Header() {
+   const router = useRouter();
++  const isHome = usePathname() === '/';
+   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
+   const [searchOpen, setSearchOpen] = useState(false);
+@@ -156,7 +157,7 @@ export default function Header() {
+   }, [scrolled]);
+ 
+   return (
+-    <header className="bg-[#003d82] shadow-md sticky top-0 z-50 transition-all duration-300">
++    <header className={`z-50 w-full transition-all duration-300 ${isHome ? `fixed left-0 top-0 ${scrolled ? 'bg-[#082f62]/95 shadow-lg backdrop-blur-xl' : 'bg-gradient-to-b from-[#071d37]/85 to-transparent'}` : 'sticky top-0 bg-[#003d82] shadow-md'}`}>
+       <div className="max-w-[1600px] mx-auto px-2">
+         <div className={`flex items-center transition-all duration-300 ${scrolled ? 'h-16' : 'h-28'}`}>
+           <Link
+@@ -180,7 +181,7 @@ export default function Header() {
+               >
+                 <Link
+                   href={item.href}
+-                  className="px-1.5 xl:px-2 2xl:px-3 py-2 text-white text-base 2xl:text-lg font-medium hover:bg-white/10 rounded transition-colors inline-block whitespace-nowrap"
++                  className="home-nav-link px-1.5 xl:px-2 2xl:px-3 py-2 text-white text-base 2xl:text-lg font-medium rounded transition-colors inline-block whitespace-nowrap"
+                 >
+                   {item.name}
+                 </Link>
+@@ -319,4 +320,4 @@ export default function Header() {
+       )}
+     </header>
+   );
+-}
+\ No newline at end of file
++}

@@ -1,129 +1,89 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 
 export interface BannerItem {
   id: number;
   documentId?: string;
   title?: string;
   link?: string | null;
-  image?: {
-    url: string;
-  };
+  image?: { url: string };
 }
 
-interface BannerProps {
-  banners: BannerItem[];
+const fallbackBanners: BannerItem[] = [
+  { id: -1, title: '珠海校区', image: { url: '/images/zh-banner2.png' } },
+  { id: -2, title: '吉林大学珠海校区', image: { url: '/images/zh-banner1.png' } },
+  { id: -3, title: '校园风光', image: { url: '/images/zh-banner3.png' } },
+];
+
+function imageUrl(url: string) {
+  if (url.startsWith('http://') || url.startsWith('https://')) return url;
+  if (url.startsWith('/images/')) return url;
+  const origin = process.env.NEXT_PUBLIC_STRAPI_URL || 'http://localhost:1337';
+  return `${origin}${url.startsWith('/') ? '' : '/'}${url}`;
 }
 
-export default function Banner({ banners = [] }: BannerProps) {
+export default function Banner({ banners = [] }: { banners: BannerItem[] }) {
+  const slides = banners.filter((item) => item.image?.url).length > 0
+    ? banners.filter((item) => item.image?.url)
+    : fallbackBanners;
   const [current, setCurrent] = useState(0);
-
-  const STRAPI_URL = process.env.NEXT_PUBLIC_STRAPI_URL || 'http://localhost:1337';
+  const [paused, setPaused] = useState(false);
 
   useEffect(() => {
-    if (banners.length <= 1) return;
+    if (slides.length < 2 || paused || document.hidden || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const timer = window.setInterval(() => setCurrent((index) => (index + 1) % slides.length), 6500);
+    return () => window.clearInterval(timer);
+  }, [slides.length, paused]);
 
-    const timer = setInterval(() => {
-      setCurrent((prev) => (prev + 1) % banners.length);
-    }, 5000);
-    return () => clearInterval(timer);
-  }, [banners.length]);
-
-  if (!banners || banners.length === 0) {
-    return (
-      <div className="w-full h-[600px] md:h-[700px] bg-gray-200 flex items-center justify-center">
-        <span className="text-gray-500">暂无轮播图数据，请在后台添加</span>
-      </div>
-    );
-  }
-
-  const goPrev = () => setCurrent((prev) => (prev - 1 + banners.length) % banners.length);
-  const goNext = () => setCurrent((prev) => (prev + 1) % banners.length);
+  const active = current % slides.length;
+  const slideLink = slides[active]?.link;
+  const safeSlideLink = slideLink && ((slideLink.startsWith('/') && !slideLink.startsWith('//')) || /^https?:\/\//.test(slideLink))
+    ? slideLink
+    : null;
 
   return (
-    <div className="relative w-full h-[600px] md:h-[700px] overflow-hidden bg-gray-200">
-      {banners.map((slide, index) => {
-        const imageUrl = slide.image?.url ? `${STRAPI_URL}${slide.image.url}` : '';
-
-        return (
-          <div
-            key={slide.documentId || slide.id}
-            className={`absolute inset-0 transition-opacity duration-1000 ${
-              index === current ? 'opacity-100 z-10' : 'opacity-0 z-0'
-            }`}
-          >
-            {slide.link ? (
-              <a href={slide.link} target="_blank" rel="noopener noreferrer" className="block w-full h-full relative">
-                {imageUrl && (
-                  <Image
-                    src={imageUrl}
-                    alt={slide.title || 'banner'}
-                    fill
-                    priority={index === 0}
-                    // ✅ 核心修改：使用 object-cover 和 object-center，保证铺满不留白，且始终以中心点为基准裁切
-                    className="object-cover object-center"
-                  />
-                )}
-              </a>
-            ) : (
-              <div className="w-full h-full relative">
-                {imageUrl && (
-                  <Image
-                    src={imageUrl}
-                    alt={slide.title || 'banner'}
-                    fill
-                    priority={index === 0}
-                    // ✅ 核心修改：使用 object-cover 和 object-center
-                    className="object-cover object-center"
-                  />
-                )}
-              </div>
-            )}
-          </div>
-        );
-      })}
-
-      {banners.length > 1 && (
-        <>
-          {/* 左箭头 */}
-          <button
-            onClick={goPrev}
-            aria-label="上一张"
-            className="absolute left-4 top-1/2 -translate-y-1/2 z-20 flex items-center justify-center w-10 h-10 rounded-full bg-black/30 hover:bg-black/50 transition-colors duration-200 group"
-          >
-            <svg className="w-5 h-5 text-white/80 group-hover:text-white transition-colors" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
-            </svg>
-          </button>
-
-          {/* 右箭头 */}
-          <button
-            onClick={goNext}
-            aria-label="下一张"
-            className="absolute right-4 top-1/2 -translate-y-1/2 z-20 flex items-center justify-center w-10 h-10 rounded-full bg-black/30 hover:bg-black/50 transition-colors duration-200 group"
-          >
-            <svg className="w-5 h-5 text-white/80 group-hover:text-white transition-colors" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-            </svg>
-          </button>
-
-          {/* 底部指示点 */}
-          <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-2 z-20">
-            {banners.map((_, index) => (
-              <button
-                key={index}
-                onClick={() => setCurrent(index)}
-                // ✅ 因为图片铺满全屏，指示器恢复为明显的白色/半透明白色
-                className={`w-3 h-3 rounded-full transition-colors duration-300 ${
-                  index === current ? 'bg-white' : 'bg-white/50'
-                }`}
-              />
-            ))}
-          </div>
-        </>
-      )}
-    </div>
+    <section
+      className="home-hero"
+      aria-label="学院形象展示"
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+      onFocusCapture={() => setPaused(true)}
+      onBlurCapture={() => setPaused(false)}
+    >
+      {slides.map((slide, index) => (
+        <div className={`home-hero-slide ${index === active ? 'is-active' : ''}`} key={slide.documentId || slide.id} aria-hidden={index !== active}>
+          <Image
+            src={imageUrl(slide.image!.url)}
+            alt={slide.title || '吉林大学珠海校区校园景观'}
+            fill
+            priority={index === 0}
+            sizes="100vw"
+            className="home-hero-image"
+          />
+        </div>
+      ))}
+      <div className="home-hero-shade" aria-hidden="true" />
+      <div className="home-hero-content home-container">
+        <span className="home-hero-eyebrow">JILIN UNIVERSITY · ZHUHAI</span>
+        <h1>国家卓越工程师学院<span>（珠海）</span></h1>
+        <p>面向国家战略需求 · 培养卓越工程人才</p>
+        <div className="home-hero-actions">
+          <Link href="/about/intro" className="home-hero-primary">走进学院 <span aria-hidden="true">↗</span></Link>
+          <Link href="/news" className="home-hero-secondary">了解最新动态 <span aria-hidden="true">→</span></Link>
+          {safeSlideLink && <a href={safeSlideLink} className="home-hero-secondary" target="_blank" rel="noopener noreferrer">查看轮播专题 <span aria-hidden="true">↗</span></a>}
+        </div>
+      </div>
+      <div className="home-hero-bottom home-container">
+        <div className="home-hero-scroll"><span className="home-hero-scroll-line" />向下探索</div>
+        <div className="home-hero-controls" aria-label="轮播图控制">
+          <button type="button" onClick={() => setCurrent((active - 1 + slides.length) % slides.length)} aria-label="上一张轮播图">←</button>
+          <span className="home-hero-count">{String(active + 1).padStart(2, '0')} <i /> {String(slides.length).padStart(2, '0')}</span>
+          <button type="button" onClick={() => setCurrent((active + 1) % slides.length)} aria-label="下一张轮播图">→</button>
+        </div>
+      </div>
+    </section>
   );
 }
