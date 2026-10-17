@@ -21,6 +21,7 @@ export interface User {
   email: string;
   role: string;
   roleId: number;
+  permissions: string[];
   avatar?: string;
   is_active: boolean;
 }
@@ -122,6 +123,9 @@ async function fetchCurrentAdmin(): Promise<User> {
     email,
     role: roleName,
     roleId,
+    permissions: Array.isArray(role?.permissions)
+      ? role.permissions.filter((permission): permission is string => typeof permission === 'string')
+      : [],
     avatar: avatarUrl,
     is_active: true,
   };

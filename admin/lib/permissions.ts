@@ -209,7 +209,12 @@ export function getRolePermissions(roleName: string): Permission[] {
 }
 
 // 权限检查函数（旧版兼容）
+export function isSuperAdminRole(roleName: string): boolean {
+  return ['super_admin', 'superadmin', 'super-administrator'].includes(roleName.trim().toLowerCase());
+}
+
 export function hasPermission(userRole: string, permission: Permission): boolean {
+  if (isSuperAdminRole(userRole)) return true;
   const rolePermissions = getRolePermissions(userRole);
   return rolePermissions.includes(permission);
 }

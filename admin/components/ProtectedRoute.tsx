@@ -23,12 +23,7 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
       return;
     }
 
-    // 检查当前路径权限
-    if (!canAccessPath(pathname)) {
-      // 无权限，跳转到仪表盘或显示无权限页面
-      router.push('/dashboard');
-    }
-  }, [user, isLoading, pathname, canAccessPath, router]);
+  }, [user, isLoading, router]);
 
   // Do not render protected content while the saved Strapi token is being checked.
   if (isLoading || !user) {
@@ -52,12 +47,14 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
           <p className="text-gray-500 mb-6">
             您当前的角色没有权限访问此页面。如需访问，请联系管理员。
           </p>
-          <button
-            onClick={() => router.push('/dashboard')}
-            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            返回仪表盘
-          </button>
+          {pathname !== '/dashboard' && (
+            <button
+              onClick={() => router.push('/dashboard')}
+              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              返回仪表盘
+            </button>
+          )}
         </div>
       </div>
     );

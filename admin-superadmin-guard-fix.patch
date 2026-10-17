@@ -1,0 +1,111 @@
+diff --git a/admin/components/ProtectedRoute.tsx b/admin/components/ProtectedRoute.tsx
+index 2d9dd2c..491ea18 100644
+--- a/admin/components/ProtectedRoute.tsx
++++ b/admin/components/ProtectedRoute.tsx
+@@ -23,12 +23,7 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
+       return;
+     }
+ 
+-    // 检查当前路径权限
+-    if (!canAccessPath(pathname)) {
+-      // 无权限，跳转到仪表盘或显示无权限页面
+-      router.push('/dashboard');
+-    }
+-  }, [user, isLoading, pathname, canAccessPath, router]);
++  }, [user, isLoading, router]);
+ 
+   // Do not render protected content while the saved Strapi token is being checked.
+   if (isLoading || !user) {
+@@ -52,12 +47,14 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
+           <p className="text-gray-500 mb-6">
+             您当前的角色没有权限访问此页面。如需访问，请联系管理员。
+           </p>
+-          <button
+-            onClick={() => router.push('/dashboard')}
+-            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+-          >
+-            返回仪表盘
+-          </button>
++          {pathname !== '/dashboard' && (
++            <button
++              onClick={() => router.push('/dashboard')}
++              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
++            >
++              返回仪表盘
++            </button>
++          )}
+         </div>
+       </div>
+     );
+diff --git a/admin/contexts/AuthContext.tsx b/admin/contexts/AuthContext.tsx
+index 00ef616..83d6b60 100644
+--- a/admin/contexts/AuthContext.tsx
++++ b/admin/contexts/AuthContext.tsx
+@@ -21,6 +21,7 @@ export interface User {
+   email: string;
+   role: string;
+   roleId: number;
++  permissions: string[];
+   avatar?: string;
+   is_active: boolean;
+ }
+@@ -122,6 +123,9 @@ async function fetchCurrentAdmin(): Promise<User> {
+     email,
+     role: roleName,
+     roleId,
++    permissions: Array.isArray(role?.permissions)
++      ? role.permissions.filter((permission): permission is string => typeof permission === 'string')
++      : [],
+     avatar: avatarUrl,
+     is_active: true,
+   };
+diff --git a/admin/hooks/usePermission.ts b/admin/hooks/usePermission.ts
+index f274b4a..36b4966 100644
+--- a/admin/hooks/usePermission.ts
++++ b/admin/hooks/usePermission.ts
+@@ -1,6 +1,6 @@
+ import { useMemo } from 'react';
+ import { useAuth } from '@/contexts/AuthContext';
+-import { Permission, hasPermission, canAccessPath } from '@/lib/permissions';
++import { Permission, MENU_PERMISSIONS, isSuperAdminRole } from '@/lib/permissions';
+ 
+ export function usePermission() {
+   const { user } = useAuth();
+@@ -8,16 +8,17 @@ export function usePermission() {
+   const checkPermission = useMemo(() => {
+     return (permission: Permission): boolean => {
+       if (!user) return false;
+-      return hasPermission(user.role, permission);
++      return isSuperAdminRole(user.role) || user.permissions.includes(permission);
+     };
+   }, [user]);
+ 
+   const checkPath = useMemo(() => {
+     return (path: string): boolean => {
+       if (!user) return false;
+-      return canAccessPath(user.role, path);
++      const requiredPermission = MENU_PERMISSIONS[path];
++      return !requiredPermission || checkPermission(requiredPermission);
+     };
+-  }, [user]);
++  }, [user, checkPermission]);
+ 
+   return {
+     hasPermission: checkPermission,
+diff --git a/admin/lib/permissions.ts b/admin/lib/permissions.ts
+index 715b897..9219179 100644
+--- a/admin/lib/permissions.ts
++++ b/admin/lib/permissions.ts
+@@ -209,7 +209,12 @@ export function getRolePermissions(roleName: string): Permission[] {
+ }
+ 
+ // 权限检查函数（旧版兼容）
++export function isSuperAdminRole(roleName: string): boolean {
++  return ['super_admin', 'superadmin', 'super-administrator'].includes(roleName.trim().toLowerCase());
++}
++
+ export function hasPermission(userRole: string, permission: Permission): boolean {
++  if (isSuperAdminRole(userRole)) return true;
+   const rolePermissions = getRolePermissions(userRole);
+   return rolePermissions.includes(permission);
+ }

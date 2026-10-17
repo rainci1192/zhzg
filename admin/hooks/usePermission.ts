@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { Permission, hasPermission, canAccessPath } from '@/lib/permissions';
+import { Permission, MENU_PERMISSIONS, isSuperAdminRole } from '@/lib/permissions';
 
 export function usePermission() {
   const { user } = useAuth();
@@ -8,16 +8,17 @@ export function usePermission() {
   const checkPermission = useMemo(() => {
     return (permission: Permission): boolean => {
       if (!user) return false;
-      return hasPermission(user.role, permission);
+      return isSuperAdminRole(user.role) || user.permissions.includes(permission);
     };
   }, [user]);
 
   const checkPath = useMemo(() => {
     return (path: string): boolean => {
       if (!user) return false;
-      return canAccessPath(user.role, path);
+      const requiredPermission = MENU_PERMISSIONS[path];
+      return !requiredPermission || checkPermission(requiredPermission);
     };
-  }, [user]);
+  }, [user, checkPermission]);
 
   return {
     hasPermission: checkPermission,
