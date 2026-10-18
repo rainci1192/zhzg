@@ -5,6 +5,7 @@ import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import PageHero from '@/components/layout/PageHero';
 import { getContentDetail, mediaUrl, type StrapiMedia } from '@/lib/strapi-content';
+import { safeExternalUrl } from '@/lib/public-urls';
 
 type Education = {
   period: string;
@@ -52,6 +53,7 @@ export default async function SupervisorDetail({
 
   const categoryName = supervisor.category === 'internal' ? '校内培养导师' : '企业培养导师';
   const categoryHref = supervisor.category === 'internal' ? '/faculty/internal' : '/faculty/enterprise';
+  const personalWebsite = safeExternalUrl(supervisor.personal_website);
 
   const breadcrumbItems = [
     { name: '首页', href: '/' },
@@ -92,16 +94,16 @@ export default async function SupervisorDetail({
                 )}
               </h1>
 
-              {supervisor.personal_website && (
+              {personalWebsite && (
                 <div className="mb-2">
                   <span className="text-gray-600">个人主页：</span>
                   <a
-                    href={supervisor.personal_website}
+                    href={personalWebsite}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-blue-600 hover:underline"
                   >
-                    {supervisor.personal_website}
+                    {personalWebsite}
                   </a>
                 </div>
               )}

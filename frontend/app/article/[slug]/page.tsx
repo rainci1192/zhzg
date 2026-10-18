@@ -7,6 +7,7 @@ import Image from 'next/image';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import { getContentDetail } from '@/lib/strapi-content';
+import { resolveMediaUrl } from '@/lib/public-urls';
 
 export const dynamic = 'force-dynamic';
 
@@ -64,6 +65,7 @@ async function getArticleFullBySlug(slug: string): Promise<FullArticle | null> {
   const qs = new URLSearchParams({
     'filters[slug][$eq]': slug,
     'filters[review_status][$eq]': 'published',
+    'status': 'published',
     'populate[0]': 'cover',
     'populate[1]': 'primary_category',
     'populate[2]': 'secondary_category',
@@ -149,7 +151,8 @@ function mapCrumbByFrom(from: FromType): { listHref: string; listName: string } 
 async function fetchArticlesForPrevNext(rule: FromType): Promise<PrevNextItem[]> {
   const qs = new URLSearchParams();
   qs.append('filters[review_status][$eq]', 'published');
-  qs.append('pagination[limit]', '400');
+  qs.append('status', 'published');
+  qs.append('pagination[pageSize]', '400');
   qs.append('sort[0]', 'is_top:desc');
   qs.append('sort[1]', 'publish_time:desc');
   qs.append('sort[2]', 'id:desc');
@@ -207,7 +210,7 @@ export async function generateMetadata({
   const description = ellipsis(contentText, 120);
 
   const siteUrl = process.env.NEXT_PUBLIC_WEB_URL || 'http://localhost:3000';
-  const url = `${siteUrl}/article/${article.slug}`;
+  const url = `${siteUrl.replace(/\/$/, '')}/article/${encodeURIComponent(article.slug)}`;
 
   return {
     title: `${article.title} - 国家卓越工程师学院`,
@@ -249,15 +252,13 @@ export default async function ArticlePage({
   const { prev, next } = getPrevNextByOrderedList(ordered, article.slug);
 
   const fromQuery = `?from=${effectiveFrom}`;
-  const coverImage = article.cover?.url
-    ? new URL(article.cover.url, API).toString()
-    : null;
+  const coverImage = resolveMediaUrl(article.cover?.url);
 
   return (
     <>
       <Header />
 
-      <PageHero title={listName} items={[{ name: '首页', href: '/' }, { name: listName, href: listHref }, { name: article.title, href: `/article/${article.slug}` }]} />
+      <PageHero title={listName} items={[{ name: '首页', href: '/' }, { name: listName, href: listHref }, { name: article.title, href: `/article/${encodeURIComponent(article.slug)}` }]} />
 
       <div className="site-article-body max-w-5xl mx-auto px-6 py-10">
         <Link href={listHref} className="inline-flex items-center gap-2 text-sm font-semibold text-blue-700 hover:text-blue-900 mb-7">← 返回{listName}</Link>
@@ -309,7 +310,7 @@ export default async function ArticlePage({
           <div className="flex flex-col md:flex-row justify-between items-stretch gap-8 text-base">
             {prev ? (
               <Link
-                href={`/article/${prev.slug}${fromQuery}`}
+                href={`/article/${encodeURIComponent(prev.slug)}${fromQuery}`}
                 className="group flex-1 flex items-start gap-5 p-6 rounded-2xl border border-gray-100 hover:border-blue-200 hover:bg-blue-50/80 transition-all shadow-sm"
               >
                 <div className="text-4xl text-blue-500 font-light leading-none mt-0.5">←</div>
@@ -326,7 +327,7 @@ export default async function ArticlePage({
 
             {next ? (
               <Link
-                href={`/article/${next.slug}${fromQuery}`}
+                href={`/article/${encodeURIComponent(next.slug)}${fromQuery}`}
                 className="group flex-1 flex items-start gap-5 p-6 rounded-2xl border border-gray-100 hover:border-blue-200 hover:bg-blue-50/80 transition-all shadow-sm text-right"
               >
                 <div className="flex-1">

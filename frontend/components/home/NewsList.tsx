@@ -4,13 +4,7 @@ import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { getHomeNews, type ArticleItem } from '@/lib/api';
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:1337';
-
-function coverUrl(url?: string) {
-  if (!url) return '/images/zh-banner2.png';
-  return /^https?:\/\//.test(url) ? url : `${API_BASE}${url.startsWith('/') ? '' : '/'}${url}`;
-}
+import { resolveMediaUrl } from '@/lib/public-urls';
 
 function displayDate(value?: string) {
   if (!value) return '—';
@@ -46,15 +40,15 @@ export default function NewsList() {
         <div className="home-empty">暂无新闻动态，欢迎稍后再来。</div>
       ) : (
         <div className="home-news-grid">
-          <Link className="home-news-feature" href={`/article/${lead.slug}?from=news`}>
-            <Image src={coverUrl(lead.cover?.url)} alt={lead.title} fill sizes="(max-width: 860px) 100vw, 48vw" className="home-news-feature-image" />
+          <Link className="home-news-feature" href={`/article/${encodeURIComponent(lead.slug)}?from=news`}>
+            <Image src={resolveMediaUrl(lead.cover?.url) || '/images/zh-banner2.png'} alt={lead.title} fill sizes="(max-width: 860px) 100vw, 48vw" className="home-news-feature-image" />
             <div className="home-news-feature-shade" />
             <div className="home-news-feature-copy"><span>学院要闻 · {displayDate(lead.publish_time)}</span><h3>{lead.title}</h3><p>{lead.summary || '查看新闻详情，了解学院最新动态。'}</p><span className="home-news-feature-link">阅读更多 <b aria-hidden="true">↗</b></span></div>
           </Link>
           <div className="home-news-list">
             {articles.slice(1, 5).map((article, index) => (
-              <Link href={`/article/${article.slug}?from=news`} className="home-news-item" key={article.id}>
-                <span className="home-news-item-bg" style={article.cover?.url ? { backgroundImage: `url("${coverUrl(article.cover.url)}")` } : undefined} aria-hidden="true" />
+              <Link href={`/article/${encodeURIComponent(article.slug)}?from=news`} className="home-news-item" key={article.id}>
+                <span className="home-news-item-bg" style={resolveMediaUrl(article.cover?.url) ? { backgroundImage: `url(${JSON.stringify(resolveMediaUrl(article.cover?.url))})` } : undefined} aria-hidden="true" />
                 <span className="home-news-item-index">{String(index + 2).padStart(2, '0')}</span>
                 <span className="home-news-item-content"><time>{displayDate(article.publish_time)}</time><strong>{article.title}</strong><span>{article.summary || '了解学院最新动态'}</span></span>
                 <span className="home-news-item-arrow" aria-hidden="true">↗</span>

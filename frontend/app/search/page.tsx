@@ -92,7 +92,7 @@ export default async function SearchPage({
                 <ul className="divide-y site-search-results">
                   {results.map((item) => (
                     <li key={item.id} className="py-5">
-                      <Link href={`/article/${item.slug}`} className="text-lg font-semibold text-blue-800 hover:underline">
+                      <Link href={`/article/${encodeURIComponent(item.slug)}`} className="text-lg font-semibold text-blue-800 hover:underline">
                         {item.title}
                       </Link>
                       {item.summary && <p className="text-gray-600 mt-2">{item.summary}</p>}

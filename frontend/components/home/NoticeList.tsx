@@ -38,7 +38,7 @@ export default function NoticeList() {
           {articles.slice(0, 6).map((article) => {
             const date = parts(article.publish_time);
             return (
-              <Link href={`/article/${article.slug}?from=notice`} className="home-notice-item" key={article.id}>
+              <Link href={`/article/${encodeURIComponent(article.slug)}?from=notice`} className="home-notice-item" key={article.id}>
                 <time className="home-notice-date"><strong>{date.day}</strong><span>{date.month}</span></time>
                 <span className="home-notice-title">{article.title}</span>
                 <span className="home-notice-arrow" aria-hidden="true">↗</span>

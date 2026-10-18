@@ -1,4 +1,5 @@
 import 'server-only';
+import { resolveMediaUrl } from './public-urls';
 
 // The public website reads Strapi 5 content types only. A server-side token is
 // optional when the relevant Public role has find and findOne permissions.
@@ -46,6 +47,7 @@ export type ContentPage<T> = {
 
 function query(resource: ContentResource, category?: 'internal' | 'enterprise') {
   const params = new URLSearchParams({
+    status: 'published',
     'filters[is_active][$eq]': 'true',
     'sort[0]': 'sort_order:asc',
     'sort[1]': 'id:asc',
@@ -128,16 +130,7 @@ export async function getContentDetail<T>(
 }
 
 export function mediaUrl(media: StrapiMedia | null | undefined): string | null {
-  if (!media?.url) return null;
-  try {
-    const base = new URL(API);
-    const resolved = new URL(media.url, `${API}/`);
-    return resolved.protocol === 'https:' || resolved.protocol === 'http:'
-      ? (resolved.origin === base.origin || media.url.startsWith('https://') || media.url.startsWith('http://') ? resolved.href : null)
-      : null;
-  } catch {
-    return null;
-  }
+  return resolveMediaUrl(media?.url);
 }
 
 export function mediaSize(media: StrapiMedia): string {

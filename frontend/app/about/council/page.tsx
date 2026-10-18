@@ -1,18 +1,11 @@
 import { sanitizeRichHtml } from '@/lib/sanitize-html';
 import AboutSingleLayout from '@/components/about/AboutSingleLayout';
 import Link from 'next/link';
+import { getCouncilMembers } from '@/lib/council-members';
 
 type CouncilArticle = {
   title: string;
   content_html: string;
-};
-
-type CouncilMember = {
-  id: number;
-  name: string;
-  logo_url: string;
-  website: string | null;
-  intro: string | null;
 };
 
 type StrapiEntity = {
@@ -26,11 +19,13 @@ type StrapiListResponse = {
 };
 
 const STRAPI_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL ||
   process.env.NEXT_PUBLIC_STRAPI_URL ||
   process.env.STRAPI_URL ||
   'http://localhost:1337';
 
 const STRAPI_API_TOKEN =
+  process.env.STRAPI_READ_TOKEN ||
   process.env.STRAPI_API_TOKEN ||
   '';
 
@@ -38,12 +33,6 @@ function unwrap(entity: StrapiEntity): Record<string, unknown> & { id?: number }
   if (!entity) return {};
   const raw = (entity.attributes ?? entity) as Record<string, unknown>;
   return { ...raw, id: entity.id ?? (raw?.id as number | undefined) };
-}
-
-function toAbsoluteUrl(url: string): string {
-  if (!url) return '';
-  if (url.startsWith('http://') || url.startsWith('https://')) return url;
-  return `${STRAPI_BASE_URL}${url}`;
 }
 
 async function fetchFromStrapi<T = unknown>(pathWithQuery: string): Promise<T | null> {
@@ -69,6 +58,8 @@ async function fetchFromStrapi<T = unknown>(pathWithQuery: string): Promise<T | 
 async function getCouncilArticle(): Promise<CouncilArticle> {
   const params = new URLSearchParams({
     'filters[slug][$eq]': 'about-council-content',
+    'filters[review_status][$eq]': 'published',
+    'status': 'published',
     'pagination[pageSize]': '1',
   });
   const json = await fetchFromStrapi<StrapiListResponse>(`/api/articles?${params}`);
@@ -82,34 +73,6 @@ async function getCouncilArticle(): Promise<CouncilArticle> {
   };
 }
 
-async function getCouncilMembers(): Promise<CouncilMember[]> {
-  const params = new URLSearchParams({
-    'filters[is_active][$eq]': 'true',
-    'filters[is_council][$eq]': 'true',
-    'sort[0]': 'sort_order:asc',
-    'sort[1]': 'id:asc',
-    'populate[logo][fields][0]': 'url',
-    'pagination[pageSize]': '200',
-  });
-  const json = await fetchFromStrapi<StrapiListResponse>(`/api/council-members?${params}`);
-  return (json?.data ?? []).map((entity) => {
-    const item = unwrap(entity);
-    const logo = item?.logo as Record<string, unknown> | undefined;
-    const rawLogoUrl: string =
-      (logo?.url as string) ||
-      ((logo?.data as Record<string, unknown>)?.attributes as Record<string, unknown>)?.url as string ||
-      ((logo?.data as Record<string, unknown>)?.url as string) ||
-      '';
-    return {
-      id: (item?.id as number) || (entity?.id as number) || 0,
-      name: (item?.name as string) || '未命名单位',
-      logo_url: toAbsoluteUrl(rawLogoUrl),
-      website: (item?.website as string) || null,
-      intro: (item?.intro as string) || null,
-    };
-  });
-}
-
 export default async function AboutCouncil() {
   const breadcrumbItems = [
     { name: '首页', href: '/' },
@@ -119,7 +82,7 @@ export default async function AboutCouncil() {
 
   const [article, councilMembers] = await Promise.all([
     getCouncilArticle(),
-    getCouncilMembers(),
+    getCouncilMembers({ councilOnly: true }),
   ]);
 
   return (

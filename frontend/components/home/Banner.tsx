@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { resolveMediaUrl, safeBannerHref } from '@/lib/public-urls';
 
 export interface BannerItem {
   id: number;
@@ -18,16 +19,10 @@ const fallbackBanners: BannerItem[] = [
   { id: -3, title: '校园风光', image: { url: '/images/zh-banner3.png' } },
 ];
 
-function imageUrl(url: string) {
-  if (url.startsWith('http://') || url.startsWith('https://')) return url;
-  if (url.startsWith('/images/')) return url;
-  const origin = process.env.NEXT_PUBLIC_STRAPI_URL || 'http://localhost:1337';
-  return `${origin}${url.startsWith('/') ? '' : '/'}${url}`;
-}
-
 export default function Banner({ banners = [] }: { banners: BannerItem[] }) {
-  const slides = banners.filter((item) => item.image?.url).length > 0
-    ? banners.filter((item) => item.image?.url)
+  const validBanners = banners.filter((item) => resolveMediaUrl(item.image?.url));
+  const slides = validBanners.length > 0
+    ? validBanners
     : fallbackBanners;
   const [current, setCurrent] = useState(0);
   const [paused, setPaused] = useState(false);
@@ -39,10 +34,7 @@ export default function Banner({ banners = [] }: { banners: BannerItem[] }) {
   }, [slides.length, paused]);
 
   const active = current % slides.length;
-  const slideLink = slides[active]?.link;
-  const safeSlideLink = slideLink && ((slideLink.startsWith('/') && !slideLink.startsWith('//')) || /^https?:\/\//.test(slideLink))
-    ? slideLink
-    : null;
+  const safeSlideLink = safeBannerHref(slides[active]?.link);
 
   return (
     <section
@@ -56,7 +48,7 @@ export default function Banner({ banners = [] }: { banners: BannerItem[] }) {
       {slides.map((slide, index) => (
         <div className={`home-hero-slide ${index === active ? 'is-active' : ''}`} key={slide.documentId || slide.id} aria-hidden={index !== active}>
           <Image
-            src={imageUrl(slide.image!.url)}
+            src={resolveMediaUrl(slide.image!.url, true) || '/images/zh-banner2.png'}
             alt={slide.title || '吉林大学珠海校区校园景观'}
             fill
             priority={index === 0}

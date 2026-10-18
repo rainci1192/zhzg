@@ -2,6 +2,7 @@ import { sanitizeRichHtml } from '@/lib/sanitize-html';
 import { notFound } from 'next/navigation';
 import Image from 'next/image';
 import AboutSingleLayout from '@/components/about/AboutSingleLayout';
+import { resolveMediaUrl } from '@/lib/public-urls';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,6 +26,7 @@ async function getPageBySlug(slug: string): Promise<PageData | null> {
   const qs = new URLSearchParams({
     'filters[slug][$eq]': slug,
     'filters[publish_status][$eq]': 'published',
+    'status': 'published',
     'populate[0]': 'cover',
   }).toString();
 
@@ -65,7 +67,7 @@ export default async function AboutIntro() {
   const page = await getPageBySlug('about-intro');
   if (!page) notFound();
 
-  const coverImage = page.cover?.url ? `${API}${page.cover.url}` : null;
+  const coverImage = resolveMediaUrl(page.cover?.url);
 
   return (
     <AboutSingleLayout

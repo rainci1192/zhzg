@@ -2,68 +2,7 @@ import { notFound } from 'next/navigation';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import PageHero from '@/components/layout/PageHero';
-
-const STRAPI_BASE_URL = (
-  process.env.NEXT_PUBLIC_STRAPI_URL ||
-  process.env.STRAPI_URL ||
-  'http://localhost:1337'
-).replace(/\/$/, '');
-
-const STRAPI_API_TOKEN =
-  process.env.STRAPI_API_TOKEN ||
-  '';
-
-function toAbsoluteUrl(url: string): string {
-  if (!url) return '';
-  if (url.startsWith('http://') || url.startsWith('https://')) return url;
-  return `${STRAPI_BASE_URL}${url}`;
-}
-
-type PartnerDetail = {
-  id: number;
-  name: string;
-  logo_url: string | null;
-  website: string | null;
-  intro: string | null;
-};
-
-async function getPartner(id: number): Promise<PartnerDetail | null> {
-  try {
-    const params = new URLSearchParams({
-      'populate[logo][fields][0]': 'url',
-    });
-    const res = await fetch(
-      `${STRAPI_BASE_URL}/api/council-members/${id}?${params}`,
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          ...(STRAPI_API_TOKEN ? { Authorization: `Bearer ${STRAPI_API_TOKEN}` } : {}),
-        },
-        next: { revalidate: 300 },
-      }
-    );
-    if (!res.ok) return null;
-    const json = await res.json();
-    const entity = json?.data ?? json;
-    const d = entity?.attributes ?? entity;
-
-    const rawLogoUrl: string =
-      d?.logo?.url ||
-      d?.logo?.data?.attributes?.url ||
-      d?.logo?.data?.url ||
-      '';
-
-    return {
-      id: entity?.id ?? 0,
-      name: d?.name ?? '',
-      logo_url: toAbsoluteUrl(rawLogoUrl) || null,
-      website: d?.website ?? null,
-      intro: d?.intro ?? null,
-    };
-  } catch {
-    return null;
-  }
-}
+import { getCouncilMembers } from '@/lib/council-members';
 
 export default async function PartnerDetailPage({
   params,
@@ -73,9 +12,9 @@ export default async function PartnerDetailPage({
   const { id: idStr } = await params;
   const id = Number(idStr);
 
-  if (isNaN(id) || id <= 0) notFound();
+  if (!Number.isSafeInteger(id) || id <= 0) notFound();
 
-  const partner = await getPartner(id);
+  const partner = (await getCouncilMembers({ id }))[0];
 
   if (!partner || !partner.intro) notFound();
 
