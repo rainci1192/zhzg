@@ -35,6 +35,7 @@ const OPTIONS: sanitizeHtml.IOptions = {
       'white-space': [/^(?:normal|pre|pre-wrap|nowrap)$/i],
       'line-height': [size, /^\d+(?:\.\d+)?$/],
       'text-indent': [size],
+      'margin-left': [size], 'margin-right': [size],
       width: [size], height: [size],
       'min-width': [size], 'max-width': [size, /^none$/i],
       border: [border], 'border-top': [border], 'border-right': [border],

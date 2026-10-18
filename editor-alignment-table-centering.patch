@@ -1,0 +1,131 @@
+diff --git a/admin/components/editor/WordLikeEditor.css b/admin/components/editor/WordLikeEditor.css
+index bab8487..8f3ab99 100644
+--- a/admin/components/editor/WordLikeEditor.css
++++ b/admin/components/editor/WordLikeEditor.css
+@@ -63,6 +63,17 @@
+ 
+ .word-like-editor__table-position { color: #475569; margin-right: 4px; }
+ 
++.word-like-editor__tool-group {
++  display: inline-flex;
++  flex-wrap: wrap;
++  align-items: center;
++  gap: 6px;
++  padding-right: 8px;
++  border-right: 1px solid #c5d8eb;
++}
++
++.word-like-editor__tool-group strong { white-space: nowrap; }
++
+ .word-like-editor__table-tools button {
+   border: 1px solid #bfd2e6;
+   border-radius: 5px;
+diff --git a/admin/components/editor/WordLikeEditor.tsx b/admin/components/editor/WordLikeEditor.tsx
+index dc9f8f5..4af5ca6 100644
+--- a/admin/components/editor/WordLikeEditor.tsx
++++ b/admin/components/editor/WordLikeEditor.tsx
+@@ -12,6 +12,8 @@ interface Props {
+ }
+ 
+ type TableAction = 'rowBefore' | 'rowAfter' | 'columnBefore' | 'columnAfter' | 'deleteRow' | 'deleteColumn';
++type ParagraphAlignment = 'left' | 'center' | 'right' | 'justify';
++type TableAlignment = 'left' | 'center' | 'right';
+ 
+ const MIN_COLUMN_WIDTH = 36;
+ const MAX_COLUMN_WIDTH = 1200;
+@@ -124,7 +126,7 @@ export default function WordLikeEditor({ value, onChange, uploadImage }: Props)
+         buttons: [
+           'undo', 'redo', '|', 'paragraph', 'font', 'fontsize', '|',
+           'bold', 'italic', 'underline', 'strikethrough', 'eraser', '|',
+-          'brush', 'copyformat', '|', 'align', 'ul', 'ol', 'outdent', 'indent',
++          'brush', 'copyformat', '|', 'ul', 'ol', 'outdent', 'indent',
+           '\n',
+           'table', 'link', 'image', 'hr', '|',
+           'cut', 'copy', 'paste', 'selectall', '|', 'find', 'print', 'source', 'fullsize',
+@@ -352,9 +354,49 @@ export default function WordLikeEditor({ value, onChange, uploadImage }: Props)
+     showTableCell(editor, cell);
+   }
+ 
++  function alignParagraph(alignment: ParagraphAlignment) {
++    const editor = editorRef.current;
++    if (!editor) return;
++    const command = {
++      left: 'justifyLeft',
++      center: 'justifyCenter',
++      right: 'justifyRight',
++      justify: 'justifyFull',
++    }[alignment];
++    editor.execCommand(command);
++    editor.synchronizeValues();
++  }
++
++  function alignTable(alignment: TableAlignment) {
++    const context = getTableContext();
++    if (!context) return;
++    const { editor, table, cell } = context;
++    // Set explicit inline layout on the table itself; this does not alter the
++    // alignment of text inside its cells or redistribute the column widths.
++    table.style.marginLeft = alignment === 'left' ? '0' : 'auto';
++    table.style.marginRight = alignment === 'right' ? '0' : 'auto';
++    table.setAttribute('align', alignment);
++    editor.synchronizeValues();
++    showTableCell(editor, cell);
++  }
++
+   return (
+     <div className="word-like-editor" data-editor-build="table-tools-20261018">
+       <div className="word-like-editor__table-tools" role="toolbar" aria-label="表格编辑工具">
++        <div className="word-like-editor__tool-group" role="group" aria-label="段落对齐">
++          <strong>段落对齐</strong>
++          {([['left', '左对齐'], ['center', '居中'], ['right', '右对齐'], ['justify', '两端对齐']] as const).map(([alignment, label]) => (
++            <button key={`paragraph-${alignment}`} type="button" onMouseDown={(event) => event.preventDefault()}
++              onClick={() => alignParagraph(alignment)} title={`段落${label}`}>{label}</button>
++          ))}
++        </div>
++        <div className="word-like-editor__tool-group" role="group" aria-label="表格位置">
++          <strong>表格位置</strong>
++          {([['left', '左对齐'], ['center', '居中'], ['right', '右对齐']] as const).map(([alignment, label]) => (
++            <button key={`table-${alignment}`} type="button" onMouseDown={(event) => event.preventDefault()}
++              onClick={() => alignTable(alignment)} disabled={!tableCell} title={`表格整体${label}`}>{label}</button>
++          ))}
++        </div>
+         <strong>表格工具</strong>
+         <span className="word-like-editor__table-position">
+           {tableCell ? `第 ${tableCell.row} 行 · 第 ${tableCell.column} 列` : '点击表格单元格后可操作'}
+diff --git a/admin/lib/sanitize-html.ts b/admin/lib/sanitize-html.ts
+index c9c9f9f..f10b45e 100644
+--- a/admin/lib/sanitize-html.ts
++++ b/admin/lib/sanitize-html.ts
+@@ -35,6 +35,7 @@ const OPTIONS: sanitizeHtml.IOptions = {
+       'white-space': [/^(?:normal|pre|pre-wrap|nowrap)$/i],
+       'line-height': [size, /^\d+(?:\.\d+)?$/],
+       'text-indent': [size],
++      'margin-left': [size], 'margin-right': [size],
+       width: [size], height: [size],
+       'min-width': [size], 'max-width': [size, /^none$/i],
+       border: [border], 'border-top': [border], 'border-right': [border],
+diff --git a/frontend/app/globals.css b/frontend/app/globals.css
+index 21a7464..4423e7b 100644
+--- a/frontend/app/globals.css
++++ b/frontend/app/globals.css
+@@ -259,7 +259,7 @@ a {
+ .prose table {
+   max-width: none;
+   border-collapse: collapse;
+-  margin: 1.5em 0 !important;
++  margin: 1.5em 0;
+   font-size: 16px;
+ }
+ 
+diff --git a/frontend/lib/sanitize-html.ts b/frontend/lib/sanitize-html.ts
+index c9c9f9f..f10b45e 100644
+--- a/frontend/lib/sanitize-html.ts
++++ b/frontend/lib/sanitize-html.ts
+@@ -35,6 +35,7 @@ const OPTIONS: sanitizeHtml.IOptions = {
+       'white-space': [/^(?:normal|pre|pre-wrap|nowrap)$/i],
+       'line-height': [size, /^\d+(?:\.\d+)?$/],
+       'text-indent': [size],
++      'margin-left': [size], 'margin-right': [size],
+       width: [size], height: [size],
+       'min-width': [size], 'max-width': [size, /^none$/i],
+       border: [border], 'border-top': [border], 'border-right': [border],

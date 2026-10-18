@@ -12,6 +12,8 @@ interface Props {
 }
 
 type TableAction = 'rowBefore' | 'rowAfter' | 'columnBefore' | 'columnAfter' | 'deleteRow' | 'deleteColumn';
+type ParagraphAlignment = 'left' | 'center' | 'right' | 'justify';
+type TableAlignment = 'left' | 'center' | 'right';
 
 const MIN_COLUMN_WIDTH = 36;
 const MAX_COLUMN_WIDTH = 1200;
@@ -124,7 +126,7 @@ export default function WordLikeEditor({ value, onChange, uploadImage }: Props) 
         buttons: [
           'undo', 'redo', '|', 'paragraph', 'font', 'fontsize', '|',
           'bold', 'italic', 'underline', 'strikethrough', 'eraser', '|',
-          'brush', 'copyformat', '|', 'align', 'ul', 'ol', 'outdent', 'indent',
+          'brush', 'copyformat', '|', 'ul', 'ol', 'outdent', 'indent',
           '\n',
           'table', 'link', 'image', 'hr', '|',
           'cut', 'copy', 'paste', 'selectall', '|', 'find', 'print', 'source', 'fullsize',
@@ -352,9 +354,49 @@ export default function WordLikeEditor({ value, onChange, uploadImage }: Props) 
     showTableCell(editor, cell);
   }
 
+  function alignParagraph(alignment: ParagraphAlignment) {
+    const editor = editorRef.current;
+    if (!editor) return;
+    const command = {
+      left: 'justifyLeft',
+      center: 'justifyCenter',
+      right: 'justifyRight',
+      justify: 'justifyFull',
+    }[alignment];
+    editor.execCommand(command);
+    editor.synchronizeValues();
+  }
+
+  function alignTable(alignment: TableAlignment) {
+    const context = getTableContext();
+    if (!context) return;
+    const { editor, table, cell } = context;
+    // Set explicit inline layout on the table itself; this does not alter the
+    // alignment of text inside its cells or redistribute the column widths.
+    table.style.marginLeft = alignment === 'left' ? '0' : 'auto';
+    table.style.marginRight = alignment === 'right' ? '0' : 'auto';
+    table.setAttribute('align', alignment);
+    editor.synchronizeValues();
+    showTableCell(editor, cell);
+  }
+
   return (
     <div className="word-like-editor" data-editor-build="table-tools-20261018">
       <div className="word-like-editor__table-tools" role="toolbar" aria-label="表格编辑工具">
+        <div className="word-like-editor__tool-group" role="group" aria-label="段落对齐">
+          <strong>段落对齐</strong>
+          {([['left', '左对齐'], ['center', '居中'], ['right', '右对齐'], ['justify', '两端对齐']] as const).map(([alignment, label]) => (
+            <button key={`paragraph-${alignment}`} type="button" onMouseDown={(event) => event.preventDefault()}
+              onClick={() => alignParagraph(alignment)} title={`段落${label}`}>{label}</button>
+          ))}
+        </div>
+        <div className="word-like-editor__tool-group" role="group" aria-label="表格位置">
+          <strong>表格位置</strong>
+          {([['left', '左对齐'], ['center', '居中'], ['right', '右对齐']] as const).map(([alignment, label]) => (
+            <button key={`table-${alignment}`} type="button" onMouseDown={(event) => event.preventDefault()}
+              onClick={() => alignTable(alignment)} disabled={!tableCell} title={`表格整体${label}`}>{label}</button>
+          ))}
+        </div>
         <strong>表格工具</strong>
         <span className="word-like-editor__table-position">
           {tableCell ? `第 ${tableCell.row} 行 · 第 ${tableCell.column} 列` : '点击表格单元格后可操作'}

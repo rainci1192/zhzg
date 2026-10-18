@@ -63,6 +63,17 @@
 
 .word-like-editor__table-position { color: #475569; margin-right: 4px; }
 
+.word-like-editor__tool-group {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding-right: 8px;
+  border-right: 1px solid #c5d8eb;
+}
+
+.word-like-editor__tool-group strong { white-space: nowrap; }
+
 .word-like-editor__table-tools button {
   border: 1px solid #bfd2e6;
   border-radius: 5px;

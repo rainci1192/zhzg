@@ -259,7 +259,7 @@ a {
 .prose table {
   max-width: none;
   border-collapse: collapse;
-  margin: 1.5em 0 !important;
+  margin: 1.5em 0;
   font-size: 16px;
 }
 
