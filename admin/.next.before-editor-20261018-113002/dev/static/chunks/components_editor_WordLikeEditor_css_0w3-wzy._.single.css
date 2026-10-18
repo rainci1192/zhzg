@@ -1,0 +1,17 @@
+/* [project]/components/editor/WordLikeEditor.css [app-client] (css) */
+.ck.ck-editor__editable {
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  white-space: pre-wrap !important;
+}
+
+.ck.ck-editor__editable p {
+  text-indent: 2em;
+  white-space: pre-wrap !important;
+}
+
+.ck.ck-editor__editable * {
+  white-space: inherit;
+}
+
+/*# sourceMappingURL=components_editor_WordLikeEditor_css_0w3-wzy._.single.css.map*/

@@ -1,0 +1,6 @@
+{
+  "version": 3,
+  "sources": [],
+  "sections": [
+    {"offset": {"line": 1, "column": 0}, "map": {"version":3,"sources":["turbopack:///[project]/components/editor/WordLikeEditor.css"],"sourcesContent":["/* 修复 CKEditor 5 编辑区域的空格显示问题 */\r\n.ck.ck-editor__editable {\r\n  white-space: pre-wrap !important;\r\n  word-wrap: break-word;\r\n  overflow-wrap: break-word;\r\n}\r\n\r\n/* 针对编辑区域内的段落 */\r\n.ck.ck-editor__editable p {\r\n  white-space: pre-wrap !important;\r\n  \r\n  /* ✅ 新增：自动为每个段落首行缩进2个汉字 */\r\n  text-indent: 2em;\r\n}\r\n\r\n/* 针对编辑区域内的所有文本节点 */\r\n.ck.ck-editor__editable * {\r\n  white-space: inherit;\r\n}\r\n"],"names":[],"mappings":"AACA;;;;;;AAOA;;;;;AAQA"}}]
+}
