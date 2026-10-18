@@ -1,6 +1,7 @@
 'use strict';
 
 const { createCoreController } = require('@strapi/strapi').factories;
+const { uniqueArticleSlug, repairArticleDocumentSlug } = require('../../../utils/article-slugs');
 
 const ARTICLE_UID = 'api::article.article';
 const ADMIN_UID = 'api::backend-admin.backend-admin';
@@ -433,6 +434,10 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
     const requestedOwner = input.created_by_admin;
     for (const field of WORKFLOW_FIELDS) delete data[field];
 
+    // db.query() does not invoke the document middleware that generates uid
+    // values. An empty slug otherwise makes the public link /article (404).
+    data.slug = await uniqueArticleSlug(strapi, data.title);
+
     data.review_status = 'draft';
     if (isSuperAdmin(admin) && requestedOwner !== undefined) {
       const owner = await findBackendAdmin(strapi, requestedOwner, ['backend_role']);
@@ -488,6 +493,10 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
     }
 
     const updateData = { ...input };
+    delete updateData.slug; // Keep the public URL stable when editing a title.
+    if (!article.slug || !String(article.slug).trim()) {
+      updateData.slug = await repairArticleDocumentSlug(strapi, article);
+    }
     const requestedOwner = updateData.created_by_admin;
     for (const field of WORKFLOW_FIELDS) delete updateData[field];
     if (isSuperAdmin(admin) && requestedOwner !== undefined) {
@@ -982,6 +991,10 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
       ownerMatches(article, admin, ctx.state.user) ||
       isSuperAdmin(admin);
     if (!canPublish) return ctx.forbidden('只有文章发布者可以最终发布。');
+
+    if (!article.slug || !String(article.slug).trim()) {
+      article.slug = await repairArticleDocumentSlug(strapi, article);
+    }
 
     const updated = await updateArticle(strapi, article, {
       review_status: 'published',

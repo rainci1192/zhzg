@@ -74,6 +74,13 @@ module.exports = {
 
   async bootstrap({ strapi }) {
     try {
+      const repaired = await require('./utils/article-slugs').repairMissingArticleSlugs(strapi);
+      if (repaired) strapi.log.info(`Article slug repair: ${repaired} versions updated.`);
+    } catch (error) {
+      strapi.log.error(`Article slug repair failed: ${error.message}`);
+    }
+
+    try {
       const moduleUid = 'api::permission-module.permission-module';
       const actionUid = 'api::permission-action.permission-action';
       let logsModule = await strapi.db.query(moduleUid).findOne({ where: { name: 'logs' } });
