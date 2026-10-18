@@ -444,6 +444,7 @@ export interface ApiArticleArticle extends Struct.CollectionTypeSchema {
   attributes: {
     admin_review_comment: Schema.Attribute.Text;
     admin_review_date: Schema.Attribute.DateTime;
+    attachment_names: Schema.Attribute.JSON;
     attachments: Schema.Attribute.Media<'files' | 'images', true>;
     content: Schema.Attribute.RichText;
     cover: Schema.Attribute.Media<'images'>;

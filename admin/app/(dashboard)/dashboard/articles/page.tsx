@@ -69,6 +69,7 @@ interface Article {
   secondary_category?: { id: number; name: string } | null;
   cover?: CoverMedia | null;
   attachments?: UploadedFile[] | null;
+  attachment_names?: Record<string, string> | null;
   created_by_admin?: AdminRelation | null;
   level1_reviewer?: AdminRelation | null;
   level2_reviewer?: AdminRelation | null;
@@ -246,6 +247,7 @@ export default function ArticlesPage() {
     coverId: '',
     coverPreview: '',
     attachments: [] as UploadedFile[],
+    attachmentNames: {} as Record<string, string>,
     publisherId: '',
     publisherLabel: '',
   });
@@ -398,6 +400,7 @@ export default function ArticlesPage() {
         coverId: article.cover?.id ? String(article.cover.id) : '',
         coverPreview: article.cover?.url ? `${STRAPI_URL}${article.cover.url}` : '',
         attachments: Array.isArray(article.attachments) ? article.attachments : [],
+        attachmentNames: article.attachment_names || {},
         publisherId: article.created_by_admin?.documentId || (article.created_by_admin?.id != null ? String(article.created_by_admin.id) : ''),
         publisherLabel: relationName(article.created_by_admin),
       });
@@ -412,6 +415,7 @@ export default function ArticlesPage() {
         coverId: '',
         coverPreview: '',
         attachments: [],
+        attachmentNames: {},
         publisherId: user?.documentId || user?.id || '',
         publisherLabel: user?.name || user?.email || '',
       });
@@ -479,6 +483,9 @@ export default function ArticlesPage() {
         secondary_category: form.secondaryCategoryId ? Number(form.secondaryCategoryId) : null,
         cover: coverId ? Number(coverId) : null,
         attachments: attachmentIds,
+        attachment_names: Object.fromEntries(form.attachments
+          .map((file) => [String(file.documentId || file.id), String(form.attachmentNames[String(file.documentId || file.id)] || '').trim()] as const)
+          .filter(([, name]) => name.length > 0)),
       };
 
       if (isSuperAdmin && form.publisherId) {
@@ -727,10 +734,11 @@ export default function ArticlesPage() {
   {attachmentMessage && <p role="status" className="mt-3 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{attachmentMessage}</p>}
   {attachmentError && <div role="alert" className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700"><span>{attachmentError}</span><button type="button" onClick={() => setAttachmentFiles([])} className="shrink-0 font-medium underline">清除失败文件</button></div>}
   {(form.attachments.length > 0 || attachmentFiles.length > 0) ? <ul className="mt-3 divide-y divide-gray-100">
-    {form.attachments.map((file) => <li key={`existing-${file.documentId || file.id}`} className="flex flex-wrap items-center justify-between gap-3 py-2 text-sm">
-      <span className="min-w-0 break-all">📎 {file.name || `附件 ${file.id}`} <span className={`ml-2 text-xs ${newAttachmentIds.includes(file.id) ? 'text-emerald-700' : 'text-gray-500'}`}>{newAttachmentIds.includes(file.id) ? '已上传，保存后关联' : '已关联'}</span></span>
+    {form.attachments.map((file) => { const fileKey = String(file.documentId || file.id); return <li key={`existing-${fileKey}`} className="flex flex-wrap items-center gap-3 py-2 text-sm">
+      <label className="min-w-0 flex-1"><span className="mb-1 block text-xs text-gray-500">官网显示名称</span><input value={form.attachmentNames[fileKey] ?? file.name ?? ''} onChange={(event) => setForm((current) => ({ ...current, attachmentNames: { ...current.attachmentNames, [fileKey]: event.target.value } }))} maxLength={255} placeholder="请输入官网显示名称" className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100" /></label>
+      <span className="max-w-52 break-all text-xs text-gray-500">源文件：{file.name || `附件 ${file.id}`} <span className={`ml-1 ${newAttachmentIds.includes(file.id) ? 'text-emerald-700' : 'text-gray-500'}`}>{newAttachmentIds.includes(file.id) ? '已上传，保存后关联' : '已关联'}</span></span>
       <button type="button" onClick={() => { setForm((current) => ({ ...current, attachments: current.attachments.filter((item) => item.id !== file.id) })); setNewAttachmentIds((current) => current.filter((id) => id !== file.id)); }} className="shrink-0 text-red-600 hover:text-red-800">移除</button>
-    </li>)}
+    </li>; })}
     {attachmentFiles.map((file, index) => <li key={`failed-${index}-${file.name}`} className={`py-2 text-sm ${attachmentUploading ? 'text-blue-700' : 'text-red-700'}`}>📎 {file.name}（{attachmentUploading ? '上传中…' : '上传未完成，请重新选择此文件重试'}）</li>)}
   </ul> : <p className="mt-3 text-sm text-gray-400">尚未添加附件</p>}
 </section><div className="flex justify-end gap-4"><button type="button" disabled={attachmentUploading} onClick={() => setIsModalOpen(false)} className="px-6 py-3 border rounded disabled:opacity-50">取消</button><button type="submit" disabled={attachmentUploading} className="px-6 py-3 bg-blue-600 text-white rounded disabled:cursor-not-allowed disabled:opacity-50">{attachmentUploading ? '附件上传中…' : '保存'}</button></div></form></div></div>}

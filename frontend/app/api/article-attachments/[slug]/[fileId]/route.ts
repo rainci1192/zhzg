@@ -68,6 +68,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ slu
     if (fileUrl.origin !== new URL(API).origin) {
       return NextResponse.json({ error: '不支持此附件存储地址' }, { status: 502 });
     }
+    const displayName = String(article.attachment_names?.[fileId] || file.name || 'article-attachment').trim() || 'article-attachment';
     stage = 'media fetch';
     const fileResponse = await fetch(fileUrl, { cache: 'no-store' });
     if (!fileResponse.ok || !fileResponse.body) {
@@ -76,7 +77,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ slu
 
     const headers = new Headers({
       'Content-Type': fileResponse.headers.get('content-type') || 'application/octet-stream',
-      'Content-Disposition': encodeFilename(file.name || 'article-attachment'),
+      'Content-Disposition': encodeFilename(displayName),
       'Cache-Control': 'public, max-age=300',
       'X-Content-Type-Options': 'nosniff',
     });

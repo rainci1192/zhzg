@@ -76,6 +76,9 @@
         "images"
       ]
     },
+    "attachment_names": {
+      "type": "json"
+    },
     "primary_category": {
       "type": "relation",
       "relation": "manyToOne",

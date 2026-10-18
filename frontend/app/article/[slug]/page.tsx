@@ -33,6 +33,7 @@ type FullArticle = {
   is_top?: boolean;
   cover?: { url?: string } | null;
   attachments?: Array<{ id?: number; documentId?: string; name?: string; url?: string; size?: number }>;
+  attachment_names?: Record<string, string> | null;
   primary_category?: { name?: string } | null;
   secondary_category?: { name?: string } | null;
 };
@@ -97,6 +98,7 @@ async function getArticleFullBySlug(slug: string): Promise<FullArticle | null> {
     is_top: Boolean(item.is_top),
     cover: item.cover || null,
     attachments: Array.isArray(item.attachments) ? item.attachments : item.attachments?.data || [],
+    attachment_names: item.attachment_names || {},
     primary_category: item.primary_category || null,
     secondary_category: item.secondary_category || null,
   };
@@ -304,9 +306,10 @@ export default async function ArticlePage({
               {article.attachments.map((attachment) => {
                 const fileKey = attachment.documentId || attachment.id;
                 if (!fileKey) return null;
+                const displayName = article.attachment_names?.[String(fileKey)]?.trim() || attachment.name || '文章附件';
                 return (
                   <li key={String(fileKey)} className="flex flex-wrap items-center justify-between gap-3 py-3">
-                    <span className="min-w-0 break-all text-sm text-slate-700">{attachment.name || '文章附件'}</span>
+                    <span className="min-w-0 break-all text-sm text-slate-700">{displayName}</span>
                     <a href={`/api/article-attachments/${encodeURIComponent(article.slug)}/${encodeURIComponent(String(fileKey))}`}
                       className="inline-flex shrink-0 items-center rounded-lg bg-blue-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-800">
                       下载附件
