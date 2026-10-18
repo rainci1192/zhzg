@@ -1,0 +1,139 @@
+diff --git a/backend/src/api/article/content-types/article/schema.json b/backend/src/api/article/content-types/article/schema.json
+index daefb75..1b7b7c7 100644
+--- a/backend/src/api/article/content-types/article/schema.json
++++ b/backend/src/api/article/content-types/article/schema.json
+@@ -79,6 +79,9 @@
+     "attachment_names": {
+       "type": "json"
+     },
++    "attachment_download_counts": {
++      "type": "json"
++    },
+     "primary_category": {
+       "type": "relation",
+       "relation": "manyToOne",
+diff --git a/backend/src/api/article/controllers/article-views.js b/backend/src/api/article/controllers/article-views.js
+index 7655d46..cad2720 100644
+--- a/backend/src/api/article/controllers/article-views.js
++++ b/backend/src/api/article/controllers/article-views.js
+@@ -48,4 +48,43 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
+     ctx.set('Cache-Control', 'no-store');
+     ctx.body = { data: { view_count: count } };
+   },
++
++  async recordAttachmentDownload(ctx) {
++    const { slug, fileId } = ctx.params;
++    if (typeof fileId !== 'string' || !fileId || fileId.length > 128 || fileId.includes('/')) {
++      return ctx.badRequest('附件标识无效。');
++    }
++
++    const article = await strapi.db.query(ARTICLE_UID).findOne({
++      where: { slug, review_status: 'published', publishedAt: { $notNull: true } },
++      select: ['id', 'documentId'],
++      populate: { attachments: true },
++    });
++    if (!article) return ctx.notFound('文章不存在或尚未发布。');
++
++    const attachments = Array.isArray(article.attachments) ? article.attachments : [];
++    const attachment = attachments.find((item) => String(item.documentId || item.id || '') === fileId);
++    if (!attachment) return ctx.notFound('该附件不属于此已发布文章。');
++
++    const count = await strapi.db.connection.transaction(async (trx) => {
++      const live = await trx('articles').where({ id: article.id }).forUpdate().first(
++        'id', 'review_status', 'published_at', 'attachment_download_counts'
++      );
++      if (!live || live.review_status !== 'published' || !live.published_at) return null;
++
++      let counts = live.attachment_download_counts;
++      if (typeof counts === 'string') {
++        try { counts = JSON.parse(counts); } catch { counts = {}; }
++      }
++      if (!counts || typeof counts !== 'object' || Array.isArray(counts)) counts = {};
++      const next = Math.max(0, Number(counts[fileId]) || 0) + 1;
++      counts[fileId] = next;
++      await trx('articles').where({ id: live.id }).update({ attachment_download_counts: JSON.stringify(counts) });
++      return next;
++    });
++
++    if (count === null) return ctx.notFound('文章不存在或尚未发布。');
++    ctx.set('Cache-Control', 'no-store');
++    ctx.body = { data: { download_count: count } };
++  },
+ }));
+diff --git a/backend/src/api/article/routes/article-views.js b/backend/src/api/article/routes/article-views.js
+index 380e9f7..b4819ed 100644
+--- a/backend/src/api/article/routes/article-views.js
++++ b/backend/src/api/article/routes/article-views.js
+@@ -14,5 +14,11 @@ module.exports = {
+       handler: 'api::article.article-views.record',
+       config: { auth: false },
+     },
++    {
++      method: 'POST',
++      path: '/article-attachment-downloads/:slug/:fileId',
++      handler: 'api::article.article-views.recordAttachmentDownload',
++      config: { auth: false },
++    },
+   ],
+ };
+diff --git a/frontend/app/api/article-attachments/[slug]/[fileId]/route.ts b/frontend/app/api/article-attachments/[slug]/[fileId]/route.ts
+index 84a9abc..cb29634 100644
+--- a/frontend/app/api/article-attachments/[slug]/[fileId]/route.ts
++++ b/frontend/app/api/article-attachments/[slug]/[fileId]/route.ts
+@@ -75,6 +75,24 @@ export async function GET(_request: Request, { params }: { params: Promise<{ slu
+       return NextResponse.json({ error: '附件文件暂不可用' }, { status: 502 });
+     }
+ 
++    // Count only requests for which the media server successfully returned a
++    // body. A counter failure must not prevent a valid file download.
++    try {
++      const countResponse = await fetch(
++        `${API}/api/article-attachment-downloads/${encodeURIComponent(slug)}/${encodeURIComponent(fileId)}`,
++        { method: 'POST', cache: 'no-store', headers: { Accept: 'application/json' } }
++      );
++      if (!countResponse.ok) {
++        console.warn('[article-attachments] Download count update failed', { slug, fileId, status: countResponse.status });
++      }
++    } catch (error) {
++      console.warn('[article-attachments] Download count update failed', {
++        slug,
++        fileId,
++        message: error instanceof Error ? error.message : String(error),
++      });
++    }
++
+     const headers = new Headers({
+       'Content-Type': fileResponse.headers.get('content-type') || 'application/octet-stream',
+       'Content-Disposition': encodeFilename(displayName),
+diff --git a/frontend/app/article/[slug]/page.tsx b/frontend/app/article/[slug]/page.tsx
+index 1166bf2..ef693a5 100644
+--- a/frontend/app/article/[slug]/page.tsx
++++ b/frontend/app/article/[slug]/page.tsx
+@@ -34,6 +34,7 @@ type FullArticle = {
+   cover?: { url?: string } | null;
+   attachments?: Array<{ id?: number; documentId?: string; name?: string; url?: string; size?: number }>;
+   attachment_names?: Record<string, string> | null;
++  attachment_download_counts?: Record<string, number> | null;
+   primary_category?: { name?: string } | null;
+   secondary_category?: { name?: string } | null;
+ };
+@@ -99,6 +100,7 @@ async function getArticleFullBySlug(slug: string): Promise<FullArticle | null> {
+     cover: item.cover || null,
+     attachments: Array.isArray(item.attachments) ? item.attachments : item.attachments?.data || [],
+     attachment_names: item.attachment_names || {},
++    attachment_download_counts: item.attachment_download_counts || {},
+     primary_category: item.primary_category || null,
+     secondary_category: item.secondary_category || null,
+   };
+@@ -309,7 +311,10 @@ export default async function ArticlePage({
+                 const displayName = article.attachment_names?.[String(fileKey)]?.trim() || attachment.name || '文章附件';
+                 return (
+                   <li key={String(fileKey)} className="flex flex-wrap items-center justify-between gap-3 py-3">
+-                    <span className="min-w-0 break-all text-sm text-slate-700">{displayName}</span>
++                    <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
++                      <span className="break-all text-sm text-slate-700">{displayName}</span>
++                      <span className="shrink-0 text-xs text-slate-500">已下载 {Math.max(0, Number(article.attachment_download_counts?.[String(fileKey)]) || 0)} 次</span>
++                    </div>
+                     <a href={`/api/article-attachments/${encodeURIComponent(article.slug)}/${encodeURIComponent(String(fileKey))}`}
+                       className="inline-flex shrink-0 items-center rounded-lg bg-blue-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-800">
+                       下载附件

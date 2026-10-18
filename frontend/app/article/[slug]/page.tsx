@@ -34,6 +34,7 @@ type FullArticle = {
   cover?: { url?: string } | null;
   attachments?: Array<{ id?: number; documentId?: string; name?: string; url?: string; size?: number }>;
   attachment_names?: Record<string, string> | null;
+  attachment_download_counts?: Record<string, number> | null;
   primary_category?: { name?: string } | null;
   secondary_category?: { name?: string } | null;
 };
@@ -99,6 +100,7 @@ async function getArticleFullBySlug(slug: string): Promise<FullArticle | null> {
     cover: item.cover || null,
     attachments: Array.isArray(item.attachments) ? item.attachments : item.attachments?.data || [],
     attachment_names: item.attachment_names || {},
+    attachment_download_counts: item.attachment_download_counts || {},
     primary_category: item.primary_category || null,
     secondary_category: item.secondary_category || null,
   };
@@ -309,7 +311,10 @@ export default async function ArticlePage({
                 const displayName = article.attachment_names?.[String(fileKey)]?.trim() || attachment.name || '文章附件';
                 return (
                   <li key={String(fileKey)} className="flex flex-wrap items-center justify-between gap-3 py-3">
-                    <span className="min-w-0 break-all text-sm text-slate-700">{displayName}</span>
+                    <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
+                      <span className="break-all text-sm text-slate-700">{displayName}</span>
+                      <span className="shrink-0 text-xs text-slate-500">已下载 {Math.max(0, Number(article.attachment_download_counts?.[String(fileKey)]) || 0)} 次</span>
+                    </div>
                     <a href={`/api/article-attachments/${encodeURIComponent(article.slug)}/${encodeURIComponent(String(fileKey))}`}
                       className="inline-flex shrink-0 items-center rounded-lg bg-blue-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-800">
                       下载附件

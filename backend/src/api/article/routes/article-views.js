@@ -14,5 +14,11 @@ module.exports = {
       handler: 'api::article.article-views.record',
       config: { auth: false },
     },
+    {
+      method: 'POST',
+      path: '/article-attachment-downloads/:slug/:fileId',
+      handler: 'api::article.article-views.recordAttachmentDownload',
+      config: { auth: false },
+    },
   ],
 };

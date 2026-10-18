@@ -79,6 +79,9 @@
     "attachment_names": {
       "type": "json"
     },
+    "attachment_download_counts": {
+      "type": "json"
+    },
     "primary_category": {
       "type": "relation",
       "relation": "manyToOne",

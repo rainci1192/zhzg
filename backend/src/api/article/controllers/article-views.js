@@ -48,4 +48,43 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
     ctx.set('Cache-Control', 'no-store');
     ctx.body = { data: { view_count: count } };
   },
+
+  async recordAttachmentDownload(ctx) {
+    const { slug, fileId } = ctx.params;
+    if (typeof fileId !== 'string' || !fileId || fileId.length > 128 || fileId.includes('/')) {
+      return ctx.badRequest('附件标识无效。');
+    }
+
+    const article = await strapi.db.query(ARTICLE_UID).findOne({
+      where: { slug, review_status: 'published', publishedAt: { $notNull: true } },
+      select: ['id', 'documentId'],
+      populate: { attachments: true },
+    });
+    if (!article) return ctx.notFound('文章不存在或尚未发布。');
+
+    const attachments = Array.isArray(article.attachments) ? article.attachments : [];
+    const attachment = attachments.find((item) => String(item.documentId || item.id || '') === fileId);
+    if (!attachment) return ctx.notFound('该附件不属于此已发布文章。');
+
+    const count = await strapi.db.connection.transaction(async (trx) => {
+      const live = await trx('articles').where({ id: article.id }).forUpdate().first(
+        'id', 'review_status', 'published_at', 'attachment_download_counts'
+      );
+      if (!live || live.review_status !== 'published' || !live.published_at) return null;
+
+      let counts = live.attachment_download_counts;
+      if (typeof counts === 'string') {
+        try { counts = JSON.parse(counts); } catch { counts = {}; }
+      }
+      if (!counts || typeof counts !== 'object' || Array.isArray(counts)) counts = {};
+      const next = Math.max(0, Number(counts[fileId]) || 0) + 1;
+      counts[fileId] = next;
+      await trx('articles').where({ id: live.id }).update({ attachment_download_counts: JSON.stringify(counts) });
+      return next;
+    });
+
+    if (count === null) return ctx.notFound('文章不存在或尚未发布。');
+    ctx.set('Cache-Control', 'no-store');
+    ctx.body = { data: { download_count: count } };
+  },
 }));

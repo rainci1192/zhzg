@@ -75,6 +75,24 @@ export async function GET(_request: Request, { params }: { params: Promise<{ slu
       return NextResponse.json({ error: '附件文件暂不可用' }, { status: 502 });
     }
 
+    // Count only requests for which the media server successfully returned a
+    // body. A counter failure must not prevent a valid file download.
+    try {
+      const countResponse = await fetch(
+        `${API}/api/article-attachment-downloads/${encodeURIComponent(slug)}/${encodeURIComponent(fileId)}`,
+        { method: 'POST', cache: 'no-store', headers: { Accept: 'application/json' } }
+      );
+      if (!countResponse.ok) {
+        console.warn('[article-attachments] Download count update failed', { slug, fileId, status: countResponse.status });
+      }
+    } catch (error) {
+      console.warn('[article-attachments] Download count update failed', {
+        slug,
+        fileId,
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+
     const headers = new Headers({
       'Content-Type': fileResponse.headers.get('content-type') || 'application/octet-stream',
       'Content-Disposition': encodeFilename(displayName),
