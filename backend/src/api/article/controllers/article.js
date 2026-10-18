@@ -1046,6 +1046,9 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
 
     const article = await findArticle(strapi, ctx.params.id);
     if (!article) return ctx.notFound('文章不存在。');
+    if (article.hasPublishedVersion) {
+      return ctx.badRequest('文章已有已发布版本，不能重复直接发布；如需修改，请编辑后重新提交审核。');
+    }
     if (!isSuperAdmin(admin) && article.review_status !== 'approved_pending_publish' && article.review_status !== 'approved') {
       return ctx.badRequest('文章必须先通过二级审核才能发布。');
     }
@@ -1229,7 +1232,13 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
       return ctx.forbidden('当前文章正在审核中，暂不能删除。');
     }
 
-    await strapi.db.query(ARTICLE_UID).delete({ where: { id: article.id } });
+    if (article.documentId) {
+      // Delete the whole Strapi 5 document, including its draft and published
+      // variants, so a deleted document cannot reappear in the admin list.
+      await strapi.documents(ARTICLE_UID).delete({ documentId: article.documentId });
+    } else {
+      await strapi.db.query(ARTICLE_UID).delete({ where: { id: article.id } });
+    }
     ctx.status = 204;
   },
 

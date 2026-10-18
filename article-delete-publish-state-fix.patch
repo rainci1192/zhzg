@@ -1,0 +1,51 @@
+diff --git a/admin/app/(dashboard)/dashboard/articles/page.tsx b/admin/app/(dashboard)/dashboard/articles/page.tsx
+index ded346c..0cdd73a 100644
+--- a/admin/app/(dashboard)/dashboard/articles/page.tsx
++++ b/admin/app/(dashboard)/dashboard/articles/page.tsx
+@@ -682,7 +682,7 @@ export default function ArticlesPage() {
+     const level2Status = article.review_status === 'pending_level2' || article.review_status === 'pending_leader' || article.review_status === 'pending_republish';
+     const canReviewLevel1 = isLevel1 && canReviewArticle && level1Status && (isSuperAdmin || article.review_status === 'pending_admin' || relationMatches(article.level1_reviewer, user));
+     const canReviewLevel2 = isLevel2 && canReviewArticle && level2Status && (isSuperAdmin || !article.level2_reviewer || relationMatches(article.level2_reviewer, user));
+-    const canPublish = canPublishArticle && (isSuperAdmin ? article.review_status !== 'published' : article.review_status === 'approved_pending_publish' && owner);
++    const canPublish = canPublishArticle && !article.hasPublishedVersion && (isSuperAdmin ? article.review_status !== 'published' : article.review_status === 'approved_pending_publish' && owner);
+     const canUnpublish = canUnpublishArticle && article.review_status === 'published' && owner;
+     const canViewReviewMessages = isSuperAdmin ||
+       relationMatches(article.created_by_admin, user) ||
+@@ -698,7 +698,7 @@ export default function ArticlesPage() {
+         {editable && article.review_status !== 'published' && <button disabled={!canSubmit} onClick={() => { if (canSubmit) void openSubmitModal(article); }} className={actionClass(canSubmit, 'text-amber-600 hover:text-amber-800')} title={actionTitle(canSubmit, article.review_status === 'rejected_republish' ? '提交二级审核' : '提交一级审核')}><Send className="w-4 h-4" /></button>}
+         {level1Status && <><button disabled={!canReviewLevel1} onClick={() => { if (canReviewLevel1) void openReviewModal(article, 'approve'); }} className={actionClass(canReviewLevel1, 'text-green-600 hover:text-green-800')} title={actionTitle(canReviewLevel1, '一级审核通过')}><CheckCircle className="w-4 h-4" /></button><button disabled={!canReviewLevel1} onClick={() => { if (canReviewLevel1) void openReviewModal(article, 'reject'); }} className={actionClass(canReviewLevel1, 'text-red-600 hover:text-red-800')} title={actionTitle(canReviewLevel1, '一级审核退回')}><XCircle className="w-4 h-4" /></button></>}
+         {level2Status && <><button disabled={!canReviewLevel2} onClick={() => { if (canReviewLevel2) void openReviewModal(article, 'approve'); }} className={actionClass(canReviewLevel2, 'text-green-600 hover:text-green-800')} title={actionTitle(canReviewLevel2, '二级审核通过')}><CheckCircle className="w-4 h-4" /></button><button disabled={!canReviewLevel2} onClick={() => { if (canReviewLevel2) void openReviewModal(article, 'reject'); }} className={actionClass(canReviewLevel2, 'text-red-600 hover:text-red-800')} title={actionTitle(canReviewLevel2, '二级审核退回')}><XCircle className="w-4 h-4" /></button></>}
+-        {(article.review_status === 'approved_pending_publish' || isSuperAdmin && article.review_status !== 'published') && <button disabled={!canPublish} onClick={() => { if (canPublish) void publish(article); }} className={actionClass(canPublish, 'text-purple-600 hover:text-purple-800')} title={actionTitle(canPublish, isSuperAdmin && article.review_status !== 'approved_pending_publish' ? '超级管理员直接发布' : '发布')}><CheckCircle className="w-4 h-4" /></button>}
++        {!article.hasPublishedVersion && (article.review_status === 'approved_pending_publish' || isSuperAdmin && article.review_status !== 'published') && <button disabled={!canPublish} onClick={() => { if (canPublish) void publish(article); }} className={actionClass(canPublish, 'text-purple-600 hover:text-purple-800')} title={actionTitle(canPublish, isSuperAdmin && article.review_status !== 'approved_pending_publish' ? '超级管理员直接发布' : '发布')}><CheckCircle className="w-4 h-4" /></button>}
+         {article.review_status === 'published' && <button disabled={!canUnpublish} onClick={async () => { if (!canUnpublish || !confirm('确定取消发布这篇文章吗？')) return; try { await api.unpublishArticle(getKey(article)); await fetchArticles(); } catch (error) { alert(`取消发布失败：${error instanceof Error ? error.message : '未知错误'}`); } }} className={actionClass(canUnpublish, 'text-orange-600 hover:text-orange-800')} title={actionTitle(canUnpublish, '取消发布')}><XCircle className="w-4 h-4" /></button>}
+         {canViewReviewMessages && (article.rejection_reason || article.level1_review_comment || article.level2_review_comment || article.admin_review_comment || article.leader_review_comment) && <button onClick={() => alert(`审核意见：\n${article.rejection_reason || ''}\n${article.level1_review_comment || ''}\n${article.level2_review_comment || ''}`)} className="text-gray-600 hover:text-gray-800" title="查看意见"><MessageSquare className="w-4 h-4" /></button>}
+         <button disabled={!canDelete} onClick={() => { if (canDelete) void handleDelete(article); }} className={actionClass(canDelete, 'text-red-500 hover:text-red-700')} title={actionTitle(canDelete, '删除')}><Trash2 className="w-4 h-4" /></button>
+diff --git a/backend/src/api/article/controllers/article.js b/backend/src/api/article/controllers/article.js
+index 426e267..ddbd10f 100644
+--- a/backend/src/api/article/controllers/article.js
++++ b/backend/src/api/article/controllers/article.js
+@@ -1046,6 +1046,9 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
+ 
+     const article = await findArticle(strapi, ctx.params.id);
+     if (!article) return ctx.notFound('文章不存在。');
++    if (article.hasPublishedVersion) {
++      return ctx.badRequest('文章已有已发布版本，不能重复直接发布；如需修改，请编辑后重新提交审核。');
++    }
+     if (!isSuperAdmin(admin) && article.review_status !== 'approved_pending_publish' && article.review_status !== 'approved') {
+       return ctx.badRequest('文章必须先通过二级审核才能发布。');
+     }
+@@ -1229,7 +1232,13 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
+       return ctx.forbidden('当前文章正在审核中，暂不能删除。');
+     }
+ 
+-    await strapi.db.query(ARTICLE_UID).delete({ where: { id: article.id } });
++    if (article.documentId) {
++      // Delete the whole Strapi 5 document, including its draft and published
++      // variants, so a deleted document cannot reappear in the admin list.
++      await strapi.documents(ARTICLE_UID).delete({ documentId: article.documentId });
++    } else {
++      await strapi.db.query(ARTICLE_UID).delete({ where: { id: article.id } });
++    }
+     ctx.status = 204;
+   },
+ 
