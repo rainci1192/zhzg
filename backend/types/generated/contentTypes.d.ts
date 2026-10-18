@@ -1274,6 +1274,7 @@ export interface ApiReviewLogReviewLog extends Struct.CollectionTypeSchema {
         'approve_level2',
         'reject_level2',
         'publish',
+        'adjust_publish_time',
         'approve_admin',
         'reject_admin',
         'approve_leader',

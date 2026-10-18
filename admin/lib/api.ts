@@ -177,6 +177,11 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({}),
     }),
+  changeArticlePublishTime: (id: string, publishTime: string) =>
+    strapiRequest<unknown>(`/api/article-workflow/${encodeURIComponent(id)}/publish-time`, {
+      method: 'POST',
+      body: JSON.stringify({ publish_time: publishTime }),
+    }),
   unpublishArticle: (id: string, comment = '') =>
     strapiRequest<unknown>(`/api/article-workflow/${id}/unpublish`, {
       method: 'POST',

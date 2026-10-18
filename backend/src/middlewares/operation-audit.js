@@ -29,12 +29,13 @@ function routeParts(path) {
 
 function operationFrom(method, parts, body) {
   if (parts[1] === 'auth' && parts[2] === 'login') return '登录';
-  const special = parts.find((part) => ['submit', 'level1-review', 'level2-review', 'publish', 'unpublish'].includes(part));
+  const special = parts.find((part) => ['submit', 'level1-review', 'level2-review', 'publish', 'publish-time', 'unpublish'].includes(part));
   const decision = String(body?.decision || body?.action || '').toLowerCase();
   if (special === 'submit') return '提交审核';
   if (special === 'level1-review') return decision === 'reject' ? '一级审核退回' : '一级审核通过';
   if (special === 'level2-review') return decision === 'reject' ? '二级审核退回' : '二级审核通过';
   if (special === 'publish') return '发布';
+  if (special === 'publish-time') return '调整发布时间';
   if (special === 'unpublish') return '取消发布';
   if (method === 'POST') return '创建';
   if (method === 'DELETE') return '删除';
@@ -42,7 +43,7 @@ function operationFrom(method, parts, body) {
 }
 
 function requestTarget(parts, body, resourceLabel) {
-  const id = parts[1] === 'auth' ? '' : parts.slice(1).find((part) => !['submit', 'level1-review', 'level2-review', 'publish', 'unpublish', 'auth'].includes(part)) || '';
+  const id = parts[1] === 'auth' ? '' : parts.slice(1).find((part) => !['submit', 'level1-review', 'level2-review', 'publish', 'publish-time', 'unpublish', 'auth'].includes(part)) || '';
   const payload = body?.data && typeof body.data === 'object' ? body.data : body || {};
   const title = ['title', 'name', 'display_name', 'slug', 'email', 'username'].map((key) => payload[key]).find((value) => typeof value === 'string' && value.trim());
   return { id, label: title ? String(title).trim().slice(0, 180) : id ? `${resourceLabel} #${id}` : resourceLabel };

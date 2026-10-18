@@ -1001,6 +1001,64 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
     ctx.body = { data: updated };
   },
 
+  async changePublishTime(ctx) {
+    const admin = await getCurrentAdmin(ctx, strapi);
+    if (!admin) return;
+    if (!isSuperAdmin(admin)) return ctx.forbidden('只有超级管理员可以调整文章发布时间。');
+
+    const requested = ctx.request.body?.publish_time;
+    if (typeof requested !== 'string' ||
+        !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/.test(requested)) {
+      return ctx.badRequest('请提交有效的 UTC 发布时间。');
+    }
+    const timestamp = new Date(requested);
+    if (!Number.isFinite(timestamp.getTime()) ||
+        timestamp.toISOString().slice(0, 19) !== requested.slice(0, 19)) {
+      return ctx.badRequest('发布时间不是有效的日期。');
+    }
+    if (timestamp.getTime() > Date.now() + 60_000) {
+      return ctx.badRequest('发布时间不能晚于当前时间。');
+    }
+
+    const article = await findArticle(strapi, ctx.params.id);
+    if (!article) return ctx.notFound('文章不存在。');
+    const where = article.documentId ? { documentId: article.documentId } : { id: article.id };
+    const versions = await strapi.db.query(ARTICLE_UID).findMany({
+      where,
+      select: ['id', 'documentId', 'review_status', 'publish_time', 'publishedAt', 'updatedAt'],
+      orderBy: { updatedAt: 'desc' },
+    });
+    const latest = versions[0];
+    const live = versions.find((version) => version.publishedAt && version.review_status === 'published');
+    if (!latest || latest.review_status !== 'published' || !live) {
+      return ctx.badRequest('仅可调整当前处于已发布状态的文章；审核中的内容不会因此发布。');
+    }
+
+    const previousTime = latest.publish_time || live.publish_time || '';
+    const publishTime = timestamp.toISOString();
+    // Strapi 5 can store draft and published rows under the same documentId.
+    // Change only the site-facing date in both rows; do not touch the system
+    // publishedAt field or invoke a publish operation.
+    await strapi.db.query(ARTICLE_UID).updateMany({
+      where,
+      data: { publish_time: publishTime },
+    });
+    await writeReviewLog(strapi, {
+      article: live,
+      reviewer: admin,
+      action: 'adjust_publish_time',
+      fromStatus: 'published',
+      toStatus: 'published',
+      comment: `发布时间由 ${previousTime || '未记录'} 调整为 ${publishTime}`,
+    });
+
+    const updated = await strapi.db.query(ARTICLE_UID).findOne({
+      where: { id: live.id },
+      populate: ARTICLE_POPULATE,
+    });
+    ctx.body = { data: updated };
+  },
+
   async unpublish(ctx) {
     const admin = await getCurrentAdmin(ctx, strapi);
     if (!admin) return;
@@ -1099,6 +1157,7 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
           approve_republish: '通过修改审核',
           reject_republish: '退回修改审核',
           publish: '发布文章',
+          adjust_publish_time: '调整发布时间',
           unpublish: '取消发布',
         }[log.action] || log.action,
         article: log.article ? {
