@@ -1,0 +1,14 @@
+diff --git a/frontend/app/api/article-attachments/[slug]/[fileId]/route.ts b/frontend/app/api/article-attachments/[slug]/[fileId]/route.ts
+--- a/frontend/app/api/article-attachments/[slug]/[fileId]/route.ts
++++ b/frontend/app/api/article-attachments/[slug]/[fileId]/route.ts
+@@ -28,7 +28,9 @@
+ }
+ 
+ function encodeFilename(name: string) {
+-  const safeFallback = name.replace(/[\\/:*?"<>|\u0000-\u001f]/g, '_').replace(/[. ]+$/g, '').slice(0, 150) || 'article-attachment';
++  // The quoted `filename` parameter is restricted to ASCII by Fetch Headers.
++  // Keep the original Unicode name in RFC 5987's UTF-8 `filename*` parameter.
++  const safeFallback = name.replace(/[^\x20-\x7E]/g, '_').replace(/[\\/:*?"<>|]/g, '_').replace(/[. ]+$/g, '').slice(0, 150) || 'article-attachment';
+   const encoded = encodeURIComponent(name).replace(/[!'()*]/g, (char) => `%${char.charCodeAt(0).toString(16).toUpperCase()}`);
+   return `attachment; filename="${safeFallback.replace(/"/g, '_')}"; filename*=UTF-8''${encoded}`;
+ }
