@@ -30,7 +30,7 @@ export default function NewsList() {
   return (
     <div className="home-section-inner">
       <div className="home-section-heading">
-        <div><span className="home-section-kicker">COLLEGE NEWS <span>01 / 03</span></span><h2>新闻动态</h2><p>聚焦学院发展，记录创新实践中的每一步。</p></div>
+        <div><span className="home-section-kicker">COLLEGE NEWS</span><h2>新闻动态</h2><p>聚焦学院发展，记录创新实践中的每一步。</p></div>
         <Link href="/news" className="home-section-more">全部新闻 <span aria-hidden="true">↗</span></Link>
       </div>
 

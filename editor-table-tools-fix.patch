@@ -1,0 +1,275 @@
+diff --git a/admin/components/editor/WordLikeEditor.tsx b/admin/components/editor/WordLikeEditor.tsx
+--- a/admin/components/editor/WordLikeEditor.tsx
++++ b/admin/components/editor/WordLikeEditor.tsx
+@@ -2,6 +2,7 @@
+ 
+ import { useEffect, useRef, useState } from 'react';
+ import type { Jodit as JoditEditor } from 'jodit';
++import type { Table } from 'jodit/esm/modules/table/table';
+ import './WordLikeEditor.css';
+ 
+ interface Props {
+@@ -9,6 +10,8 @@
+   onChange: (html: string) => void;
+   uploadImage: (file: File) => Promise<string>;
+ }
++
++type TableAction = 'rowBefore' | 'rowAfter' | 'columnBefore' | 'columnAfter' | 'deleteRow' | 'deleteColumn';
+ 
+ /** Jodit accesses the DOM at import time, so load it only in the browser. */
+ export default function WordLikeEditor({ value, onChange, uploadImage }: Props) {
+@@ -18,7 +21,11 @@
+   const uploadRef = useRef(uploadImage);
+   const initialValueRef = useRef(value);
+   const lastValueRef = useRef(value);
++  const activeCellRef = useRef<HTMLTableCellElement | null>(null);
+   const [error, setError] = useState('');
++  const [tableCell, setTableCell] = useState<{ row: number; column: number; rows: number; columns: number } | null>(null);
++  const [columnWidth, setColumnWidth] = useState('');
++  const [rowHeight, setRowHeight] = useState('');
+ 
+   useEffect(() => { onChangeRef.current = onChange; }, [onChange]);
+   useEffect(() => { uploadRef.current = uploadImage; }, [uploadImage]);
+@@ -38,6 +45,9 @@
+         minHeight: 380,
+         toolbarAdaptive: false,
+         toolbarSticky: true,
++        toolbarInline: true,
++        tableAllowCellSelection: true,
++        tableAllowCellResize: true,
+         showCharsCounter: true,
+         showWordsCounter: true,
+         showXPathInStatusbar: false,
+@@ -96,6 +106,28 @@
+         lastValueRef.current = html;
+         onChangeRef.current(html);
+       });
++
++      const trackCell = (event: Event) => {
++        const target = event.target;
++        const element = target instanceof Element ? target : target instanceof Node ? target.parentElement : null;
++        const cell = element?.closest('td, th') as HTMLTableCellElement | null;
++        if (!cell || !editor.editor.contains(cell)) {
++          activeCellRef.current = null;
++          setTableCell(null);
++          return;
++        }
++        showTableCell(editor, cell);
++      };
++      editor.editor.addEventListener('pointerdown', trackCell, true);
++      editor.editor.addEventListener('mouseup', trackCell);
++      editor.editor.addEventListener('keyup', trackCell);
++      editor.editor.addEventListener('click', trackCell);
++      editor.events.on('beforeDestruct', () => {
++        editor.editor.removeEventListener('pointerdown', trackCell, true);
++        editor.editor.removeEventListener('mouseup', trackCell);
++        editor.editor.removeEventListener('keyup', trackCell);
++        editor.editor.removeEventListener('click', trackCell);
++      });
+     }).catch((reason) => {
+       if (!disposed) {
+         console.error('富文本编辑器加载失败', reason);
+@@ -107,6 +139,7 @@
+       disposed = true;
+       editorRef.current?.destruct();
+       editorRef.current = null;
++      activeCellRef.current = null;
+     };
+   }, []);
+ 
+@@ -121,11 +154,123 @@
+     }
+   }, [value]);
+ 
++  function getTableContext() {
++    const editor = editorRef.current;
++    const cell = activeCellRef.current;
++    const table = cell?.closest('table') as HTMLTableElement | null;
++    if (!editor || !cell || !table || !editor.editor.contains(table)) return null;
++    const tableModule = editor.getInstance<Table>('Table', editor.o);
++    const [row, column] = tableModule.formalCoordinate(table, cell);
++    return { editor, tableModule, table, cell, row, column };
++  }
++
++  function showTableCell(editor: JoditEditor, cell: HTMLTableCellElement | null) {
++    const table = cell?.closest('table') as HTMLTableElement | null;
++    if (!cell || !table || !editor.editor.contains(table)) {
++      activeCellRef.current = null;
++      setTableCell(null);
++      return;
++    }
++    activeCellRef.current = cell;
++    const tableModule = editor.getInstance<Table>('Table', editor.o);
++    const [row, column] = tableModule.formalCoordinate(table, cell);
++    const next = { row: row + 1, column: column + 1, rows: tableModule.getRowsCount(table), columns: tableModule.getColumnsCount(table) };
++    setTableCell((previous) => previous && Object.keys(next).every((key) =>
++      previous[key as keyof typeof next] === next[key as keyof typeof next]) ? previous : next);
++    setColumnWidth(String(Math.round(cell.getBoundingClientRect().width)));
++    setRowHeight(String(Math.round(cell.parentElement?.getBoundingClientRect().height || cell.getBoundingClientRect().height)));
++  }
++
++  function runTableAction(action: TableAction) {
++    const context = getTableContext();
++    if (!context) return;
++    const { editor, tableModule, table, cell, row, column } = context;
++    if (action === 'rowBefore' || action === 'rowAfter') {
++      tableModule.appendRow(table, cell.parentElement as HTMLTableRowElement, action === 'rowAfter');
++    } else if (action === 'columnBefore' || action === 'columnAfter') {
++      tableModule.appendColumn(table, cell, action === 'columnAfter');
++    } else if (action === 'deleteRow' && tableModule.getRowsCount(table) > 1) {
++      tableModule.removeRow(table, row);
++    } else if (action === 'deleteColumn' && tableModule.getColumnsCount(table) > 1) {
++      tableModule.removeColumn(table, column);
++    } else {
++      return;
++    }
++    // A deleted cell has no cursor; keep the tool focused on the nearest survivor.
++    const matrix = tableModule.formalMatrix(table);
++    const next = cell.isConnected ? cell : matrix[Math.min(row, matrix.length - 1)]?.[Math.min(column, (matrix[0]?.length || 1) - 1)];
++    editor.synchronizeValues();
++    showTableCell(editor, next || null);
++    if (next) editor.s.setCursorIn(next);
++  }
++
++  function applyColumnWidth() {
++    const context = getTableContext();
++    const width = Number(columnWidth);
++    if (!context || !Number.isInteger(width) || width < 36 || width > 1200) return;
++    const { editor, tableModule, table, column, cell } = context;
++    const cells = new Set(tableModule.formalMatrix(table).map((row) => row[column]).filter(Boolean));
++    cells.forEach((item) => {
++      if (item.colSpan === 1) item.style.width = `${width}px`;
++    });
++    // Word/Excel frequently declare widths on <col>; update that constraint too.
++    let position = 0;
++    for (const col of table.querySelectorAll('col')) {
++      if (col.closest('table') !== table) continue;
++      const span = Math.max(1, col.span || 1);
++      if (position <= column && column < position + span && span === 1) {
++        col.style.width = `${width}px`;
++        col.removeAttribute('width');
++        break;
++      }
++      position += span;
++    }
++    editor.synchronizeValues();
++    showTableCell(editor, cell);
++  }
++
++  function applyRowHeight() {
++    const context = getTableContext();
++    const height = Number(rowHeight);
++    if (!context || !Number.isInteger(height) || height < 24 || height > 1000) return;
++    const { editor, cell } = context;
++    const row = cell.parentElement as HTMLTableRowElement;
++    row.style.height = `${height}px`;
++    for (const item of row.cells) item.style.height = `${height}px`;
++    editor.synchronizeValues();
++    showTableCell(editor, cell);
++  }
++
+   return (
+     <div className="word-like-editor">
++      <div className="word-like-editor__table-tools" role="toolbar" aria-label="表格编辑工具" hidden={!tableCell}>
++        {tableCell && (
++          <>
++            <strong>表格工具</strong>
++            <span className="word-like-editor__table-position">第 {tableCell.row} 行 · 第 {tableCell.column} 列</span>
++            {([
++              ['rowBefore', '上方插入行'], ['rowAfter', '下方插入行'],
++              ['columnBefore', '左侧插入列'], ['columnAfter', '右侧插入列'],
++              ['deleteRow', '删除当前行'], ['deleteColumn', '删除当前列'],
++            ] as const).map(([action, label]) => (
++              <button key={action} type="button" onMouseDown={(event) => event.preventDefault()}
++                onClick={() => runTableAction(action)}
++                disabled={(action === 'deleteRow' && tableCell.rows <= 1) || (action === 'deleteColumn' && tableCell.columns <= 1)}>
++                {label}
++              </button>
++            ))}
++            <label>列宽 <input type="number" min="36" max="1200" value={columnWidth}
++              onChange={(event) => setColumnWidth(event.target.value)} aria-label="当前列宽（像素）" /> px</label>
++            <button type="button" onClick={applyColumnWidth}>应用列宽</button>
++            <label>行高 <input type="number" min="24" max="1000" value={rowHeight}
++              onChange={(event) => setRowHeight(event.target.value)} aria-label="当前行高（像素）" /> px</label>
++            <button type="button" onClick={applyRowHeight}>应用行高</button>
++          </>
++        )}
++      </div>
+       <textarea ref={textareaRef} defaultValue={initialValueRef.current} aria-label="文章正文（富文本编辑器）" />
+       {error && <p role="alert" className="word-like-editor__error">{error}</p>}
+-      <p className="word-like-editor__hint">可直接粘贴 Word、WPS 或 Excel 表格；选中单元格后使用“对齐”或右键菜单调整格式。</p>
++      <p className="word-like-editor__hint">点击表格单元格即可使用上方的表格工具；单元格边界可拖动调整列宽，选中多个单元格可使用浮动菜单合并或拆分。</p>
+     </div>
+   );
+ }
+diff --git a/admin/components/editor/WordLikeEditor.css b/admin/components/editor/WordLikeEditor.css
+--- a/admin/components/editor/WordLikeEditor.css
++++ b/admin/components/editor/WordLikeEditor.css
+@@ -2,7 +2,6 @@
+   border: 1px solid #cbd5e1;
+   border-radius: 12px;
+   background: #f1f5f9;
+-  overflow: hidden;
+ }
+ 
+ .word-like-editor .jodit-container {
+@@ -16,10 +15,10 @@
+   background: #fff;
+ }
+ 
+-.word-like-editor .jodit-workplace { overflow-x: auto; }
+-
+ .word-like-editor .jodit-wysiwyg {
+-  min-width: 680px;
++  min-width: 0;
++  width: 100%;
++  overflow-x: auto;
+   padding: 36px clamp(20px, 5vw, 76px);
+   background: #fff;
+   color: #1f2937;
+@@ -49,6 +48,45 @@
+ .word-like-editor .jodit-wysiwyg table p { text-indent: 0; margin: 0; }
+ .word-like-editor .jodit-wysiwyg img { max-width: 100%; height: auto; }
+ 
++.word-like-editor__table-tools {
++  display: flex;
++  flex-wrap: wrap;
++  align-items: center;
++  gap: 8px;
++  padding: 10px 14px;
++  border-bottom: 1px solid #cbd5e1;
++  background: #eaf3ff;
++  border-radius: 12px 12px 0 0;
++  font: 13px/1.5 "Microsoft YaHei", sans-serif;
++  color: #173d65;
++}
++
++.word-like-editor__table-tools[hidden] { display: none; }
++
++.word-like-editor__table-position { color: #475569; margin-right: 4px; }
++
++.word-like-editor__table-tools button {
++  border: 1px solid #bfd2e6;
++  border-radius: 5px;
++  padding: 4px 8px;
++  background: #fff;
++  color: #173d65;
++}
++
++.word-like-editor__table-tools button:hover:not(:disabled) { background: #dbeafe; }
++.word-like-editor__table-tools button:disabled { opacity: .45; cursor: not-allowed; }
++.word-like-editor__table-tools button:focus-visible,
++.word-like-editor__table-tools input:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
++.word-like-editor__table-tools label { display: inline-flex; align-items: center; gap: 4px; }
++.word-like-editor__table-tools input {
++  width: 70px;
++  border: 1px solid #bfd2e6;
++  border-radius: 5px;
++  padding: 4px 6px;
++  background: #fff;
++  color: #1f2937;
++}
++
+ .word-like-editor__hint {
+   padding: 9px 16px;
+   color: #475569;

@@ -9,19 +9,15 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "@ckeditor/ckeditor5-react": "^11.1.0",
     "@hookform/resolvers": "^5.2.2",
     "@tanstack/react-query": "^5.97.0",
-    "@tiptap/extension-placeholder": "^3.22.3",
-    "@tiptap/react": "^3.22.3",
-    "@tiptap/starter-kit": "^3.22.3",
     "axios": "^1.15.0",
-    "ckeditor5": "^48.0.0",
+    "jodit": "4.18.4",
     "lucide-react": "^1.8.0",
     "next": "16.2.3",
     "react": "19.2.4",
     "react-dom": "19.2.4",
-    "sanitize-html": "2.13.0",
+    "sanitize-html": "2.18.1",
     "zod": "^4.3.6"
   },
   "devDependencies": {

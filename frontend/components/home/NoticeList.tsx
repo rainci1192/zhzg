@@ -26,7 +26,7 @@ export default function NoticeList() {
   return (
     <div className="home-section-inner">
       <div className="home-section-heading">
-        <div><span className="home-section-kicker">NOTICES & ANNOUNCEMENTS <span>02 / 03</span></span><h2>通知公告</h2><p>重要信息及时发布，为学习与工作提供清晰指引。</p></div>
+        <div><span className="home-section-kicker">NOTICES & ANNOUNCEMENTS</span><h2>通知公告</h2><p>重要信息及时发布，为学习与工作提供清晰指引。</p></div>
         <Link href="/notice" className="home-section-more">全部公告 <span aria-hidden="true">↗</span></Link>
       </div>
       {loading ? (

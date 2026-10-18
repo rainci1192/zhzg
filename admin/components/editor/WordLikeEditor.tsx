@@ -1,40 +1,8 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
-
-import {
-  ClassicEditor,
-  Essentials,
-  Paragraph,
-  Heading,
-  Bold,
-  Italic,
-  Underline,
-  Strikethrough,
-  RemoveFormat,
-  Font,
-  Alignment,
-  List,
-  Indent,
-  IndentBlock,
-  Link,
-  Table,
-  TableToolbar,
-  TableProperties,
-  TableCellProperties,
-  Image,
-  ImageToolbar,
-  ImageStyle,
-  ImageResize,
-  ImageUpload,
-  BlockQuote,
-  HorizontalLine,
-  Undo,
-  PasteFromOffice,
-} from 'ckeditor5';
-import 'ckeditor5/ckeditor5.css';
-import './WordLikeEditor.css'; // ✅ 新增：引入自定义样式
-
+import { useEffect, useRef, useState } from 'react';
+import type { Jodit as JoditEditor } from 'jodit';
+import './WordLikeEditor.css';
 
 interface Props {
   value: string;
@@ -42,135 +10,122 @@ interface Props {
   uploadImage: (file: File) => Promise<string>;
 }
 
+/** Jodit accesses the DOM at import time, so load it only in the browser. */
 export default function WordLikeEditor({ value, onChange, uploadImage }: Props) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const editorRef = useRef<any>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const editorRef = useRef<JoditEditor | null>(null);
   const onChangeRef = useRef(onChange);
   const uploadRef = useRef(uploadImage);
   const initialValueRef = useRef(value);
+  const lastValueRef = useRef(value);
+  const [error, setError] = useState('');
 
-  // 保持 ref 最新，不触发重渲染
   useEffect(() => { onChangeRef.current = onChange; }, [onChange]);
   useEffect(() => { uploadRef.current = uploadImage; }, [uploadImage]);
 
-  // 只在 mount 时创建一次编辑器
   useEffect(() => {
-    const el = containerRef.current;
-    if (!el || editorRef.current) return;
+    let disposed = false;
+    const target = textareaRef.current;
+    if (!target) return;
 
-    let isMounted = true;
-
-    ClassicEditor.create(el, {
-      licenseKey: 'GPL',
-      initialData: initialValueRef.current || '',
-      plugins: [
-        Essentials, Paragraph, Heading,
-        Bold, Italic, Underline, Strikethrough, RemoveFormat,
-        Font, Alignment,
-        List, Indent, IndentBlock,
-        Link,
-        Table, TableToolbar, TableProperties, TableCellProperties,
-        Image, ImageToolbar, ImageStyle, ImageResize, ImageUpload,
-        BlockQuote, HorizontalLine, Undo, PasteFromOffice,
-      ],
-      toolbar: [
-        'undo', 'redo', '|',
-        'heading', '|',
-        'fontFamily', 'fontSize', '|',
-        'bold', 'italic', 'underline', 'strikethrough', 'removeFormat', '|',
-        'fontColor', 'fontBackgroundColor', '|',
-        'alignment', '|',
-        'bulletedList', 'numberedList', 'outdent', 'indent', '|',
-        'insertTable', 'blockQuote', 'horizontalLine', '|',
-        'link', 'uploadImage',
-      ],
-      heading: {
-        options: [
-          { model: 'paragraph', title: '正文', class: 'ck-heading_paragraph' },
-          { model: 'heading1', view: 'h1', title: '标题 1', class: 'ck-heading_heading1' },
-          { model: 'heading2', view: 'h2', title: '标题 2', class: 'ck-heading_heading2' },
-          { model: 'heading3', view: 'h3', title: '标题 3', class: 'ck-heading_heading3' },
+    import('jodit').then(({ Jodit }) => {
+      if (disposed) return;
+      const editor = Jodit.make(target, {
+        language: 'zh_cn',
+        sourceEditor: 'area',
+        beautifyHTML: false,
+        height: 540,
+        minHeight: 380,
+        toolbarAdaptive: false,
+        toolbarSticky: true,
+        showCharsCounter: true,
+        showWordsCounter: true,
+        showXPathInStatusbar: false,
+        zIndex: 1100,
+        defaultFontSizePoints: 'pt',
+        controls: {
+          font: {
+            list: {
+              '': '默认字体',
+              'SimSun, 宋体, serif': '宋体',
+              'Microsoft YaHei, 微软雅黑, sans-serif': '微软雅黑',
+              'SimHei, 黑体, sans-serif': '黑体',
+              'KaiTi, 楷体, serif': '楷体',
+              'FangSong, 仿宋, serif': '仿宋',
+              'Arial, sans-serif': 'Arial',
+              'Times New Roman, serif': 'Times New Roman',
+            },
+          },
+          fontsize: { list: [9, 10.5, 12, 14, 15, 16, 18, 22, 24, 26, 36, 42] },
+        },
+        buttons: [
+          'undo', 'redo', '|', 'paragraph', 'font', 'fontsize', '|',
+          'bold', 'italic', 'underline', 'strikethrough', 'eraser', '|',
+          'brush', 'copyformat', '|', 'align', 'ul', 'ol', 'outdent', 'indent',
+          '\n',
+          'table', 'link', 'image', 'hr', '|',
+          'cut', 'copy', 'paste', 'selectall', '|', 'find', 'print', 'source', 'fullsize',
         ],
-      },
-      fontFamily: {
-        options: [
-          'default',
-          '宋体, SimSun',
-          '黑体, SimHei',
-          '微软雅黑, Microsoft YaHei',
-          '楷体, KaiTi',
-          '仿宋, FangSong',
-          'Arial, Helvetica, sans-serif',
-          'Times New Roman, Times, serif',
-        ],
-        supportAllValues: true,
-      },
-      fontSize: {
-        options: [
-          { title: '初号', model: '42px' },
-          { title: '小初', model: '36px' },
-          { title: '一号', model: '26px' },
-          { title: '小一', model: '24px' },
-          { title: '二号', model: '22px' },
-          { title: '小二', model: '18px' },
-          { title: '三号', model: '16px' },
-          { title: '小三', model: '15px' },
-          { title: '四号', model: '14px' },
-          { title: '小四', model: '12px' },
-          { title: '五号', model: '10.5px' },
-          { title: '小五', model: '9px' },
-        ],
-        supportAllValues: true,
-      },
-      table: {
-        contentToolbar: [
-          'tableColumn', 'tableRow', 'mergeTableCells',
-          'tableProperties', 'tableCellProperties',
-        ],
-      },
-      image: {
-        toolbar: [
-          'imageStyle:inline', 'imageStyle:block', 'imageStyle:side',
-          '|', 'resizeImage',
-        ],
-      },
-    }).then((editor) => {
-      if (!isMounted) {
-        editor.destroy();
-        return;
-      }
-
-      editorRef.current = editor;
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      editor.plugins.get('FileRepository').createUploadAdapter = (loader: any) => ({
-        upload: async () => {
-          const file = await loader.file;
-          const url = await uploadRef.current(file);
-          return { default: url };
+        processPasteFromWord: true,
+        askBeforePasteFromWord: false,
+        defaultActionOnPasteFromWord: 'insert_as_html',
+        askBeforePasteHTML: false,
+        defaultActionOnPaste: 'insert_as_html',
+        uploader: {
+          url: '/api/upload',
+          insertImageAsBase64URI: false,
+          customUploadFunction: async (requestData: unknown, showProgress: (progress: number) => void) => {
+            const file = requestData instanceof FormData
+              ? [...requestData.values()].find((part): part is File => part instanceof File)
+              : undefined;
+            if (!file) throw new Error('请选择要上传的图片。');
+            const url = await uploadRef.current(file);
+            showProgress(100);
+            return {
+              success: true,
+              time: new Date().toISOString(),
+              data: { files: [url], baseurl: '', isImages: [true] },
+            };
+          },
         },
       });
-
-      editor.model.document.on('change:data', () => {
-        onChangeRef.current(editor.getData());
+      editorRef.current = editor;
+      editor.value = initialValueRef.current || '';
+      editor.events.on('change', () => {
+        const html = editor.value;
+        lastValueRef.current = html;
+        onChangeRef.current(html);
       });
-    }).catch(() => {});
+    }).catch((reason) => {
+      if (!disposed) {
+        console.error('富文本编辑器加载失败', reason);
+        setError('编辑器加载失败，请刷新页面重试。');
+      }
+    });
 
     return () => {
-      isMounted = false;
-      if (editorRef.current) {
-        editorRef.current.destroy().catch(() => {});
-        editorRef.current = null;
-      }
+      disposed = true;
+      editorRef.current?.destruct();
+      editorRef.current = null;
     };
-  // 只 mount 时执行一次，不依赖任何 props
-   
   }, []);
 
+  // External article changes should update the editor without resetting normal typing.
+  useEffect(() => {
+    if (editorRef.current && value !== lastValueRef.current) {
+      editorRef.current.value = value || '';
+      lastValueRef.current = value;
+    } else if (!editorRef.current) {
+      initialValueRef.current = value;
+      lastValueRef.current = value;
+    }
+  }, [value]);
+
   return (
-    <div className="border rounded-xl overflow-hidden">
-      <div ref={containerRef} />
+    <div className="word-like-editor">
+      <textarea ref={textareaRef} defaultValue={initialValueRef.current} aria-label="文章正文（富文本编辑器）" />
+      {error && <p role="alert" className="word-like-editor__error">{error}</p>}
+      <p className="word-like-editor__hint">可直接粘贴 Word、WPS 或 Excel 表格；选中单元格后使用“对齐”或右键菜单调整格式。</p>
     </div>
   );
 }

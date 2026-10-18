@@ -1,0 +1,35 @@
+diff --git a/frontend/components/home/NewsList.tsx b/frontend/components/home/NewsList.tsx
+--- a/frontend/components/home/NewsList.tsx
++++ b/frontend/components/home/NewsList.tsx
+@@ -30,7 +30,7 @@
+   return (
+     <div className="home-section-inner">
+       <div className="home-section-heading">
+-        <div><span className="home-section-kicker">COLLEGE NEWS <span>01 / 03</span></span><h2>新闻动态</h2><p>聚焦学院发展，记录创新实践中的每一步。</p></div>
++        <div><span className="home-section-kicker">COLLEGE NEWS</span><h2>新闻动态</h2><p>聚焦学院发展，记录创新实践中的每一步。</p></div>
+         <Link href="/news" className="home-section-more">全部新闻 <span aria-hidden="true">↗</span></Link>
+       </div>
+ 
+diff --git a/frontend/components/home/NoticeList.tsx b/frontend/components/home/NoticeList.tsx
+--- a/frontend/components/home/NoticeList.tsx
++++ b/frontend/components/home/NoticeList.tsx
+@@ -26,7 +26,7 @@
+   return (
+     <div className="home-section-inner">
+       <div className="home-section-heading">
+-        <div><span className="home-section-kicker">NOTICES & ANNOUNCEMENTS <span>02 / 03</span></span><h2>通知公告</h2><p>重要信息及时发布，为学习与工作提供清晰指引。</p></div>
++        <div><span className="home-section-kicker">NOTICES & ANNOUNCEMENTS</span><h2>通知公告</h2><p>重要信息及时发布，为学习与工作提供清晰指引。</p></div>
+         <Link href="/notice" className="home-section-more">全部公告 <span aria-hidden="true">↗</span></Link>
+       </div>
+       {loading ? (
+diff --git a/frontend/app/globals.css b/frontend/app/globals.css
+--- a/frontend/app/globals.css
++++ b/frontend/app/globals.css
+@@ -76,7 +76,6 @@
+ .home-section-inner { position: relative; }
+ .home-section-heading { display: flex; align-items: end; justify-content: space-between; gap: 24px; margin-bottom: 32px; }
+ .home-section-kicker { color: #237db5; }
+-.home-section-kicker span { color: #8ca9c1; font-weight: 500; letter-spacing: .08em; }
+ .home-section-heading h2 { font-size: clamp(32px, 3vw, 48px); font-weight: 700; letter-spacing: .08em; line-height: 1.2; color: #133b68; margin: 12px 0 7px; }
+ .home-section-heading p { color: #627990; font-size: 15px; }
+ .home-section-more { color: #135e9c; font-size: 14px; font-weight: 700; display: inline-flex; align-items: center; gap: 16px; padding-bottom: 7px; border-bottom: 1px solid #8eb5d0; white-space: nowrap; transition: gap .2s, color .2s; }

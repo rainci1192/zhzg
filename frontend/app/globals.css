@@ -76,7 +76,6 @@ a {
 .home-section-inner { position: relative; }
 .home-section-heading { display: flex; align-items: end; justify-content: space-between; gap: 24px; margin-bottom: 32px; }
 .home-section-kicker { color: #237db5; }
-.home-section-kicker span { color: #8ca9c1; font-weight: 500; letter-spacing: .08em; }
 .home-section-heading h2 { font-size: clamp(32px, 3vw, 48px); font-weight: 700; letter-spacing: .08em; line-height: 1.2; color: #133b68; margin: 12px 0 7px; }
 .home-section-heading p { color: #627990; font-size: 15px; }
 .home-section-more { color: #135e9c; font-size: 14px; font-weight: 700; display: inline-flex; align-items: center; gap: 16px; padding-bottom: 7px; border-bottom: 1px solid #8eb5d0; white-space: nowrap; transition: gap .2s, color .2s; }
@@ -258,28 +257,35 @@ a {
 /* 表格样式 */
 .article-content table,
 .prose table {
-  width: 100% !important;
-  border-collapse: collapse !important;
+  max-width: 100%;
+  border-collapse: collapse;
   margin: 1.5em 0 !important;
-  font-size: 16px !important;
+  font-size: 16px;
 }
 
 .article-content table th,
 .article-content table td,
 .prose table th,
 .prose table td {
-  border: 1px solid #333 !important;
-  padding: 8px 12px !important;
-  text-align: left !important;
-  text-indent: 0 !important;
-  vertical-align: middle !important;
+  border: 1px solid #333;
+  padding: 8px 12px;
+  text-indent: 0;
+  vertical-align: middle;
 }
 
 .article-content table th,
 .prose table th {
-  background-color: #f5f5f5 !important;
-  font-weight: bold !important;
-  text-align: center !important;
+  background-color: #f5f5f5;
+  font-weight: bold;
+  text-align: center;
+}
+
+/* Word table paragraphs have their own alignment and no first-line indent. */
+.article-content table p,
+.prose table p {
+  text-indent: 0 !important;
+  margin: 0 !important;
+  white-space: normal !important;
 }
 
 /* 图片样式 */
@@ -427,7 +433,7 @@ body:has(.site-detail-body), body:has(.site-article-body) { background: #f5f8fb;
 .site-detail-panel h1, .site-article-body h1 { color: #173d65 !important; line-height: 1.4; text-wrap: balance; }
 .site-article-body { margin-top: 42px; margin-bottom: 45px; padding: clamp(24px, 5vw, 65px) !important; }
 .site-article-body h1 { font-size: clamp(25px, 3vw, 38px); }
-.site-article-body .article-content { max-width: 860px; margin: auto; }
+.site-article-body .article-content { max-width: 860px; margin: auto; overflow-x: auto; }
 .site-article-navigation { background: #f5f8fb !important; }
 .site-article-navigation a { background: white; border-radius: 2px !important; }
 .site-article-navigation a:hover { background: #ebf5fc; }

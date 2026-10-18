@@ -1,6 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&display=swap');
 @import "tailwindcss";
-@import 'ckeditor5/ckeditor5.css';
+@import 'jodit/es2021/jodit.min.css';
 
 @layer base {
   :root {
@@ -9,21 +9,6 @@
 }
 
 /* ✅ 删除了 @layer utilities 中的 line-clamp 定义，因为 Tailwind 已经内置了 */
-
-/* CKEditor 编辑器样式 */
-.ck-editor__editable_inline {
-  min-height: 380px;
-}
-
-.ck-content {
-  font-family: "Noto Sans SC", "Microsoft YaHei", sans-serif;
-  line-height: 1.8;
-}
-
-/* 临时兜底：若出现双 toolbar，仅显示第一条 */
-.ck-editor__top .ck-toolbar:nth-of-type(n + 2) {
-  display: none !important;
-}
 
 /* 后台预览区域的文章内容样式（如果有预览功能） */
 .article-preview {
@@ -60,7 +45,7 @@
 }
 
 .article-preview table {
-  width: 100%;
+  max-width: 100%;
   border-collapse: collapse;
   margin: 1.5em 0;
 }
@@ -69,9 +54,11 @@
 .article-preview table td {
   border: 1px solid #ddd;
   padding: 8px 12px;
-  text-align: left;
   text-indent: 0;
 }
+
+.article-preview table th { text-align: center; }
+.article-preview table p { text-indent: 0; margin: 0; white-space: normal; }
 
 .article-preview img {
   max-width: 100%;

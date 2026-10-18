@@ -1,19 +1,62 @@
-/* 修复 CKEditor 5 编辑区域的空格显示问题 */
-.ck.ck-editor__editable {
-  white-space: pre-wrap !important;
-  word-wrap: break-word;
+.word-like-editor {
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  background: #f1f5f9;
+  overflow: hidden;
+}
+
+.word-like-editor .jodit-container {
+  border: 0;
+  background: #f1f5f9;
+  font-family: "Microsoft YaHei", "Noto Sans SC", sans-serif;
+}
+
+.word-like-editor .jodit-toolbar__box {
+  border-bottom: 1px solid #cbd5e1;
+  background: #fff;
+}
+
+.word-like-editor .jodit-workplace { overflow-x: auto; }
+
+.word-like-editor .jodit-wysiwyg {
+  min-width: 680px;
+  padding: 36px clamp(20px, 5vw, 76px);
+  background: #fff;
+  color: #1f2937;
+  font-family: "FangSong", "SimSun", serif;
+  font-size: 18px;
+  line-height: 1.8;
   overflow-wrap: break-word;
 }
 
-/* 针对编辑区域内的段落 */
-.ck.ck-editor__editable p {
-  white-space: pre-wrap !important;
-  
-  /* ✅ 新增：自动为每个段落首行缩进2个汉字 */
-  text-indent: 2em;
+.word-like-editor .jodit-wysiwyg > p { text-indent: 2em; }
+
+.word-like-editor .jodit-wysiwyg table {
+  border-collapse: collapse;
+  max-width: 100%;
+  margin: 1em auto;
 }
 
-/* 针对编辑区域内的所有文本节点 */
-.ck.ck-editor__editable * {
-  white-space: inherit;
+.word-like-editor .jodit-wysiwyg th,
+.word-like-editor .jodit-wysiwyg td {
+  border: 1px solid #64748b;
+  padding: 6px 10px;
+  vertical-align: middle;
+  white-space: normal;
+}
+
+.word-like-editor .jodit-wysiwyg th { text-align: center; }
+.word-like-editor .jodit-wysiwyg table p { text-indent: 0; margin: 0; }
+.word-like-editor .jodit-wysiwyg img { max-width: 100%; height: auto; }
+
+.word-like-editor__hint {
+  padding: 9px 16px;
+  color: #475569;
+  font-size: 12px;
+}
+
+.word-like-editor__error {
+  padding: 9px 16px;
+  color: #b91c1c;
+  font-size: 13px;
 }
