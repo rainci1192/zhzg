@@ -399,7 +399,13 @@ async function findArticle(strapi, key) {
   // Query Engine's findOne(documentId) may choose either Strapi 5 version.
   // Workflow changes always target the draft, which Document Service publishes.
   const draft = versions.find((entry) => !entry.publishedAt) || versions[0] || found;
-  return { ...draft, hasPublishedVersion: versions.some((entry) => Boolean(entry.publishedAt)) };
+  // `publishedAt` alone is not enough for this workflow: old Query Engine
+  // writes can leave a published Strapi variant whose custom review status is
+  // still `draft`. Only count a version as live when both states agree.
+  return {
+    ...draft,
+    hasPublishedVersion: versions.some((entry) => Boolean(entry.publishedAt) && entry.review_status === 'published'),
+  };
 }
 
 async function updateArticle(strapi, article, data) {
@@ -412,17 +418,22 @@ async function updateArticle(strapi, article, data) {
 
 async function publishArticleDocument(strapi, article, data) {
   if (!article.documentId) throw new Error('文章缺少 documentId，无法发布。');
+  const title = String(article.title || '').trim();
+  if (!title) throw new Error('文章标题为空，无法发布；请先编辑文章并保存标题。');
+  const slug = String(article.slug || '').trim() || await repairArticleDocumentSlug(strapi, article);
   const documents = strapi.documents(ARTICLE_UID);
   // In Strapi 5, update() writes the draft version. Publication is a separate
-  // operation; passing status to update() does not publish that draft.
-  await documents.update({ documentId: article.documentId, data });
+  // operation; passing status to update() does not publish that draft. Include
+  // the required identity fields explicitly because Query Engine-created
+  // drafts can be missing them in the Document Service's validation snapshot.
+  await documents.update({ documentId: article.documentId, data: { ...data, title, slug } });
   await documents.publish({ documentId: article.documentId });
   const live = await documents.findOne({
     documentId: article.documentId,
     status: 'published',
     populate: ARTICLE_POPULATE,
   });
-  if (!live || live.review_status !== 'published' || !live.slug) {
+  if (!live || live.review_status !== 'published' || !live.title || !live.slug) {
     throw new Error('文章发布后未生成可访问的已发布版本。');
   }
   return live;
@@ -472,6 +483,10 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
     data.slug = await uniqueArticleSlug(strapi, data.title);
 
     data.review_status = 'draft';
+    // Query Engine writes bypass Document Service's default draft handling.
+    // Explicitly keep a newly created workflow article out of Strapi's live
+    // version so attachment-bearing posts don't appear published prematurely.
+    data.publishedAt = null;
     if (isSuperAdmin(admin) && requestedOwner !== undefined) {
       const owner = await findBackendAdmin(strapi, requestedOwner, ['backend_role']);
       if (!owner || owner.is_active !== true) {
@@ -763,14 +778,19 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
     const documentIds = documentRows.map((row) => row.documentId).filter(Boolean);
     const liveRows = documentIds.length
       ? await strapi.db.query(ARTICLE_UID).findMany({
-          where: { documentId: { $in: documentIds }, publishedAt: { $notNull: true } },
+          where: {
+            documentId: { $in: documentIds },
+            publishedAt: { $notNull: true },
+            review_status: 'published',
+          },
           select: ['documentId'],
         })
       : [];
     const liveDocumentIds = new Set((liveRows || []).map((row) => String(row.documentId)));
     const rows = documentRows.map((row) => ({
       ...row,
-      hasPublishedVersion: Boolean(row.publishedAt) || liveDocumentIds.has(String(row.documentId)),
+      hasPublishedVersion: (Boolean(row.publishedAt) && row.review_status === 'published') ||
+        liveDocumentIds.has(String(row.documentId)),
     }));
 
     const sortPath = String(query.sort || 'createdAt:desc').split(':');
@@ -1005,6 +1025,9 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
     if (decision === 'reject' && !comment) return ctx.badRequest('退回时必须填写原因。');
 
     const isRepublish = article.review_status === 'pending_republish';
+    if (isRepublish && decision === 'approve' && !String(article.title || '').trim()) {
+      return ctx.badRequest('文章标题为空，无法重新发布；请退回发布者补全标题。');
+    }
     const nextStatus = decision === 'approve'
       ? (isRepublish ? 'published' : 'approved_pending_publish')
       : (isRepublish ? 'rejected_republish' : 'rejected_level2');
@@ -1046,6 +1069,9 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
 
     const article = await findArticle(strapi, ctx.params.id);
     if (!article) return ctx.notFound('文章不存在。');
+    if (!String(article.title || '').trim()) {
+      return ctx.badRequest('文章标题为空，无法发布；请先编辑文章并保存标题。');
+    }
     if (article.hasPublishedVersion) {
       return ctx.badRequest('文章已有已发布版本，不能重复直接发布；如需修改，请编辑后重新提交审核。');
     }

@@ -1,0 +1,48 @@
+--- a/backend/src/api/article/controllers/article.js
++++ b/backend/src/api/article/controllers/article.js
+@@ -418,17 +418,22 @@
+ 
+ async function publishArticleDocument(strapi, article, data) {
+   if (!article.documentId) throw new Error('文章缺少 documentId，无法发布。');
++  const title = String(article.title || '').trim();
++  if (!title) throw new Error('文章标题为空，无法发布；请先编辑文章并保存标题。');
++  const slug = String(article.slug || '').trim() || await repairArticleDocumentSlug(strapi, article);
+   const documents = strapi.documents(ARTICLE_UID);
+   // In Strapi 5, update() writes the draft version. Publication is a separate
+-  // operation; passing status to update() does not publish that draft.
+-  await documents.update({ documentId: article.documentId, data });
++  // operation; passing status to update() does not publish that draft. Include
++  // the required identity fields explicitly because Query Engine-created
++  // drafts can be missing them in the Document Service's validation snapshot.
++  await documents.update({ documentId: article.documentId, data: { ...data, title, slug } });
+   await documents.publish({ documentId: article.documentId });
+   const live = await documents.findOne({
+     documentId: article.documentId,
+     status: 'published',
+     populate: ARTICLE_POPULATE,
+   });
+-  if (!live || live.review_status !== 'published' || !live.slug) {
++  if (!live || live.review_status !== 'published' || !live.title || !live.slug) {
+     throw new Error('文章发布后未生成可访问的已发布版本。');
+   }
+   return live;
+@@ -1020,6 +1025,9 @@
+     if (decision === 'reject' && !comment) return ctx.badRequest('退回时必须填写原因。');
+ 
+     const isRepublish = article.review_status === 'pending_republish';
++    if (isRepublish && decision === 'approve' && !String(article.title || '').trim()) {
++      return ctx.badRequest('文章标题为空，无法重新发布；请退回发布者补全标题。');
++    }
+     const nextStatus = decision === 'approve'
+       ? (isRepublish ? 'published' : 'approved_pending_publish')
+       : (isRepublish ? 'rejected_republish' : 'rejected_level2');
+@@ -1061,6 +1069,9 @@
+ 
+     const article = await findArticle(strapi, ctx.params.id);
+     if (!article) return ctx.notFound('文章不存在。');
++    if (!String(article.title || '').trim()) {
++      return ctx.badRequest('文章标题为空，无法发布；请先编辑文章并保存标题。');
++    }
+     if (article.hasPublishedVersion) {
+       return ctx.badRequest('文章已有已发布版本，不能重复直接发布；如需修改，请编辑后重新提交审核。');
+     }

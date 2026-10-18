@@ -1,6 +1,14 @@
 import { NextResponse } from 'next/server';
 
-const API = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:1337').replace(/\/$/, '');
+// Keep server-side media requests aligned with the URLs used by the rest of
+// the public site. Deployments commonly provide STRAPI_URL instead of the
+// browser-exposed NEXT_PUBLIC_API_URL.
+const API = (
+  process.env.NEXT_PUBLIC_API_URL ||
+  process.env.NEXT_PUBLIC_STRAPI_URL ||
+  process.env.STRAPI_URL ||
+  'http://localhost:1337'
+).replace(/\/$/, '');
 
 type MediaFile = {
   id?: number;
@@ -31,6 +39,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ slu
     return NextResponse.json({ error: '无效的附件链接' }, { status: 400 });
   }
 
+  let stage = 'article lookup';
   try {
     const query = new URLSearchParams({
       'filters[slug][$eq]': slug,
@@ -57,6 +66,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ slu
     if (fileUrl.origin !== new URL(API).origin) {
       return NextResponse.json({ error: '不支持此附件存储地址' }, { status: 502 });
     }
+    stage = 'media fetch';
     const fileResponse = await fetch(fileUrl, { cache: 'no-store' });
     if (!fileResponse.ok || !fileResponse.body) {
       return NextResponse.json({ error: '附件文件暂不可用' }, { status: 502 });
@@ -71,7 +81,16 @@ export async function GET(_request: Request, { params }: { params: Promise<{ slu
     const contentLength = fileResponse.headers.get('content-length');
     if (contentLength) headers.set('Content-Length', contentLength);
     return new Response(fileResponse.body, { status: 200, headers });
-  } catch {
+  } catch (error) {
+    // Keep the public response generic, but retain enough context in the
+    // Strapi/Next server console to diagnose URL, connection, or stream setup
+    // failures without exposing internal addresses to site visitors.
+    console.error('[article-attachments] Download failed', {
+      stage,
+      slug,
+      fileId,
+      message: error instanceof Error ? error.message : String(error),
+    });
     return NextResponse.json({ error: '附件下载服务暂不可用' }, { status: 502 });
   }
 }

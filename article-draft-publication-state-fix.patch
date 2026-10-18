@@ -1,0 +1,52 @@
+diff --git a/backend/src/api/article/controllers/article.js b/backend/src/api/article/controllers/article.js
+index ddbd10f..724e059 100644
+--- a/backend/src/api/article/controllers/article.js
++++ b/backend/src/api/article/controllers/article.js
+@@ -399,7 +399,13 @@ async function findArticle(strapi, key) {
+   // Query Engine's findOne(documentId) may choose either Strapi 5 version.
+   // Workflow changes always target the draft, which Document Service publishes.
+   const draft = versions.find((entry) => !entry.publishedAt) || versions[0] || found;
+-  return { ...draft, hasPublishedVersion: versions.some((entry) => Boolean(entry.publishedAt)) };
++  // `publishedAt` alone is not enough for this workflow: old Query Engine
++  // writes can leave a published Strapi variant whose custom review status is
++  // still `draft`. Only count a version as live when both states agree.
++  return {
++    ...draft,
++    hasPublishedVersion: versions.some((entry) => Boolean(entry.publishedAt) && entry.review_status === 'published'),
++  };
+ }
+ 
+ async function updateArticle(strapi, article, data) {
+@@ -472,6 +478,10 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
+     data.slug = await uniqueArticleSlug(strapi, data.title);
+ 
+     data.review_status = 'draft';
++    // Query Engine writes bypass Document Service's default draft handling.
++    // Explicitly keep a newly created workflow article out of Strapi's live
++    // version so attachment-bearing posts don't appear published prematurely.
++    data.publishedAt = null;
+     if (isSuperAdmin(admin) && requestedOwner !== undefined) {
+       const owner = await findBackendAdmin(strapi, requestedOwner, ['backend_role']);
+       if (!owner || owner.is_active !== true) {
+@@ -763,14 +773,19 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
+     const documentIds = documentRows.map((row) => row.documentId).filter(Boolean);
+     const liveRows = documentIds.length
+       ? await strapi.db.query(ARTICLE_UID).findMany({
+-          where: { documentId: { $in: documentIds }, publishedAt: { $notNull: true } },
++          where: {
++            documentId: { $in: documentIds },
++            publishedAt: { $notNull: true },
++            review_status: 'published',
++          },
+           select: ['documentId'],
+         })
+       : [];
+     const liveDocumentIds = new Set((liveRows || []).map((row) => String(row.documentId)));
+     const rows = documentRows.map((row) => ({
+       ...row,
+-      hasPublishedVersion: Boolean(row.publishedAt) || liveDocumentIds.has(String(row.documentId)),
++      hasPublishedVersion: (Boolean(row.publishedAt) && row.review_status === 'published') ||
++        liveDocumentIds.has(String(row.documentId)),
+     }));
+ 
+     const sortPath = String(query.sort || 'createdAt:desc').split(':');
