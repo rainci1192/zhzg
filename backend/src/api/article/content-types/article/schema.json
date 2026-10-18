@@ -72,7 +72,8 @@
       "type": "media",
       "multiple": true,
       "allowedTypes": [
-        "files"
+        "files",
+        "images"
       ]
     },
     "primary_category": {
