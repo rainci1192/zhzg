@@ -1,0 +1,84 @@
+--- a/admin/app/(dashboard)/dashboard/articles/page.tsx
++++ b/admin/app/(dashboard)/dashboard/articles/page.tsx
+@@ -64,6 +64,7 @@
+   updatedAt?: string;
+   publishedAt?: string;
+   publish_time?: string;
++  hasPublishedVersion?: boolean;
+   primary_category?: { id: number; name: string } | null;
+   secondary_category?: { id: number; name: string } | null;
+   cover?: CoverMedia | null;
+@@ -582,7 +583,7 @@
+   };
+ 
+   const openTimeModal = (article: Article, field: 'publish' | 'updated') => {
+-    if (!isSuperAdmin || (field === 'publish' && article.review_status !== 'published')) return;
++    if (!isSuperAdmin || (field === 'publish' && article.review_status !== 'published' && !article.hasPublishedVersion)) return;
+     setTimeField(field);
+     setTimeArticle(article);
+     setTimeValue(toLocalDateTime(field === 'publish' ? article.publish_time || article.publishedAt : article.updatedAt));
+@@ -613,7 +614,7 @@
+   const renderPublishTime = (article: Article) => (
+     <div className="flex flex-wrap items-center gap-1">
+       <span>{formatDate(article.publish_time || article.publishedAt)}</span>
+-      {isSuperAdmin && article.review_status === 'published' && (
++      {isSuperAdmin && (article.review_status === 'published' || article.hasPublishedVersion) && (
+         <button type="button" onClick={() => openTimeModal(article, 'publish')}
+           className="rounded p-1 text-blue-600 hover:bg-blue-50 hover:text-blue-800"
+           aria-label={`修改《${article.title}》的发布时间`} title="修改发布时间">
+--- a/backend/src/api/article/controllers/article.js
++++ b/backend/src/api/article/controllers/article.js
+@@ -398,7 +398,8 @@
+   });
+   // Query Engine's findOne(documentId) may choose either Strapi 5 version.
+   // Workflow changes always target the draft, which Document Service publishes.
+-  return versions.find((entry) => !entry.publishedAt) || versions[0] || found;
++  const draft = versions.find((entry) => !entry.publishedAt) || versions[0] || found;
++  return { ...draft, hasPublishedVersion: versions.some((entry) => Boolean(entry.publishedAt)) };
+ }
+ 
+ async function updateArticle(strapi, article, data) {
+@@ -537,7 +538,7 @@
+     }
+     if (!article.created_by_admin && requestedOwner === undefined) updateData.created_by_admin = admin.id;
+     // Editing a published article withdraws it and starts the review again.
+-    const wasPublished = article.review_status === 'published';
++    const wasPublished = article.review_status === 'published' || article.hasPublishedVersion === true;
+     if (wasPublished) {
+       // A published article is withdrawn from the public channel while its
+       // edited version goes through the complete first and second review
+@@ -700,7 +701,22 @@
+         documents.set(key, row);
+       }
+     }
+-    const rows = Array.from(documents.values());
++    const documentRows = Array.from(documents.values());
++    // The list prefers the draft row because it carries the editable workflow
++    // state. Preserve whether Strapi also has a live version so super admins
++    // can still adjust its public publish_time.
++    const documentIds = documentRows.map((row) => row.documentId).filter(Boolean);
++    const liveRows = documentIds.length
++      ? await strapi.db.query(ARTICLE_UID).findMany({
++          where: { documentId: { $in: documentIds }, publishedAt: { $notNull: true } },
++          select: ['documentId'],
++        })
++      : [];
++    const liveDocumentIds = new Set((liveRows || []).map((row) => String(row.documentId)));
++    const rows = documentRows.map((row) => ({
++      ...row,
++      hasPublishedVersion: Boolean(row.publishedAt) || liveDocumentIds.has(String(row.documentId)),
++    }));
+ 
+     const sortPath = String(query.sort || 'createdAt:desc').split(':');
+     const sortField = sortPath[0];
+@@ -1033,8 +1049,8 @@
+       orderBy: { updatedAt: 'desc' },
+     });
+     const latest = versions.find((version) => !version.publishedAt) || versions[0];
+-    const live = versions.find((version) => version.publishedAt && version.review_status === 'published');
+-    if (!latest || latest.review_status !== 'published' || !live) {
++    const live = versions.find((version) => Boolean(version.publishedAt));
++    if (!latest || !live) {
+       return ctx.badRequest('仅可调整当前处于已发布状态的文章；审核中的内容不会因此发布。');
+     }
+ 

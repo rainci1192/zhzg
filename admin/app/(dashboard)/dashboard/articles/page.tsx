@@ -64,6 +64,7 @@ interface Article {
   updatedAt?: string;
   publishedAt?: string;
   publish_time?: string;
+  hasPublishedVersion?: boolean;
   primary_category?: { id: number; name: string } | null;
   secondary_category?: { id: number; name: string } | null;
   cover?: CoverMedia | null;
@@ -585,7 +586,7 @@ export default function ArticlesPage() {
   };
 
   const openTimeModal = (article: Article, field: 'publish' | 'updated') => {
-    if (!isSuperAdmin || (field === 'publish' && article.review_status !== 'published')) return;
+    if (!isSuperAdmin || (field === 'publish' && article.review_status !== 'published' && !article.hasPublishedVersion)) return;
     setTimeField(field);
     setTimeArticle(article);
     setTimeValue(toLocalDateTime(field === 'publish' ? article.publish_time || article.publishedAt : article.updatedAt));
@@ -616,7 +617,7 @@ export default function ArticlesPage() {
   const renderPublishTime = (article: Article) => (
     <div className="flex flex-wrap items-center gap-1">
       <span>{formatDate(article.publish_time || article.publishedAt)}</span>
-      {isSuperAdmin && article.review_status === 'published' && (
+      {isSuperAdmin && (article.review_status === 'published' || article.hasPublishedVersion) && (
         <button type="button" onClick={() => openTimeModal(article, 'publish')}
           className="rounded p-1 text-blue-600 hover:bg-blue-50 hover:text-blue-800"
           aria-label={`修改《${article.title}》的发布时间`} title="修改发布时间">

@@ -398,7 +398,8 @@ async function findArticle(strapi, key) {
   });
   // Query Engine's findOne(documentId) may choose either Strapi 5 version.
   // Workflow changes always target the draft, which Document Service publishes.
-  return versions.find((entry) => !entry.publishedAt) || versions[0] || found;
+  const draft = versions.find((entry) => !entry.publishedAt) || versions[0] || found;
+  return { ...draft, hasPublishedVersion: versions.some((entry) => Boolean(entry.publishedAt)) };
 }
 
 async function updateArticle(strapi, article, data) {
@@ -412,7 +413,10 @@ async function updateArticle(strapi, article, data) {
 async function publishArticleDocument(strapi, article, data) {
   if (!article.documentId) throw new Error('文章缺少 documentId，无法发布。');
   const documents = strapi.documents(ARTICLE_UID);
-  await documents.update({ documentId: article.documentId, data, status: 'published' });
+  // In Strapi 5, update() writes the draft version. Publication is a separate
+  // operation; passing status to update() does not publish that draft.
+  await documents.update({ documentId: article.documentId, data });
+  await documents.publish({ documentId: article.documentId });
   const live = await documents.findOne({
     documentId: article.documentId,
     status: 'published',
@@ -537,7 +541,7 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
     }
     if (!article.created_by_admin && requestedOwner === undefined) updateData.created_by_admin = admin.id;
     // Editing a published article withdraws it and starts the review again.
-    const wasPublished = article.review_status === 'published';
+    const wasPublished = article.review_status === 'published' || article.hasPublishedVersion === true;
     if (wasPublished) {
       // A published article is withdrawn from the public channel while its
       // edited version goes through the complete first and second review
@@ -752,7 +756,22 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
         documents.set(key, row);
       }
     }
-    const rows = Array.from(documents.values());
+    const documentRows = Array.from(documents.values());
+    // The list prefers the draft row because it carries the editable workflow
+    // state. Preserve whether Strapi also has a live version so super admins
+    // can still adjust its public publish_time.
+    const documentIds = documentRows.map((row) => row.documentId).filter(Boolean);
+    const liveRows = documentIds.length
+      ? await strapi.db.query(ARTICLE_UID).findMany({
+          where: { documentId: { $in: documentIds }, publishedAt: { $notNull: true } },
+          select: ['documentId'],
+        })
+      : [];
+    const liveDocumentIds = new Set((liveRows || []).map((row) => String(row.documentId)));
+    const rows = documentRows.map((row) => ({
+      ...row,
+      hasPublishedVersion: Boolean(row.publishedAt) || liveDocumentIds.has(String(row.documentId)),
+    }));
 
     const sortPath = String(query.sort || 'createdAt:desc').split(':');
     const sortField = sortPath[0];
@@ -1085,8 +1104,8 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
       orderBy: { updatedAt: 'desc' },
     });
     const latest = versions.find((version) => !version.publishedAt) || versions[0];
-    const live = versions.find((version) => version.publishedAt && version.review_status === 'published');
-    if (!latest || latest.review_status !== 'published' || !live) {
+    const live = versions.find((version) => Boolean(version.publishedAt));
+    if (!latest || !live) {
       return ctx.badRequest('仅可调整当前处于已发布状态的文章；审核中的内容不会因此发布。');
     }
 

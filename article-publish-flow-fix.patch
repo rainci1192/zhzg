@@ -1,0 +1,14 @@
+--- a/backend/src/api/article/controllers/article.js
++++ b/backend/src/api/article/controllers/article.js
+@@ -413,7 +413,10 @@
+ async function publishArticleDocument(strapi, article, data) {
+   if (!article.documentId) throw new Error('文章缺少 documentId，无法发布。');
+   const documents = strapi.documents(ARTICLE_UID);
+-  await documents.update({ documentId: article.documentId, data, status: 'published' });
++  // In Strapi 5, update() writes the draft version. Publication is a separate
++  // operation; passing status to update() does not publish that draft.
++  await documents.update({ documentId: article.documentId, data });
++  await documents.publish({ documentId: article.documentId });
+   const live = await documents.findOne({
+     documentId: article.documentId,
+     status: 'published',
