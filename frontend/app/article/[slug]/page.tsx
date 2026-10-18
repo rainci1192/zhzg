@@ -8,6 +8,7 @@ import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import { getContentDetail } from '@/lib/strapi-content';
 import { resolveMediaUrl } from '@/lib/public-urls';
+import ArticleViewCount from '@/components/article/ArticleViewCount';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,8 +29,10 @@ type FullArticle = {
   content?: string;
   summary?: string;
   publish_time?: string;
+  view_count?: number;
   is_top?: boolean;
   cover?: { url?: string } | null;
+  attachments?: Array<{ id?: number; documentId?: string; name?: string; url?: string; size?: number }>;
   primary_category?: { name?: string } | null;
   secondary_category?: { name?: string } | null;
 };
@@ -69,10 +72,11 @@ async function getArticleFullBySlug(slug: string): Promise<FullArticle | null> {
     'populate[0]': 'cover',
     'populate[1]': 'primary_category',
     'populate[2]': 'secondary_category',
+    'populate[3]': 'attachments',
   }).toString();
 
   const res = await fetch(`${API}/api/articles?${qs}`, {
-    next: { revalidate: 30 },
+    cache: 'no-store',
     headers: { Accept: 'application/json' },
   });
 
@@ -89,8 +93,10 @@ async function getArticleFullBySlug(slug: string): Promise<FullArticle | null> {
     content: item.content || '',
     summary: item.summary || '',
     publish_time: item.publish_time || '',
+    view_count: Number(item.view_count) || 0,
     is_top: Boolean(item.is_top),
     cover: item.cover || null,
+    attachments: Array.isArray(item.attachments) ? item.attachments : item.attachments?.data || [],
     primary_category: item.primary_category || null,
     secondary_category: item.secondary_category || null,
   };
@@ -267,13 +273,13 @@ export default async function ArticlePage({
         </h1>
 
 
-        <div className="flex flex-wrap gap-x-6 gap-y-2 text-base text-gray-500 mb-8 border-b pb-6 justify-center">
-
-          <span>
-            {article.publish_time
-              ? new Date(article.publish_time).toLocaleDateString('zh-CN')
+        <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm md:text-base text-gray-500 mb-8 border-b pb-6 justify-center" aria-label="文章信息">
+          <time dateTime={article.publish_time || undefined}>
+            日期：{article.publish_time
+              ? new Intl.DateTimeFormat('zh-CN', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(article.publish_time))
               : '--'}
-          </span>
+          </time>
+          <ArticleViewCount slug={article.slug} initialCount={article.view_count || 0} />
           {article.is_top && (
             <span className="px-3 py-1 bg-amber-100 text-amber-700 text-xs rounded-full">
               置顶
@@ -290,6 +296,27 @@ export default async function ArticlePage({
           className="article-content prose max-w-none"
           dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(article.content || '<p>暂无内容</p>') }}
         />
+
+        {article.attachments && article.attachments.length > 0 && (
+          <section className="mt-10 rounded-2xl border border-slate-200 bg-slate-50 p-5 md:p-7" aria-labelledby="article-attachments-title">
+            <h2 id="article-attachments-title" className="text-lg font-semibold text-slate-900">相关附件</h2>
+            <ul className="mt-3 divide-y divide-slate-200">
+              {article.attachments.map((attachment) => {
+                const fileKey = attachment.documentId || attachment.id;
+                if (!fileKey) return null;
+                return (
+                  <li key={String(fileKey)} className="flex flex-wrap items-center justify-between gap-3 py-3">
+                    <span className="min-w-0 break-all text-sm text-slate-700">{attachment.name || '文章附件'}</span>
+                    <a href={`/api/article-attachments/${encodeURIComponent(article.slug)}/${encodeURIComponent(String(fileKey))}`}
+                      className="inline-flex shrink-0 items-center rounded-lg bg-blue-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-800">
+                      下载附件
+                    </a>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        )}
 
         {coverImage && (
           <div className="relative w-full mt-10 rounded-xl overflow-hidden shadow-md aspect-[16/9]">

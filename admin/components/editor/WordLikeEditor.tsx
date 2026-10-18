@@ -13,6 +13,56 @@ interface Props {
 
 type TableAction = 'rowBefore' | 'rowAfter' | 'columnBefore' | 'columnAfter' | 'deleteRow' | 'deleteColumn';
 
+const MIN_COLUMN_WIDTH = 36;
+const MAX_COLUMN_WIDTH = 1200;
+
+/** Freeze the rendered widths before changing one column. Word tables often mix
+ * percentage cell widths, colgroups and an overall width; leaving any of those
+ * constraints in place makes the browser take space from adjacent columns. */
+function measureColumnWidths(table: HTMLTableElement, tableModule: Table): number[] {
+  const matrix = tableModule.formalMatrix(table);
+  return Array.from({ length: tableModule.getColumnsCount(table) }, (_, column) => {
+    const cells = matrix.map((row) => row[column]).filter((cell): cell is HTMLTableCellElement => !!cell);
+    const single = cells.find((cell) => cell.colSpan === 1);
+    const cell = single || cells[0];
+    const measured = cell ? cell.getBoundingClientRect().width / (single ? 1 : cell.colSpan) : MIN_COLUMN_WIDTH;
+    return Math.max(MIN_COLUMN_WIDTH, Math.round(measured || MIN_COLUMN_WIDTH));
+  });
+}
+
+function setIndependentColumnWidths(table: HTMLTableElement, widths: number[]) {
+  const groups = [...table.children].filter((child): child is HTMLTableColElement => child.tagName === 'COLGROUP');
+  const originalCols = groups.flatMap((item) => [...item.children]
+    .filter((child): child is HTMLTableColElement => child.tagName === 'COL')
+    .flatMap((col) => Array.from({ length: Math.max(1, col.span) }, () => col.cloneNode(false) as HTMLTableColElement)));
+  const group = groups[0] || table.ownerDocument.createElement('colgroup');
+  if (!groups.length) {
+    const firstSection = [...table.children].find((child) => child.tagName !== 'CAPTION');
+    table.insertBefore(group, firstSection || null);
+  }
+  groups.slice(1).forEach((extra) => extra.remove());
+  group.removeAttribute('span');
+  group.removeAttribute('width');
+  group.style.width = '';
+  // Rebuild spanning/percentage <col> elements into one fixed-width <col> per logical column.
+  group.replaceChildren(...widths.map((width, index) => {
+    const col = originalCols[index] || table.ownerDocument.createElement('col');
+    col.removeAttribute('span');
+    col.removeAttribute('width');
+    col.style.width = `${width}px`;
+    return col;
+  }));
+  table.querySelectorAll<HTMLTableCellElement>('td, th').forEach((cell) => {
+    if (cell.closest('table') !== table) return;
+    cell.removeAttribute('width');
+    cell.style.width = '';
+  });
+  table.removeAttribute('width');
+  table.style.tableLayout = 'fixed';
+  table.style.maxWidth = 'none';
+  table.style.width = `${widths.reduce((total, width) => total + width, 0)}px`;
+}
+
 /** Jodit accesses the DOM at import time, so load it only in the browser. */
 export default function WordLikeEditor({ value, onChange, uploadImage }: Props) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -47,7 +97,9 @@ export default function WordLikeEditor({ value, onChange, uploadImage }: Props) 
         toolbarSticky: true,
         toolbarInline: true,
         tableAllowCellSelection: true,
-        tableAllowCellResize: true,
+        // Jodit's built-in resize takes the delta from the next column.
+        // The editor below resizes the whole table instead.
+        tableAllowCellResize: false,
         showCharsCounter: true,
         showWordsCounter: true,
         showXPathInStatusbar: false,
@@ -131,13 +183,70 @@ export default function WordLikeEditor({ value, onChange, uploadImage }: Props) 
         if (!selection || (!editor.editor.contains(selection.anchorNode) && !editor.editor.contains(selection.focusNode))) return;
         showTableCell(editor, selectionCell());
       };
+      let drag: { table: HTMLTableElement; cell: HTMLTableCellElement; column: number; widths: number[]; startX: number } | null = null;
+      const resizeTarget = (event: PointerEvent) => {
+        const cell = cellFromNode(event.target as Node);
+        if (!cell) return null;
+        const bounds = cell.getBoundingClientRect();
+        if (Math.abs(event.clientX - bounds.right) > 8 || event.clientY < bounds.top || event.clientY > bounds.bottom) return null;
+        const table = cell.closest('table') as HTMLTableElement | null;
+        if (!table) return null;
+        const tableModule = editor.getInstance<Table>('Table', editor.o);
+        // The right edge of a merged cell belongs to its last logical column.
+        const column = tableModule.formalCoordinate(table, cell, true)[1];
+        return column >= 0 ? { table, cell, column, tableModule } : null;
+      };
+      const hoverResize = (event: PointerEvent) => {
+        if (drag || (event.pointerType !== 'mouse' && event.pointerType !== 'pen')) return;
+        editor.editor.style.cursor = resizeTarget(event) ? 'col-resize' : '';
+      };
+      const moveResize = (event: PointerEvent) => {
+        if (!drag) return;
+        const width = Math.max(MIN_COLUMN_WIDTH, Math.min(MAX_COLUMN_WIDTH,
+          drag.widths[drag.column] + Math.round(event.clientX - drag.startX)));
+        const next = [...drag.widths];
+        next[drag.column] = width;
+        setIndependentColumnWidths(drag.table, next);
+        event.preventDefault();
+      };
+      const moveResizeListener = (event: Event) => moveResize(event as PointerEvent);
+      const endResize = () => {
+        if (!drag) return;
+        const { cell } = drag;
+        drag = null;
+        editor.editor.style.cursor = '';
+        editor.synchronizeValues();
+        showTableCell(editor, cell);
+      };
+      const beginResize = (event: PointerEvent) => {
+        if (event.button !== 0 || (event.pointerType !== 'mouse' && event.pointerType !== 'pen')) return;
+        const target = resizeTarget(event);
+        if (!target) return;
+        const { table, cell, column, tableModule } = target;
+        drag = { table, cell, column, widths: measureColumnWidths(table, tableModule), startX: event.clientX };
+        event.preventDefault();
+        event.stopPropagation();
+        editor.editor.style.cursor = 'col-resize';
+      };
+      const beginResizeListener = (event: Event) => beginResize(event as PointerEvent);
+      const hoverResizeListener = (event: Event) => hoverResize(event as PointerEvent);
       editor.editor.addEventListener('pointerdown', trackCell, true);
+      editor.editor.addEventListener('pointerdown', beginResizeListener, true);
+      editor.editor.addEventListener('pointermove', hoverResizeListener);
+      editor.ed.defaultView?.addEventListener('pointermove', moveResizeListener);
+      editor.ed.defaultView?.addEventListener('pointerup', endResize);
+      editor.ed.defaultView?.addEventListener('pointercancel', endResize);
       editor.editor.addEventListener('mouseup', trackCell);
       editor.editor.addEventListener('keyup', trackCell);
       editor.editor.addEventListener('click', trackCell);
       editor.ed.addEventListener('selectionchange', trackSelection);
       editor.events.on('beforeDestruct', () => {
         editor.editor.removeEventListener('pointerdown', trackCell, true);
+        editor.editor.removeEventListener('pointerdown', beginResizeListener, true);
+        editor.editor.removeEventListener('pointermove', hoverResizeListener);
+        editor.ed.defaultView?.removeEventListener('pointermove', moveResizeListener);
+        editor.ed.defaultView?.removeEventListener('pointerup', endResize);
+        editor.ed.defaultView?.removeEventListener('pointercancel', endResize);
         editor.editor.removeEventListener('mouseup', trackCell);
         editor.editor.removeEventListener('keyup', trackCell);
         editor.editor.removeEventListener('click', trackCell);
@@ -192,7 +301,7 @@ export default function WordLikeEditor({ value, onChange, uploadImage }: Props) 
     const next = { row: row + 1, column: column + 1, rows: tableModule.getRowsCount(table), columns: tableModule.getColumnsCount(table) };
     setTableCell((previous) => previous && Object.keys(next).every((key) =>
       previous[key as keyof typeof next] === next[key as keyof typeof next]) ? previous : next);
-    setColumnWidth(String(Math.round(cell.getBoundingClientRect().width)));
+    setColumnWidth(String(measureColumnWidths(table, tableModule)[column]));
     setRowHeight(String(Math.round(cell.parentElement?.getBoundingClientRect().height || cell.getBoundingClientRect().height)));
   }
 
@@ -224,22 +333,9 @@ export default function WordLikeEditor({ value, onChange, uploadImage }: Props) 
     const width = Number(columnWidth);
     if (!context || !Number.isInteger(width) || width < 36 || width > 1200) return;
     const { editor, tableModule, table, column, cell } = context;
-    const cells = new Set(tableModule.formalMatrix(table).map((row) => row[column]).filter(Boolean));
-    cells.forEach((item) => {
-      if (item.colSpan === 1) item.style.width = `${width}px`;
-    });
-    // Word/Excel frequently declare widths on <col>; update that constraint too.
-    let position = 0;
-    for (const col of table.querySelectorAll('col')) {
-      if (col.closest('table') !== table) continue;
-      const span = Math.max(1, col.span || 1);
-      if (position <= column && column < position + span && span === 1) {
-        col.style.width = `${width}px`;
-        col.removeAttribute('width');
-        break;
-      }
-      position += span;
-    }
+    const widths = measureColumnWidths(table, tableModule);
+    widths[column] = width;
+    setIndependentColumnWidths(table, widths);
     editor.synchronizeValues();
     showTableCell(editor, cell);
   }

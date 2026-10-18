@@ -49,6 +49,11 @@
     "publish_time": {
       "type": "datetime"
     },
+    "view_count": {
+      "type": "integer",
+      "default": 0,
+      "min": 0
+    },
     "is_top": {
       "type": "boolean",
       "default": false
@@ -61,6 +66,13 @@
       "multiple": false,
       "allowedTypes": [
         "images"
+      ]
+    },
+    "attachments": {
+      "type": "media",
+      "multiple": true,
+      "allowedTypes": [
+        "files"
       ]
     },
     "primary_category": {

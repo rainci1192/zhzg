@@ -32,7 +32,7 @@
 
 .word-like-editor .jodit-wysiwyg table {
   border-collapse: collapse;
-  max-width: 100%;
+  max-width: none;
   margin: 1em auto;
 }
 

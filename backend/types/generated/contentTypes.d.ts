@@ -444,6 +444,7 @@ export interface ApiArticleArticle extends Struct.CollectionTypeSchema {
   attributes: {
     admin_review_comment: Schema.Attribute.Text;
     admin_review_date: Schema.Attribute.DateTime;
+    attachments: Schema.Attribute.Media<'files', true>;
     content: Schema.Attribute.RichText;
     cover: Schema.Attribute.Media<'images'>;
     created_by_admin: Schema.Attribute.Relation<
@@ -524,6 +525,14 @@ export interface ApiArticleArticle extends Struct.CollectionTypeSchema {
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
+    view_count: Schema.Attribute.Integer &
+      Schema.Attribute.SetMinMax<
+        {
+          min: 0;
+        },
+        number
+      > &
+      Schema.Attribute.DefaultTo<0>;
   };
 }
 
@@ -1275,6 +1284,7 @@ export interface ApiReviewLogReviewLog extends Struct.CollectionTypeSchema {
         'reject_level2',
         'publish',
         'adjust_publish_time',
+        'adjust_updated_time',
         'approve_admin',
         'reject_admin',
         'approve_leader',

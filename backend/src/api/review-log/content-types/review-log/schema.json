@@ -42,6 +42,7 @@
         "reject_level2",
         "publish",
         "adjust_publish_time",
+        "adjust_updated_time",
         "approve_admin",
         "reject_admin",
         "approve_leader",

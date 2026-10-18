@@ -1,0 +1,450 @@
+--- a/admin/app/(dashboard)/dashboard/articles/page.tsx
++++ b/admin/app/(dashboard)/dashboard/articles/page.tsx
+@@ -225,9 +225,10 @@
+   const [reviewAction, setReviewAction] = useState<'approve' | 'reject'>('approve');
+   const [selectedLevel2Reviewer, setSelectedLevel2Reviewer] = useState('');
+   const [isSubmitModalOpen, setIsSubmitModalOpen] = useState(false);
+-  const [publishTimeArticle, setPublishTimeArticle] = useState<Article | null>(null);
+-  const [publishTimeValue, setPublishTimeValue] = useState('');
+-  const [publishTimeSaving, setPublishTimeSaving] = useState(false);
++  const [timeArticle, setTimeArticle] = useState<Article | null>(null);
++  const [timeField, setTimeField] = useState<'publish' | 'updated'>('publish');
++  const [timeValue, setTimeValue] = useState('');
++  const [timeSaving, setTimeSaving] = useState(false);
+   const [submittingArticle, setSubmittingArticle] = useState<Article | null>(null);
+   const [selectedLevel1Reviewer, setSelectedLevel1Reviewer] = useState('');
+   const [form, setForm] = useState({
+@@ -533,29 +534,32 @@
+     }
+   };
+ 
+-  const openPublishTimeModal = (article: Article) => {
+-    if (!isSuperAdmin || article.review_status !== 'published') return;
+-    setPublishTimeArticle(article);
+-    setPublishTimeValue(toLocalDateTime(article.publish_time || article.publishedAt));
+-  };
+-
+-  const savePublishTime = async (event: React.FormEvent) => {
++  const openTimeModal = (article: Article, field: 'publish' | 'updated') => {
++    if (!isSuperAdmin || (field === 'publish' && article.review_status !== 'published')) return;
++    setTimeField(field);
++    setTimeArticle(article);
++    setTimeValue(toLocalDateTime(field === 'publish' ? article.publish_time || article.publishedAt : article.updatedAt));
++  };
++
++  const saveTime = async (event: React.FormEvent) => {
+     event.preventDefault();
+-    if (!isSuperAdmin || !publishTimeArticle || publishTimeSaving) return;
+-    const date = new Date(publishTimeValue);
+-    if (!publishTimeValue || Number.isNaN(date.getTime())) return alert('请选择有效的发布时间。');
+-    if (date.getTime() > Date.now() + 60_000) return alert('发布时间不能晚于当前时间。');
+-
+-    setPublishTimeSaving(true);
+-    try {
+-      await api.changeArticlePublishTime(getKey(publishTimeArticle), date.toISOString());
+-      setPublishTimeArticle(null);
++    if (!isSuperAdmin || !timeArticle || timeSaving) return;
++    const label = timeField === 'publish' ? '发布时间' : '修改时间';
++    const date = new Date(timeValue);
++    if (!timeValue || Number.isNaN(date.getTime())) return alert(`请选择有效的${label}。`);
++    if (date.getTime() > Date.now() + 60_000) return alert(`${label}不能晚于当前时间。`);
++
++    setTimeSaving(true);
++    try {
++      if (timeField === 'publish') await api.changeArticlePublishTime(getKey(timeArticle), date.toISOString());
++      else await api.changeArticleUpdatedTime(getKey(timeArticle), date.toISOString());
++      setTimeArticle(null);
+       await fetchArticles();
+-      alert('发布时间已更新。');
+-    } catch (error) {
+-      alert(`修改发布时间失败：${error instanceof Error ? error.message : '未知错误'}`);
++      alert(`${label}已更新。`);
++    } catch (error) {
++      alert(`修改${label}失败：${error instanceof Error ? error.message : '未知错误'}`);
+     } finally {
+-      setPublishTimeSaving(false);
++      setTimeSaving(false);
+     }
+   };
+ 
+@@ -563,9 +567,22 @@
+     <div className="flex flex-wrap items-center gap-1">
+       <span>{formatDate(article.publish_time || article.publishedAt)}</span>
+       {isSuperAdmin && article.review_status === 'published' && (
+-        <button type="button" onClick={() => openPublishTimeModal(article)}
++        <button type="button" onClick={() => openTimeModal(article, 'publish')}
+           className="rounded p-1 text-blue-600 hover:bg-blue-50 hover:text-blue-800"
+           aria-label={`修改《${article.title}》的发布时间`} title="修改发布时间">
++          <CalendarClock className="h-4 w-4" />
++        </button>
++      )}
++    </div>
++  );
++
++  const renderUpdatedTime = (article: Article) => (
++    <div className="flex flex-wrap items-center gap-1">
++      <span>{formatDate(article.updatedAt)}</span>
++      {isSuperAdmin && (
++        <button type="button" onClick={() => openTimeModal(article, 'updated')}
++          className="rounded p-1 text-blue-600 hover:bg-blue-50 hover:text-blue-800"
++          aria-label={`修改《${article.title}》的修改时间`} title="修改时间">
+           <CalendarClock className="h-4 w-4" />
+         </button>
+       )}
+@@ -642,30 +659,30 @@
+     <div className="space-y-6">
+       <div className="flex flex-wrap items-center justify-between gap-4"><div><h1 className="text-3xl font-bold text-gray-900">文章管理</h1><p className="mt-1 text-gray-500">共 {total} 条文章</p></div><div className="flex items-center gap-3"><button type="button" onClick={() => setFiltersOpen((open) => !open)} className={`flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium ${filtersOpen || Object.values(appliedFilters).some(Boolean) ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'}`}><Filter className="h-4 w-4" />筛选显示</button><button disabled={!canCreateArticle} onClick={() => { if (canCreateArticle) openModal(); }} className={`flex items-center gap-2 rounded-2xl px-6 py-3 font-medium ${canCreateArticle ? 'bg-blue-600 text-white hover:bg-blue-700' : 'cursor-not-allowed bg-gray-100 text-gray-400'}`} title={canCreateArticle ? '新增文章' : '当前角色没有创建文章权限'}><Plus className="h-5 w-5" />新增文章</button></div></div>
+       {filtersOpen && <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm"><div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4"><label className="text-sm text-gray-600">发布者<select value={filterDraft.publisherId} onChange={(event) => setFilterDraft((current) => ({ ...current, publisherId: event.target.value }))} className="mt-1.5 w-full rounded-lg border border-gray-200 px-3 py-2.5 text-gray-800"><option value="">全部用户</option>{publishers.map((publisher) => <option key={String(publisher.id)} value={String(publisher.id)}>{publisher.name}（{publisher.email}）</option>)}</select></label><label className="text-sm text-gray-600">一级分类<select value={filterDraft.primaryCategoryId} onChange={(event) => setFilterDraft((current) => ({ ...current, primaryCategoryId: event.target.value, secondaryCategoryId: '' }))} className="mt-1.5 w-full rounded-lg border border-gray-200 px-3 py-2.5 text-gray-800"><option value="">全部分类</option>{primaryOptions.map((category) => <option key={category.id} value={String(category.id)}>{category.name}</option>)}</select></label><label className="text-sm text-gray-600">二级分类<select value={filterDraft.secondaryCategoryId} onChange={(event) => setFilterDraft((current) => ({ ...current, secondaryCategoryId: event.target.value }))} className="mt-1.5 w-full rounded-lg border border-gray-200 px-3 py-2.5 text-gray-800"><option value="">全部分类</option>{filterSecondaryOptions.map((category) => <option key={category.id} value={String(category.id)}>{category.name}</option>)}</select></label><label className="text-sm text-gray-600">状态<select value={filterDraft.status} onChange={(event) => setFilterDraft((current) => ({ ...current, status: event.target.value }))} className="mt-1.5 w-full rounded-lg border border-gray-200 px-3 py-2.5 text-gray-800"><option value="">全部状态</option>{STATUS_OPTIONS.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}</select></label><label className="text-sm text-gray-600">发布时间（开始）<input type="date" value={filterDraft.publishFrom} onChange={(event) => setFilterDraft((current) => ({ ...current, publishFrom: event.target.value }))} className="mt-1.5 w-full rounded-lg border border-gray-200 px-3 py-2.5 text-gray-800" /></label><label className="text-sm text-gray-600">发布时间（结束）<input type="date" value={filterDraft.publishTo} onChange={(event) => setFilterDraft((current) => ({ ...current, publishTo: event.target.value }))} className="mt-1.5 w-full rounded-lg border border-gray-200 px-3 py-2.5 text-gray-800" /></label><label className="text-sm text-gray-600">修改时间（开始）<input type="date" value={filterDraft.updatedFrom} onChange={(event) => setFilterDraft((current) => ({ ...current, updatedFrom: event.target.value }))} className="mt-1.5 w-full rounded-lg border border-gray-200 px-3 py-2.5 text-gray-800" /></label><label className="text-sm text-gray-600">修改时间（结束）<input type="date" value={filterDraft.updatedTo} onChange={(event) => setFilterDraft((current) => ({ ...current, updatedTo: event.target.value }))} className="mt-1.5 w-full rounded-lg border border-gray-200 px-3 py-2.5 text-gray-800" /></label></div><div className="mt-4 flex justify-end gap-3"><button type="button" onClick={resetFilters} className="flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50"><RotateCcw className="h-4 w-4" />重置</button><button type="button" onClick={applyFilters} className="rounded-lg bg-blue-600 px-5 py-2 text-sm font-medium text-white hover:bg-blue-700">应用筛选</button></div></div>}
+-      {loading ? <div className="py-12 text-center text-gray-400">加载中...</div> : <><div className="w-full overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-sm"><table className="w-full table-fixed"><thead className="border-b bg-gray-50"><tr><th className="w-[25%] px-3 py-4 text-left text-sm font-medium text-gray-500"><button type="button" onClick={() => toggleSort('title')} className="inline-flex items-center hover:text-blue-600">标题{renderSortIcon('title')}</button></th><th className="w-[11%] px-3 py-4 text-left text-sm font-medium text-gray-500"><button type="button" onClick={() => toggleSort('created_by_admin.name')} className="inline-flex items-center hover:text-blue-600">发布者{renderSortIcon('created_by_admin.name')}</button></th><th className="w-[8%] px-2 py-4 text-left text-sm font-medium text-gray-500"><button type="button" onClick={() => toggleSort('primary_category.name')} className="inline-flex items-center hover:text-blue-600">一级分类{renderSortIcon('primary_category.name')}</button></th><th className="w-[8%] px-2 py-4 text-left text-sm font-medium text-gray-500"><button type="button" onClick={() => toggleSort('secondary_category.name')} className="inline-flex items-center hover:text-blue-600">二级分类{renderSortIcon('secondary_category.name')}</button></th><th className="w-[10%] px-2 py-4 text-left text-sm font-medium text-gray-500"><button type="button" onClick={() => toggleSort('review_status')} className="inline-flex items-center hover:text-blue-600">状态{renderSortIcon('review_status')}</button></th><th className="w-[12%] px-2 py-4 text-left text-sm font-medium text-gray-500"><button type="button" onClick={() => toggleSort('publish_time')} className="inline-flex items-center hover:text-blue-600">发布时间{renderSortIcon('publish_time')}</button></th><th className="w-[12%] px-2 py-4 text-left text-sm font-medium text-gray-500"><button type="button" onClick={() => toggleSort('updatedAt')} className="inline-flex items-center hover:text-blue-600">最后修改{renderSortIcon('updatedAt')}</button></th><th className="w-[14%] px-2 py-4 text-center text-sm font-medium text-gray-500">操作</th></tr></thead><tbody className="divide-y">{articles.map((article) => <tr key={article.id} className="hover:bg-gray-50"><td className="break-words px-3 py-4"><div className="font-medium leading-5 text-gray-900">{article.title}</div><div className="break-all text-xs text-gray-400">slug: {article.slug}</div></td><td className="break-words px-3 py-4 text-sm"><span className="inline-flex max-w-full break-all items-center gap-1.5"><User className="h-3.5 w-3.5 shrink-0 text-gray-400" />{relationName(article.created_by_admin)}</span></td><td className="break-words px-2 py-4 text-sm">{article.primary_category?.name || '-'}</td><td className="break-words px-2 py-4 text-sm">{article.secondary_category?.name || '不分类'}</td><td className="px-2 py-4">{getStatusBadge(article.review_status)}</td><td className="break-words px-2 py-4 text-xs text-gray-500">{renderPublishTime(article)}</td><td className="break-words px-2 py-4 text-xs text-gray-500">{formatDate(article.updatedAt)}</td><td className="px-2 py-4">{renderActions(article)}</td></tr>)}{articles.length === 0 && <tr><td colSpan={8} className="p-6 text-center text-gray-400">暂无符合条件的文章</td></tr>}</tbody></table></div><div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-100 bg-white px-4 py-3 text-sm text-gray-600"><span>第 {page} / {totalPages} 页，每页 {pageSize} 篇，共 {total} 篇</span><div className="flex items-center gap-2"><button type="button" disabled={page <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))} className="rounded-lg border border-gray-200 px-3 py-1.5 disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-300">上一页</button><button type="button" disabled={page >= totalPages} onClick={() => setPage((current) => Math.min(totalPages, current + 1))} className="rounded-lg border border-gray-200 px-3 py-1.5 disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-300">下一页</button></div></div></>}
++      {loading ? <div className="py-12 text-center text-gray-400">加载中...</div> : <><div className="w-full overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-sm"><table className="w-full table-fixed"><thead className="border-b bg-gray-50"><tr><th className="w-[25%] px-3 py-4 text-left text-sm font-medium text-gray-500"><button type="button" onClick={() => toggleSort('title')} className="inline-flex items-center hover:text-blue-600">标题{renderSortIcon('title')}</button></th><th className="w-[11%] px-3 py-4 text-left text-sm font-medium text-gray-500"><button type="button" onClick={() => toggleSort('created_by_admin.name')} className="inline-flex items-center hover:text-blue-600">发布者{renderSortIcon('created_by_admin.name')}</button></th><th className="w-[8%] px-2 py-4 text-left text-sm font-medium text-gray-500"><button type="button" onClick={() => toggleSort('primary_category.name')} className="inline-flex items-center hover:text-blue-600">一级分类{renderSortIcon('primary_category.name')}</button></th><th className="w-[8%] px-2 py-4 text-left text-sm font-medium text-gray-500"><button type="button" onClick={() => toggleSort('secondary_category.name')} className="inline-flex items-center hover:text-blue-600">二级分类{renderSortIcon('secondary_category.name')}</button></th><th className="w-[10%] px-2 py-4 text-left text-sm font-medium text-gray-500"><button type="button" onClick={() => toggleSort('review_status')} className="inline-flex items-center hover:text-blue-600">状态{renderSortIcon('review_status')}</button></th><th className="w-[12%] px-2 py-4 text-left text-sm font-medium text-gray-500"><button type="button" onClick={() => toggleSort('publish_time')} className="inline-flex items-center hover:text-blue-600">发布时间{renderSortIcon('publish_time')}</button></th><th className="w-[12%] px-2 py-4 text-left text-sm font-medium text-gray-500"><button type="button" onClick={() => toggleSort('updatedAt')} className="inline-flex items-center hover:text-blue-600">最后修改{renderSortIcon('updatedAt')}</button></th><th className="w-[14%] px-2 py-4 text-center text-sm font-medium text-gray-500">操作</th></tr></thead><tbody className="divide-y">{articles.map((article) => <tr key={article.id} className="hover:bg-gray-50"><td className="break-words px-3 py-4"><div className="font-medium leading-5 text-gray-900">{article.title}</div><div className="break-all text-xs text-gray-400">slug: {article.slug}</div></td><td className="break-words px-3 py-4 text-sm"><span className="inline-flex max-w-full break-all items-center gap-1.5"><User className="h-3.5 w-3.5 shrink-0 text-gray-400" />{relationName(article.created_by_admin)}</span></td><td className="break-words px-2 py-4 text-sm">{article.primary_category?.name || '-'}</td><td className="break-words px-2 py-4 text-sm">{article.secondary_category?.name || '不分类'}</td><td className="px-2 py-4">{getStatusBadge(article.review_status)}</td><td className="break-words px-2 py-4 text-xs text-gray-500">{renderPublishTime(article)}</td><td className="break-words px-2 py-4 text-xs text-gray-500">{renderUpdatedTime(article)}</td><td className="px-2 py-4">{renderActions(article)}</td></tr>)}{articles.length === 0 && <tr><td colSpan={8} className="p-6 text-center text-gray-400">暂无符合条件的文章</td></tr>}</tbody></table></div><div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-100 bg-white px-4 py-3 text-sm text-gray-600"><span>第 {page} / {totalPages} 页，每页 {pageSize} 篇，共 {total} 篇</span><div className="flex items-center gap-2"><button type="button" disabled={page <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))} className="rounded-lg border border-gray-200 px-3 py-1.5 disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-300">上一页</button><button type="button" disabled={page >= totalPages} onClick={() => setPage((current) => Math.min(totalPages, current + 1))} className="rounded-lg border border-gray-200 px-3 py-1.5 disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-300">下一页</button></div></div></>}
+ 
+       {isModalOpen && <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"><div className="bg-white rounded-3xl shadow-2xl w-full max-w-[min(96vw,1500px)] mx-4 p-8 max-h-[90vh] overflow-y-auto"><h2 className="text-2xl font-bold mb-6">{editingKey ? '编辑文章' : '新增文章'}</h2><form onSubmit={saveArticle} className="space-y-6"><div><label className="mb-2 block font-medium">发布者</label>{isSuperAdmin ? <select value={form.publisherId} onChange={(event) => { const selected = publishers.find((publisher) => String(publisher.documentId || publisher.id) === event.target.value); setForm((previous) => ({ ...previous, publisherId: event.target.value, publisherLabel: selected ? `${selected.name}（${selected.email}）` : '' })); }} className="w-full rounded border px-4 py-3"><option value="">请选择发布者</option>{publishers.map((publisher) => { const key = String(publisher.documentId || publisher.id); return <option key={key} value={key}>{publisher.name}（{publisher.email}）</option>; })}</select> : <input value={form.publisherLabel || user?.name || user?.email || ''} readOnly disabled className="w-full cursor-not-allowed rounded border bg-gray-50 px-4 py-3 text-gray-500" />}<p className="mt-1 text-xs text-gray-400">普通用户只能使用本人账号发布；超级管理员可以指定其他有效后台用户。</p></div><input className="w-full px-4 py-3 border rounded" placeholder="标题" value={form.title} onChange={(event) => setForm((previous) => ({ ...previous, title: event.target.value }))} required /><textarea className="w-full px-4 py-3 border rounded" placeholder="摘要" rows={2} value={form.summary} onChange={(event) => setForm((previous) => ({ ...previous, summary: event.target.value }))} /><div><label className="block mb-2 font-medium">正文内容</label><WordLikeEditor value={form.content} onChange={(html) => setForm((previous) => ({ ...previous, content: html }))} uploadImage={handleEditorUpload} /></div><div className="grid grid-cols-1 md:grid-cols-2 gap-6"><div><label className="block mb-2 font-medium">一级分类（必选）</label><select value={form.primaryCategoryId} onChange={(event) => setForm((previous) => ({ ...previous, primaryCategoryId: event.target.value, secondaryCategoryId: '' }))} className="w-full px-4 py-3 border rounded"><option value="">请选择一级分类</option>{primaryOptions.map((category) => <option key={category.id} value={String(category.id)}>{category.name}</option>)}</select></div><div><label className="block mb-2 font-medium">二级分类（可选）</label><select value={form.secondaryCategoryId} onChange={(event) => setForm((previous) => ({ ...previous, secondaryCategoryId: event.target.value }))} className="w-full px-4 py-3 border rounded" disabled={!form.primaryCategoryId}><option value="">不分类</option>{secondaryOptions.map((category) => <option key={category.id} value={String(category.id)}>{category.name}</option>)}</select></div></div><div><label className="block mb-2 font-medium">封面图</label>{form.coverPreview && <Image src={form.coverPreview} width={160} height={96} className="w-40 h-24 object-cover rounded mb-2" alt="cover" unoptimized />}<input type="file" accept="image/*" onChange={(event) => setCoverFile(event.target.files?.[0] || null)} /></div><div className="flex justify-end gap-4"><button type="button" onClick={() => setIsModalOpen(false)} className="px-6 py-3 border rounded">取消</button><button type="submit" className="px-6 py-3 bg-blue-600 text-white rounded">保存</button></div></form></div></div>}
+ 
+-      {publishTimeArticle && isSuperAdmin && (
++      {timeArticle && isSuperAdmin && (
+         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+-          <div role="dialog" aria-modal="true" aria-labelledby="publish-time-title"
++          <div role="dialog" aria-modal="true" aria-labelledby="article-time-title"
+             className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
+-            <h2 id="publish-time-title" className="text-xl font-bold">修改发布时间</h2>
+-            <p className="mt-2 break-words text-sm text-gray-600">{publishTimeArticle.title}</p>
+-            <form onSubmit={savePublishTime} className="mt-5 space-y-4">
++            <h2 id="article-time-title" className="text-xl font-bold">修改{timeField === 'publish' ? '发布时间' : '修改时间'}</h2>
++            <p className="mt-2 break-words text-sm text-gray-600">{timeArticle.title}</p>
++            <form onSubmit={saveTime} className="mt-5 space-y-4">
+               <label className="block text-sm font-medium text-gray-700">
+-                发布时间（当前浏览器时区）
+-                <input type="datetime-local" step="1" required value={publishTimeValue}
+-                  onChange={(event) => setPublishTimeValue(event.target.value)}
++                {timeField === 'publish' ? '发布时间' : '修改时间'}（当前浏览器时区）
++                <input type="datetime-local" step="1" required value={timeValue}
++                  onChange={(event) => setTimeValue(event.target.value)}
+                   className="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900" />
+               </label>
+-              <p className="text-xs leading-5 text-gray-500">时区：{Intl.DateTimeFormat().resolvedOptions().timeZone}。仅调整官网及后台展示的发布时间，不更改文章内容或审核状态。</p>
++              <p className="text-xs leading-5 text-gray-500">时区：{Intl.DateTimeFormat().resolvedOptions().timeZone}。{timeField === 'publish' ? '仅调整官网及后台展示的发布时间。' : '调整文章修改时间；后续编辑或审核会再次自动更新该时间。'}不会更改文章内容或审核状态。</p>
+               <div className="flex justify-end gap-3">
+-                <button type="button" disabled={publishTimeSaving} onClick={() => setPublishTimeArticle(null)}
++                <button type="button" disabled={timeSaving} onClick={() => setTimeArticle(null)}
+                   className="rounded-lg border px-4 py-2 text-gray-600 disabled:opacity-50">取消</button>
+-                <button type="submit" disabled={publishTimeSaving}
++                <button type="submit" disabled={timeSaving}
+                   className="rounded-lg bg-blue-600 px-4 py-2 text-white disabled:opacity-50">
+-                  {publishTimeSaving ? '保存中…' : '保存发布时间'}
++                  {timeSaving ? '保存中…' : `保存${timeField === 'publish' ? '发布时间' : '修改时间'}`}
+                 </button>
+               </div>
+             </form>
+--- a/admin/lib/api.ts
++++ b/admin/lib/api.ts
+@@ -180,6 +180,11 @@
+       method: 'POST',
+       body: JSON.stringify({ publish_time: publishTime }),
+     }),
++  changeArticleUpdatedTime: (id: string, updatedAt: string) =>
++    strapiRequest<unknown>(`/api/article-workflow/${encodeURIComponent(id)}/updated-time`, {
++      method: 'POST',
++      body: JSON.stringify({ updatedAt }),
++    }),
+   unpublishArticle: (id: string, comment = '') =>
+     strapiRequest<unknown>(`/api/article-workflow/${id}/unpublish`, {
+       method: 'POST',
+--- a/backend/src/api/article/controllers/article.js
++++ b/backend/src/api/article/controllers/article.js
+@@ -30,6 +30,9 @@
+   'level2_review_comment',
+   'level2_review_date',
+   'publish_time',
++  'createdAt',
++  'updatedAt',
++  'publishedAt',
+   'view_count',
+   'published_by_admin',
+   'rejection_reason',
+@@ -382,10 +385,19 @@
+   const where = /^\d+$/.test(value)
+     ? { id: Number(value) }
+     : { documentId: value };
+-  return strapi.db.query(ARTICLE_UID).findOne({
++  const found = await strapi.db.query(ARTICLE_UID).findOne({
+     where,
+     populate: ARTICLE_POPULATE,
+   });
++  if (!found?.documentId) return found;
++  const versions = await strapi.db.query(ARTICLE_UID).findMany({
++    where: { documentId: found.documentId },
++    populate: ARTICLE_POPULATE,
++    orderBy: { updatedAt: 'desc' },
++  });
++  // Query Engine's findOne(documentId) may choose either Strapi 5 version.
++  // Workflow changes always target the draft, which Document Service publishes.
++  return versions.find((entry) => !entry.publishedAt) || versions[0] || found;
+ }
+ 
+ async function updateArticle(strapi, article, data) {
+@@ -394,6 +406,21 @@
+     data,
+     populate: ARTICLE_POPULATE,
+   });
++}
++
++async function publishArticleDocument(strapi, article, data) {
++  if (!article.documentId) throw new Error('文章缺少 documentId，无法发布。');
++  const documents = strapi.documents(ARTICLE_UID);
++  await documents.update({ documentId: article.documentId, data, status: 'published' });
++  const live = await documents.findOne({
++    documentId: article.documentId,
++    status: 'published',
++    populate: ARTICLE_POPULATE,
++  });
++  if (!live || live.review_status !== 'published' || !live.slug) {
++    throw new Error('文章发布后未生成可访问的已发布版本。');
++  }
++  return live;
+ }
+ 
+ async function writeReviewLog(strapi, { article, reviewer, action, fromStatus, toStatus, comment }) {
+@@ -508,22 +535,28 @@
+       updateData.created_by_admin = owner.id;
+     }
+     if (!article.created_by_admin && requestedOwner === undefined) updateData.created_by_admin = admin.id;
+-    // Editing a published article creates a new version that must pass the
+-    // second review before it replaces the published content.
++    // Editing a published article withdraws it and starts the review again.
+     const wasPublished = article.review_status === 'published';
+     if (wasPublished) {
+       // A published article is withdrawn from the public channel while its
+       // edited version goes through the complete first and second review
+       // flow again.
+       updateData.review_status = 'draft';
+-      updateData.publishedAt = null;
+       updateData.level1_reviewer = null;
+       updateData.level2_reviewer = null;
+       updateData.level2_review_comment = null;
+       updateData.level2_review_date = null;
+       updateData.rejection_reason = null;
+     }
+-    const result = await updateArticle(strapi, article, updateData);
++    let target = article;
++    if (wasPublished && article.documentId) {
++      // Clearing publishedAt on a Query Engine row does not remove Strapi 5's
++      // separate published version. Unpublish the document itself first.
++      await strapi.documents(ARTICLE_UID).unpublish({ documentId: article.documentId });
++      target = await findArticle(strapi, article.documentId);
++      if (!target) throw new Error('取消发布后未找到文章草稿。');
++    }
++    const result = await updateArticle(strapi, target, updateData);
+     await writeReviewLog(strapi, {
+       article: result,
+       reviewer: admin,
+@@ -654,13 +687,15 @@
+       orderBy: { createdAt: 'desc' },
+     });
+     // Strapi 5 can keep draft and published variants under one documentId.
+-    // The admin list represents a document once, using its most recently
+-    // updated variant (which is also the current custom-workflow state).
++    // The admin list represents a document once, preferring the draft that
++    // carries the current custom-workflow state.
+     const documents = new Map();
+     for (const row of queriedRows || []) {
+       const key = String(row.documentId || row.id);
+       const current = documents.get(key);
+-      if (!current || String(row.updatedAt || '') > String(current.updatedAt || '')) {
++      if (!current || (!row.publishedAt && current.publishedAt) ||
++          (Boolean(!row.publishedAt) === Boolean(!current.publishedAt) &&
++           String(row.updatedAt || '') > String(current.updatedAt || ''))) {
+         documents.set(key, row);
+       }
+     }
+@@ -705,13 +740,14 @@
+ 
+     const rows = await strapi.db.query(ARTICLE_UID).findMany({
+       ...(isSuperAdmin(admin) || (await getArticleDataScope(strapi, admin)) === 'all' ? {} : { where: articleAccessFilter(admin) }),
+-      select: ['id', 'documentId', 'review_status', 'updatedAt'],
++      select: ['id', 'documentId', 'review_status', 'updatedAt', 'publishedAt'],
+       orderBy: { updatedAt: 'desc' },
+     });
+     const latestByDocument = new Map();
+     for (const row of rows || []) {
+       const key = String(row.documentId || row.id);
+-      if (!latestByDocument.has(key)) latestByDocument.set(key, row);
++      const current = latestByDocument.get(key);
++      if (!current || (!row.publishedAt && current.publishedAt)) latestByDocument.set(key, row);
+     }
+     const articles = Array.from(latestByDocument.values());
+     const published = articles.filter((article) => article.review_status === 'published').length;
+@@ -900,14 +936,20 @@
+     const nextStatus = decision === 'approve'
+       ? (isRepublish ? 'published' : 'approved_pending_publish')
+       : (isRepublish ? 'rejected_republish' : 'rejected_level2');
+-    const updated = await updateArticle(strapi, article, {
++    if (isRepublish && decision === 'approve' && !String(article.slug || '').trim()) {
++      article.slug = await repairArticleDocumentSlug(strapi, article);
++    }
++    const reviewData = {
+       review_status: nextStatus,
+       level2_reviewer: admin.id,
+       level2_review_comment: comment || null,
+       level2_review_date: new Date().toISOString(),
+       rejection_reason: decision === 'reject' ? comment : null,
+-      ...(isRepublish && decision === 'approve' ? { publishedAt: new Date().toISOString(), publish_time: new Date().toISOString() } : {}),
+-    });
++      ...(isRepublish && decision === 'approve' ? { publish_time: new Date().toISOString() } : {}),
++    };
++    const updated = isRepublish && decision === 'approve'
++      ? await publishArticleDocument(strapi, article, reviewData)
++      : await updateArticle(strapi, article, reviewData);
+ 
+     await writeReviewLog(strapi, {
+       article,
+@@ -945,10 +987,9 @@
+       article.slug = await repairArticleDocumentSlug(strapi, article);
+     }
+ 
+-    const updated = await updateArticle(strapi, article, {
++    const updated = await publishArticleDocument(strapi, article, {
+       review_status: 'published',
+       publish_time: new Date().toISOString(),
+-      publishedAt: new Date().toISOString(),
+     });
+ 
+     await writeReviewLog(strapi, {
+@@ -990,7 +1031,7 @@
+       select: ['id', 'documentId', 'review_status', 'publish_time', 'publishedAt', 'updatedAt'],
+       orderBy: { updatedAt: 'desc' },
+     });
+-    const latest = versions[0];
++    const latest = versions.find((version) => !version.publishedAt) || versions[0];
+     const live = versions.find((version) => version.publishedAt && version.review_status === 'published');
+     if (!latest || latest.review_status !== 'published' || !live) {
+       return ctx.badRequest('仅可调整当前处于已发布状态的文章；审核中的内容不会因此发布。');
+@@ -1001,10 +1042,9 @@
+     // Strapi 5 can store draft and published rows under the same documentId.
+     // Change only the site-facing date in both rows; do not touch the system
+     // publishedAt field or invoke a publish operation.
+-    await strapi.db.query(ARTICLE_UID).updateMany({
+-      where,
+-      data: { publish_time: publishTime },
+-    });
++    await strapi.db.connection('articles')
++      .whereIn('id', versions.map((version) => version.id))
++      .update({ publish_time: publishTime });
+     await writeReviewLog(strapi, {
+       article: live,
+       reviewer: admin,
+@@ -1021,6 +1061,50 @@
+     ctx.body = { data: updated };
+   },
+ 
++  async changeUpdatedTime(ctx) {
++    const admin = await getCurrentAdmin(ctx, strapi);
++    if (!admin) return;
++    if (!isSuperAdmin(admin)) return ctx.forbidden('只有超级管理员可以调整文章修改时间。');
++
++    const requested = ctx.request.body?.updatedAt;
++    if (typeof requested !== 'string' ||
++        !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/.test(requested)) {
++      return ctx.badRequest('请提交有效的 UTC 修改时间。');
++    }
++    const timestamp = new Date(requested);
++    if (!Number.isFinite(timestamp.getTime()) ||
++        timestamp.toISOString().slice(0, 19) !== requested.slice(0, 19)) {
++      return ctx.badRequest('修改时间不是有效的日期。');
++    }
++    if (timestamp.getTime() > Date.now() + 60_000) {
++      return ctx.badRequest('修改时间不能晚于当前时间。');
++    }
++
++    const article = await findArticle(strapi, ctx.params.id);
++    if (!article) return ctx.notFound('文章不存在。');
++    const versions = await strapi.db.query(ARTICLE_UID).findMany({
++      where: article.documentId ? { documentId: article.documentId } : { id: article.id },
++      select: ['id'],
++    });
++    if (!versions.length) return ctx.notFound('文章不存在。');
++
++    const updatedAt = timestamp.toISOString();
++    await writeReviewLog(strapi, {
++      article,
++      reviewer: admin,
++      action: 'adjust_updated_time',
++      fromStatus: article.review_status,
++      toStatus: article.review_status,
++      comment: `修改时间由 ${article.updatedAt || '未记录'} 调整为 ${updatedAt}`,
++    });
++    // updatedAt is a Strapi system field. Query Engine writes set it to now;
++    // update the timestamp only, across both versions, after the audit event.
++    await strapi.db.connection('articles')
++      .whereIn('id', versions.map((version) => version.id))
++      .update({ updated_at: updatedAt });
++    ctx.body = { data: await findArticle(strapi, article.documentId || article.id) };
++  },
++
+   async unpublish(ctx) {
+     const admin = await getCurrentAdmin(ctx, strapi);
+     if (!admin) return;
+@@ -1035,9 +1119,14 @@
+     if (!canUnpublish) return ctx.forbidden('只有文章发布者或超级管理员可以取消发布。');
+ 
+     const comment = String(ctx.request.body?.comment || '').trim();
+-    const updated = await updateArticle(strapi, article, {
++    if (article.documentId) {
++      await strapi.documents(ARTICLE_UID).unpublish({ documentId: article.documentId });
++    }
++    const draft = article.documentId ? await findArticle(strapi, article.documentId) : article;
++    if (!draft) throw new Error('取消发布后未找到文章草稿。');
++    const updated = await updateArticle(strapi, draft, {
+       review_status: 'unpublished',
+-      publishedAt: null,
++      ...(!article.documentId ? { publishedAt: null } : {}),
+       rejection_reason: comment || null,
+     });
+     await writeReviewLog(strapi, {
+@@ -1120,6 +1209,7 @@
+           reject_republish: '退回修改审核',
+           publish: '发布文章',
+           adjust_publish_time: '调整发布时间',
++          adjust_updated_time: '调整修改时间',
+           unpublish: '取消发布',
+         }[log.action] || log.action,
+         article: log.article ? {
+--- a/backend/src/api/article/routes/article-workflow.js
++++ b/backend/src/api/article/routes/article-workflow.js
+@@ -138,6 +138,16 @@
+     },
+     {
+       method: 'POST',
++      path: '/article-workflow/:id/updated-time',
++      handler: 'api::article.article.changeUpdatedTime',
++      config: {
++        auth: { scope: ['api::article.article.find'] },
++        policies: [],
++        middlewares: [],
++      },
++    },
++    {
++      method: 'POST',
+       path: '/article-workflow/:id/unpublish',
+       handler: 'api::article.article.unpublish',
+       config: {
+--- a/backend/src/api/review-log/content-types/review-log/schema.json
++++ b/backend/src/api/review-log/content-types/review-log/schema.json
+@@ -42,6 +42,7 @@
+         "reject_level2",
+         "publish",
+         "adjust_publish_time",
++        "adjust_updated_time",
+         "approve_admin",
+         "reject_admin",
+         "approve_leader",
+--- a/frontend/app/article/[slug]/page.tsx
++++ b/frontend/app/article/[slug]/page.tsx
+@@ -74,7 +74,7 @@
+   }).toString();
+ 
+   const res = await fetch(`${API}/api/articles?${qs}`, {
+-    next: { revalidate: 30 },
++    cache: 'no-store',
+     headers: { Accept: 'application/json' },
+   });
+ 

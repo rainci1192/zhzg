@@ -30,6 +30,10 @@ const WORKFLOW_FIELDS = new Set([
   'level2_review_comment',
   'level2_review_date',
   'publish_time',
+  'createdAt',
+  'updatedAt',
+  'publishedAt',
+  'view_count',
   'published_by_admin',
   'rejection_reason',
   'reviewed_by_admin',
@@ -48,6 +52,7 @@ const ARTICLE_POPULATE = [
   'primary_category',
   'secondary_category',
   'cover',
+  'attachments',
 ];
 
 function roleName(admin) {
@@ -381,10 +386,19 @@ async function findArticle(strapi, key) {
   const where = /^\d+$/.test(value)
     ? { id: Number(value) }
     : { documentId: value };
-  return strapi.db.query(ARTICLE_UID).findOne({
+  const found = await strapi.db.query(ARTICLE_UID).findOne({
     where,
     populate: ARTICLE_POPULATE,
   });
+  if (!found?.documentId) return found;
+  const versions = await strapi.db.query(ARTICLE_UID).findMany({
+    where: { documentId: found.documentId },
+    populate: ARTICLE_POPULATE,
+    orderBy: { updatedAt: 'desc' },
+  });
+  // Query Engine's findOne(documentId) may choose either Strapi 5 version.
+  // Workflow changes always target the draft, which Document Service publishes.
+  return versions.find((entry) => !entry.publishedAt) || versions[0] || found;
 }
 
 async function updateArticle(strapi, article, data) {
@@ -393,6 +407,21 @@ async function updateArticle(strapi, article, data) {
     data,
     populate: ARTICLE_POPULATE,
   });
+}
+
+async function publishArticleDocument(strapi, article, data) {
+  if (!article.documentId) throw new Error('文章缺少 documentId，无法发布。');
+  const documents = strapi.documents(ARTICLE_UID);
+  await documents.update({ documentId: article.documentId, data, status: 'published' });
+  const live = await documents.findOne({
+    documentId: article.documentId,
+    status: 'published',
+    populate: ARTICLE_POPULATE,
+  });
+  if (!live || live.review_status !== 'published' || !live.slug) {
+    throw new Error('文章发布后未生成可访问的已发布版本。');
+  }
+  return live;
 }
 
 async function writeReviewLog(strapi, { article, reviewer, action, fromStatus, toStatus, comment }) {
@@ -507,22 +536,28 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
       updateData.created_by_admin = owner.id;
     }
     if (!article.created_by_admin && requestedOwner === undefined) updateData.created_by_admin = admin.id;
-    // Editing a published article creates a new version that must pass the
-    // second review before it replaces the published content.
+    // Editing a published article withdraws it and starts the review again.
     const wasPublished = article.review_status === 'published';
     if (wasPublished) {
       // A published article is withdrawn from the public channel while its
       // edited version goes through the complete first and second review
       // flow again.
       updateData.review_status = 'draft';
-      updateData.publishedAt = null;
       updateData.level1_reviewer = null;
       updateData.level2_reviewer = null;
       updateData.level2_review_comment = null;
       updateData.level2_review_date = null;
       updateData.rejection_reason = null;
     }
-    const result = await updateArticle(strapi, article, updateData);
+    let target = article;
+    if (wasPublished && article.documentId) {
+      // Clearing publishedAt on a Query Engine row does not remove Strapi 5's
+      // separate published version. Unpublish the document itself first.
+      await strapi.documents(ARTICLE_UID).unpublish({ documentId: article.documentId });
+      target = await findArticle(strapi, article.documentId);
+      if (!target) throw new Error('取消发布后未找到文章草稿。');
+    }
+    const result = await updateArticle(strapi, target, updateData);
     await writeReviewLog(strapi, {
       article: result,
       reviewer: admin,
@@ -705,13 +740,15 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
       orderBy: { createdAt: 'desc' },
     });
     // Strapi 5 can keep draft and published variants under one documentId.
-    // The admin list represents a document once, using its most recently
-    // updated variant (which is also the current custom-workflow state).
+    // The admin list represents a document once, preferring the draft that
+    // carries the current custom-workflow state.
     const documents = new Map();
     for (const row of queriedRows || []) {
       const key = String(row.documentId || row.id);
       const current = documents.get(key);
-      if (!current || String(row.updatedAt || '') > String(current.updatedAt || '')) {
+      if (!current || (!row.publishedAt && current.publishedAt) ||
+          (Boolean(!row.publishedAt) === Boolean(!current.publishedAt) &&
+           String(row.updatedAt || '') > String(current.updatedAt || ''))) {
         documents.set(key, row);
       }
     }
@@ -756,13 +793,14 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
 
     const rows = await strapi.db.query(ARTICLE_UID).findMany({
       ...(isSuperAdmin(admin) || (await getArticleDataScope(strapi, admin)) === 'all' ? {} : { where: articleAccessFilter(admin) }),
-      select: ['id', 'documentId', 'review_status', 'updatedAt'],
+      select: ['id', 'documentId', 'review_status', 'updatedAt', 'publishedAt'],
       orderBy: { updatedAt: 'desc' },
     });
     const latestByDocument = new Map();
     for (const row of rows || []) {
       const key = String(row.documentId || row.id);
-      if (!latestByDocument.has(key)) latestByDocument.set(key, row);
+      const current = latestByDocument.get(key);
+      if (!current || (!row.publishedAt && current.publishedAt)) latestByDocument.set(key, row);
     }
     const articles = Array.from(latestByDocument.values());
     const published = articles.filter((article) => article.review_status === 'published').length;
@@ -951,14 +989,20 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
     const nextStatus = decision === 'approve'
       ? (isRepublish ? 'published' : 'approved_pending_publish')
       : (isRepublish ? 'rejected_republish' : 'rejected_level2');
-    const updated = await updateArticle(strapi, article, {
+    if (isRepublish && decision === 'approve' && !String(article.slug || '').trim()) {
+      article.slug = await repairArticleDocumentSlug(strapi, article);
+    }
+    const reviewData = {
       review_status: nextStatus,
       level2_reviewer: admin.id,
       level2_review_comment: comment || null,
       level2_review_date: new Date().toISOString(),
       rejection_reason: decision === 'reject' ? comment : null,
-      ...(isRepublish && decision === 'approve' ? { publishedAt: new Date().toISOString(), publish_time: new Date().toISOString() } : {}),
-    });
+      ...(isRepublish && decision === 'approve' ? { publish_time: new Date().toISOString() } : {}),
+    };
+    const updated = isRepublish && decision === 'approve'
+      ? await publishArticleDocument(strapi, article, reviewData)
+      : await updateArticle(strapi, article, reviewData);
 
     await writeReviewLog(strapi, {
       article,
@@ -996,10 +1040,9 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
       article.slug = await repairArticleDocumentSlug(strapi, article);
     }
 
-    const updated = await updateArticle(strapi, article, {
+    const updated = await publishArticleDocument(strapi, article, {
       review_status: 'published',
       publish_time: new Date().toISOString(),
-      publishedAt: new Date().toISOString(),
     });
 
     await writeReviewLog(strapi, {
@@ -1041,7 +1084,7 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
       select: ['id', 'documentId', 'review_status', 'publish_time', 'publishedAt', 'updatedAt'],
       orderBy: { updatedAt: 'desc' },
     });
-    const latest = versions[0];
+    const latest = versions.find((version) => !version.publishedAt) || versions[0];
     const live = versions.find((version) => version.publishedAt && version.review_status === 'published');
     if (!latest || latest.review_status !== 'published' || !live) {
       return ctx.badRequest('仅可调整当前处于已发布状态的文章；审核中的内容不会因此发布。');
@@ -1052,10 +1095,9 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
     // Strapi 5 can store draft and published rows under the same documentId.
     // Change only the site-facing date in both rows; do not touch the system
     // publishedAt field or invoke a publish operation.
-    await strapi.db.query(ARTICLE_UID).updateMany({
-      where,
-      data: { publish_time: publishTime },
-    });
+    await strapi.db.connection('articles')
+      .whereIn('id', versions.map((version) => version.id))
+      .update({ publish_time: publishTime });
     await writeReviewLog(strapi, {
       article: live,
       reviewer: admin,
@@ -1072,6 +1114,50 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
     ctx.body = { data: updated };
   },
 
+  async changeUpdatedTime(ctx) {
+    const admin = await getCurrentAdmin(ctx, strapi);
+    if (!admin) return;
+    if (!isSuperAdmin(admin)) return ctx.forbidden('只有超级管理员可以调整文章修改时间。');
+
+    const requested = ctx.request.body?.updatedAt;
+    if (typeof requested !== 'string' ||
+        !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/.test(requested)) {
+      return ctx.badRequest('请提交有效的 UTC 修改时间。');
+    }
+    const timestamp = new Date(requested);
+    if (!Number.isFinite(timestamp.getTime()) ||
+        timestamp.toISOString().slice(0, 19) !== requested.slice(0, 19)) {
+      return ctx.badRequest('修改时间不是有效的日期。');
+    }
+    if (timestamp.getTime() > Date.now() + 60_000) {
+      return ctx.badRequest('修改时间不能晚于当前时间。');
+    }
+
+    const article = await findArticle(strapi, ctx.params.id);
+    if (!article) return ctx.notFound('文章不存在。');
+    const versions = await strapi.db.query(ARTICLE_UID).findMany({
+      where: article.documentId ? { documentId: article.documentId } : { id: article.id },
+      select: ['id'],
+    });
+    if (!versions.length) return ctx.notFound('文章不存在。');
+
+    const updatedAt = timestamp.toISOString();
+    await writeReviewLog(strapi, {
+      article,
+      reviewer: admin,
+      action: 'adjust_updated_time',
+      fromStatus: article.review_status,
+      toStatus: article.review_status,
+      comment: `修改时间由 ${article.updatedAt || '未记录'} 调整为 ${updatedAt}`,
+    });
+    // updatedAt is a Strapi system field. Query Engine writes set it to now;
+    // update the timestamp only, across both versions, after the audit event.
+    await strapi.db.connection('articles')
+      .whereIn('id', versions.map((version) => version.id))
+      .update({ updated_at: updatedAt });
+    ctx.body = { data: await findArticle(strapi, article.documentId || article.id) };
+  },
+
   async unpublish(ctx) {
     const admin = await getCurrentAdmin(ctx, strapi);
     if (!admin) return;
@@ -1086,9 +1172,14 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
     if (!canUnpublish) return ctx.forbidden('只有文章发布者或超级管理员可以取消发布。');
 
     const comment = String(ctx.request.body?.comment || '').trim();
-    const updated = await updateArticle(strapi, article, {
+    if (article.documentId) {
+      await strapi.documents(ARTICLE_UID).unpublish({ documentId: article.documentId });
+    }
+    const draft = article.documentId ? await findArticle(strapi, article.documentId) : article;
+    if (!draft) throw new Error('取消发布后未找到文章草稿。');
+    const updated = await updateArticle(strapi, draft, {
       review_status: 'unpublished',
-      publishedAt: null,
+      ...(!article.documentId ? { publishedAt: null } : {}),
       rejection_reason: comment || null,
     });
     await writeReviewLog(strapi, {
@@ -1171,6 +1262,7 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
           reject_republish: '退回修改审核',
           publish: '发布文章',
           adjust_publish_time: '调整发布时间',
+          adjust_updated_time: '调整修改时间',
           unpublish: '取消发布',
         }[log.action] || log.action,
         article: log.article ? {

@@ -119,6 +119,23 @@ export async function uploadFile(file: File) {
   return res.json();
 }
 
+export async function uploadFiles(files: File[]) {
+  if (files.length === 0) return [];
+  const formData = new FormData();
+  files.forEach((file) => formData.append('files', file));
+
+  const res = await strapiFetch(`${STRAPI_URL}/api/upload`, {
+    method: 'POST',
+    body: formData,
+  });
+
+  if (!res.ok) {
+    const result = await res.json().catch(() => ({}));
+    throw new Error(result?.error?.message || `附件上传失败：${res.status}`);
+  }
+  return res.json();
+}
+
 export const api = {
   // categories
   getCategories: (q = '') => strapiRequest<unknown>(`/api/categories${q}`),
@@ -181,6 +198,11 @@ export const api = {
     strapiRequest<unknown>(`/api/article-workflow/${encodeURIComponent(id)}/publish-time`, {
       method: 'POST',
       body: JSON.stringify({ publish_time: publishTime }),
+    }),
+  changeArticleUpdatedTime: (id: string, updatedAt: string) =>
+    strapiRequest<unknown>(`/api/article-workflow/${encodeURIComponent(id)}/updated-time`, {
+      method: 'POST',
+      body: JSON.stringify({ updatedAt }),
     }),
   unpublishArticle: (id: string, comment = '') =>
     strapiRequest<unknown>(`/api/article-workflow/${id}/unpublish`, {

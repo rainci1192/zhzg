@@ -1,4 +1,5 @@
-Extract into E:\zgweb and run in PowerShell:
+Extract into E:\zgweb, then run:
 cd E:\zgweb
-powershell -NoProfile -ExecutionPolicy Bypass -File .\install-article-slug-fix.ps1 -ProjectRoot E:\zgweb
-Restart Strapi.
+git apply --check .\article-detail-date-views.patch
+git apply .\article-detail-date-views.patch
+Restart Strapi, then restart frontend. Existing article counts start at zero.

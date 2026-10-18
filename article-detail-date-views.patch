@@ -1,0 +1,223 @@
+--- a/backend/src/api/article/content-types/article/schema.json
++++ b/backend/src/api/article/content-types/article/schema.json
+@@ -48,6 +48,11 @@
+     },
+     "publish_time": {
+       "type": "datetime"
++    },
++    "view_count": {
++      "type": "integer",
++      "default": 0,
++      "min": 0
+     },
+     "is_top": {
+       "type": "boolean",
+--- a/backend/src/api/article/controllers/article.js
++++ b/backend/src/api/article/controllers/article.js
+@@ -30,6 +30,7 @@
+   'level2_review_comment',
+   'level2_review_date',
+   'publish_time',
++  'view_count',
+   'published_by_admin',
+   'rejection_reason',
+   'reviewed_by_admin',
+--- a/frontend/app/article/[slug]/page.tsx
++++ b/frontend/app/article/[slug]/page.tsx
+@@ -8,6 +8,7 @@
+ import Footer from '@/components/layout/Footer';
+ import { getContentDetail } from '@/lib/strapi-content';
+ import { resolveMediaUrl } from '@/lib/public-urls';
++import ArticleViewCount from '@/components/article/ArticleViewCount';
+ 
+ export const dynamic = 'force-dynamic';
+ 
+@@ -28,6 +29,7 @@
+   content?: string;
+   summary?: string;
+   publish_time?: string;
++  view_count?: number;
+   is_top?: boolean;
+   cover?: { url?: string } | null;
+   primary_category?: { name?: string } | null;
+@@ -89,6 +91,7 @@
+     content: item.content || '',
+     summary: item.summary || '',
+     publish_time: item.publish_time || '',
++    view_count: Number(item.view_count) || 0,
+     is_top: Boolean(item.is_top),
+     cover: item.cover || null,
+     primary_category: item.primary_category || null,
+@@ -267,13 +270,13 @@
+         </h1>
+ 
+ 
+-        <div className="flex flex-wrap gap-x-6 gap-y-2 text-base text-gray-500 mb-8 border-b pb-6 justify-center">
+-
+-          <span>
+-            {article.publish_time
+-              ? new Date(article.publish_time).toLocaleDateString('zh-CN')
++        <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm md:text-base text-gray-500 mb-8 border-b pb-6 justify-center" aria-label="文章信息">
++          <time dateTime={article.publish_time || undefined}>
++            日期：{article.publish_time
++              ? new Intl.DateTimeFormat('zh-CN', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(article.publish_time))
+               : '--'}
+-          </span>
++          </time>
++          <ArticleViewCount slug={article.slug} initialCount={article.view_count || 0} />
+           {article.is_top && (
+             <span className="px-3 py-1 bg-amber-100 text-amber-700 text-xs rounded-full">
+               置顶
+--- /dev/null
++++ b/backend/src/api/article/controllers/article-views.js
+@@ -0,0 +1,51 @@
++'use strict';
++
++const { createCoreController } = require('@strapi/strapi').factories;
++const ARTICLE_UID = 'api::article.article';
++
++async function publishedVersions(strapi, slug) {
++  if (typeof slug !== 'string' || !slug || slug.length > 180 || slug.includes('/')) return null;
++  const query = strapi.db.query(ARTICLE_UID);
++  const published = await query.findOne({
++    where: { slug, review_status: 'published', publishedAt: { $notNull: true } },
++    select: ['id', 'documentId', 'view_count'],
++  });
++  if (!published) return null;
++  const versions = published.documentId
++    ? await query.findMany({ where: { documentId: published.documentId }, select: ['id', 'view_count'] })
++    : [published];
++  return { published, versions };
++}
++
++function maxViews(versions) {
++  return Math.max(0, ...versions.map((version) => Number(version.view_count) || 0));
++}
++
++module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
++  async count(ctx) {
++    const article = await publishedVersions(strapi, ctx.params.slug);
++    if (!article) return ctx.notFound('文章不存在或尚未发布。');
++    ctx.set('Cache-Control', 'no-store');
++    ctx.body = { data: { view_count: maxViews(article.versions) } };
++  },
++
++  async record(ctx) {
++    const article = await publishedVersions(strapi, ctx.params.slug);
++    if (!article) return ctx.notFound('文章不存在或尚未发布。');
++    const ids = article.versions.map((version) => version.id);
++    // The row lock makes simultaneous opens count correctly. Keep every
++    // draft/published version of a Strapi document on the same total.
++    const count = await strapi.db.connection.transaction(async (trx) => {
++      const rows = await trx('articles').whereIn('id', ids).orderBy('id').forUpdate()
++        .select('id', 'view_count', 'review_status', 'published_at');
++      const live = rows.find((row) => Number(row.id) === Number(article.published.id));
++      if (!live || live.review_status !== 'published' || !live.published_at) return null;
++      const next = maxViews(rows) + 1;
++      await trx('articles').whereIn('id', rows.map((row) => row.id)).update({ view_count: next });
++      return next;
++    });
++    if (count === null) return ctx.notFound('文章不存在或尚未发布。');
++    ctx.set('Cache-Control', 'no-store');
++    ctx.body = { data: { view_count: count } };
++  },
++}));
+--- /dev/null
++++ b/backend/src/api/article/routes/article-views.js
+@@ -0,0 +1,18 @@
++'use strict';
++
++module.exports = {
++  routes: [
++    {
++      method: 'GET',
++      path: '/article-views/:slug',
++      handler: 'api::article.article-views.count',
++      config: { auth: false },
++    },
++    {
++      method: 'POST',
++      path: '/article-views/:slug',
++      handler: 'api::article.article-views.record',
++      config: { auth: false },
++    },
++  ],
++};
+--- /dev/null
++++ b/frontend/app/api/article-views/[slug]/route.ts
+@@ -0,0 +1,36 @@
++import { NextRequest, NextResponse } from 'next/server';
++
++const API = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:1337').replace(/\/$/, '');
++
++async function forward(method: 'GET' | 'POST', params: Promise<{ slug: string }>) {
++  const { slug } = await params;
++  if (!slug || slug.length > 180 || slug.includes('/')) {
++    return NextResponse.json({ error: '无效的文章链接' }, { status: 400 });
++  }
++  try {
++    const response = await fetch(`${API}/api/article-views/${encodeURIComponent(slug)}`, {
++      method,
++      cache: 'no-store',
++      headers: { Accept: 'application/json' },
++    });
++    if (!response.ok) {
++      return NextResponse.json({ error: response.status === 404 ? '文章不存在' : '读取点击数失败' }, {
++        status: response.status === 404 ? 404 : 502,
++      });
++    }
++    const result = await response.json();
++    return NextResponse.json({ data: { view_count: Number(result?.data?.view_count) || 0 } }, {
++      headers: { 'Cache-Control': 'no-store' },
++    });
++  } catch {
++    return NextResponse.json({ error: '点击数服务暂不可用' }, { status: 502 });
++  }
++}
++
++export async function GET(_request: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
++  return forward('GET', params);
++}
++
++export async function POST(_request: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
++  return forward('POST', params);
++}
+--- /dev/null
++++ b/frontend/components/article/ArticleViewCount.tsx
+@@ -0,0 +1,36 @@
++'use client';
++
++import { useEffect, useState } from 'react';
++
++const COUNT_WINDOW_MS = 30 * 60 * 1000;
++
++export default function ArticleViewCount({ slug, initialCount }: { slug: string; initialCount: number }) {
++  const [count, setCount] = useState(initialCount);
++
++  useEffect(() => {
++    const key = `article-view:${slug}`;
++    const now = Date.now();
++    let last = 0;
++    try { last = Number(localStorage.getItem(key)) || 0; } catch { /* storage may be disabled */ }
++    const method = last > 0 && now - last < COUNT_WINDOW_MS ? 'GET' : 'POST';
++    if (method === 'POST') {
++      try { localStorage.setItem(key, String(now)); } catch { /* continue without storage */ }
++    }
++    fetch(`/api/article-views/${encodeURIComponent(slug)}`, { method, cache: 'no-store' })
++      .then((response) => {
++        if (!response.ok) throw new Error('点击数请求失败');
++        return response.json() as Promise<{ data?: { view_count?: number } }>;
++      })
++      .then((result) => {
++        const current = result?.data?.view_count;
++        if (typeof current === 'number' && Number.isSafeInteger(current) && current >= 0) setCount(current);
++      })
++      .catch(() => {
++        if (method === 'POST') {
++          try { if (localStorage.getItem(key) === String(now)) localStorage.removeItem(key); } catch { /* ignore */ }
++        }
++      });
++  }, [slug]);
++
++  return <span>点击数：<span className="tabular-nums">{count.toLocaleString('zh-CN')}</span></span>;
++}

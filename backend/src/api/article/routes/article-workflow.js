@@ -158,6 +158,16 @@ module.exports = {
     },
     {
       method: 'POST',
+      path: '/article-workflow/:id/updated-time',
+      handler: 'api::article.article.changeUpdatedTime',
+      config: {
+        auth: { scope: ['api::article.article.find'] },
+        policies: [],
+        middlewares: [],
+      },
+    },
+    {
+      method: 'POST',
       path: '/article-workflow/:id/unpublish',
       handler: 'api::article.article.unpublish',
       config: {

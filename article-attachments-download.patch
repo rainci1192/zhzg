@@ -1,0 +1,281 @@
+--- a/admin/app/(dashboard)/dashboard/articles/page.tsx
++++ b/admin/app/(dashboard)/dashboard/articles/page.tsx
+@@ -3,7 +3,7 @@
+ import { useEffect, useMemo, useState } from 'react';
+ import dynamic from 'next/dynamic';
+ import Image from 'next/image';
+-import { api, uploadFile } from '@/lib/api';
++import { api, uploadFile, uploadFiles } from '@/lib/api';
+ import { Plus, Edit, Trash2, Eye, Send, CheckCircle, XCircle, Clock, MessageSquare, User, ChevronDown, ChevronUp, Filter, RotateCcw, CalendarClock } from 'lucide-react';
+ import { useAuth } from '@/contexts/AuthContext';
+ import { useModulePermission } from '@/hooks/useModulePermission';
+@@ -67,6 +67,7 @@
+   primary_category?: { id: number; name: string } | null;
+   secondary_category?: { id: number; name: string } | null;
+   cover?: CoverMedia | null;
++  attachments?: UploadedFile[] | null;
+   created_by_admin?: AdminRelation | null;
+   level1_reviewer?: AdminRelation | null;
+   level2_reviewer?: AdminRelation | null;
+@@ -115,7 +116,11 @@
+ 
+ interface UploadedFile {
+   id: number;
++  documentId?: string;
++  name?: string;
+   url: string;
++  size?: number;
++  mime?: string;
+ }
+ 
+ const LEVEL1_ROLES = new Set(['article_level1_reviewer', 'level1_reviewer', 'reviewer_level1']);
+@@ -239,10 +244,12 @@
+     secondaryCategoryId: '',
+     coverId: '',
+     coverPreview: '',
++    attachments: [] as UploadedFile[],
+     publisherId: '',
+     publisherLabel: '',
+   });
+   const [coverFile, setCoverFile] = useState<File | null>(null);
++  const [attachmentFiles, setAttachmentFiles] = useState<File[]>([]);
+ 
+   const getKey = (article: Article) => article.documentId || String(article.id);
+ 
+@@ -382,6 +389,7 @@
+         secondaryCategoryId: article.secondary_category?.id ? String(article.secondary_category.id) : '',
+         coverId: article.cover?.id ? String(article.cover.id) : '',
+         coverPreview: article.cover?.url ? `${STRAPI_URL}${article.cover.url}` : '',
++        attachments: Array.isArray(article.attachments) ? article.attachments : [],
+         publisherId: article.created_by_admin?.documentId || (article.created_by_admin?.id != null ? String(article.created_by_admin.id) : ''),
+         publisherLabel: relationName(article.created_by_admin),
+       });
+@@ -395,11 +403,13 @@
+         secondaryCategoryId: '',
+         coverId: '',
+         coverPreview: '',
++        attachments: [],
+         publisherId: user?.documentId || user?.id || '',
+         publisherLabel: user?.name || user?.email || '',
+       });
+     }
+     setCoverFile(null);
++    setAttachmentFiles([]);
+     setIsModalOpen(true);
+   };
+ 
+@@ -420,6 +430,11 @@
+         const uploaded = (await uploadFile(coverFile)) as UploadedFile[];
+         if (uploaded?.[0]?.id) coverId = String(uploaded[0].id);
+       }
++      const newlyUploadedAttachments = (await uploadFiles(attachmentFiles)) as UploadedFile[];
++      const attachmentIds = [
++        ...form.attachments.map((file) => file.id),
++        ...newlyUploadedAttachments.map((file) => file.id),
++      ];
+ 
+       const payload: Record<string, unknown> = {
+         title: form.title,
+@@ -428,6 +443,7 @@
+         primary_category: Number(form.primaryCategoryId),
+         secondary_category: form.secondaryCategoryId ? Number(form.secondaryCategoryId) : null,
+         cover: coverId ? Number(coverId) : null,
++        attachments: attachmentIds,
+       };
+ 
+       if (isSuperAdmin && form.publisherId) {
+@@ -661,7 +677,7 @@
+       {filtersOpen && <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm"><div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4"><label className="text-sm text-gray-600">发布者<select value={filterDraft.publisherId} onChange={(event) => setFilterDraft((current) => ({ ...current, publisherId: event.target.value }))} className="mt-1.5 w-full rounded-lg border border-gray-200 px-3 py-2.5 text-gray-800"><option value="">全部用户</option>{publishers.map((publisher) => <option key={String(publisher.id)} value={String(publisher.id)}>{publisher.name}（{publisher.email}）</option>)}</select></label><label className="text-sm text-gray-600">一级分类<select value={filterDraft.primaryCategoryId} onChange={(event) => setFilterDraft((current) => ({ ...current, primaryCategoryId: event.target.value, secondaryCategoryId: '' }))} className="mt-1.5 w-full rounded-lg border border-gray-200 px-3 py-2.5 text-gray-800"><option value="">全部分类</option>{primaryOptions.map((category) => <option key={category.id} value={String(category.id)}>{category.name}</option>)}</select></label><label className="text-sm text-gray-600">二级分类<select value={filterDraft.secondaryCategoryId} onChange={(event) => setFilterDraft((current) => ({ ...current, secondaryCategoryId: event.target.value }))} className="mt-1.5 w-full rounded-lg border border-gray-200 px-3 py-2.5 text-gray-800"><option value="">全部分类</option>{filterSecondaryOptions.map((category) => <option key={category.id} value={String(category.id)}>{category.name}</option>)}</select></label><label className="text-sm text-gray-600">状态<select value={filterDraft.status} onChange={(event) => setFilterDraft((current) => ({ ...current, status: event.target.value }))} className="mt-1.5 w-full rounded-lg border border-gray-200 px-3 py-2.5 text-gray-800"><option value="">全部状态</option>{STATUS_OPTIONS.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}</select></label><label className="text-sm text-gray-600">发布时间（开始）<input type="date" value={filterDraft.publishFrom} onChange={(event) => setFilterDraft((current) => ({ ...current, publishFrom: event.target.value }))} className="mt-1.5 w-full rounded-lg border border-gray-200 px-3 py-2.5 text-gray-800" /></label><label className="text-sm text-gray-600">发布时间（结束）<input type="date" value={filterDraft.publishTo} onChange={(event) => setFilterDraft((current) => ({ ...current, publishTo: event.target.value }))} className="mt-1.5 w-full rounded-lg border border-gray-200 px-3 py-2.5 text-gray-800" /></label><label className="text-sm text-gray-600">修改时间（开始）<input type="date" value={filterDraft.updatedFrom} onChange={(event) => setFilterDraft((current) => ({ ...current, updatedFrom: event.target.value }))} className="mt-1.5 w-full rounded-lg border border-gray-200 px-3 py-2.5 text-gray-800" /></label><label className="text-sm text-gray-600">修改时间（结束）<input type="date" value={filterDraft.updatedTo} onChange={(event) => setFilterDraft((current) => ({ ...current, updatedTo: event.target.value }))} className="mt-1.5 w-full rounded-lg border border-gray-200 px-3 py-2.5 text-gray-800" /></label></div><div className="mt-4 flex justify-end gap-3"><button type="button" onClick={resetFilters} className="flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50"><RotateCcw className="h-4 w-4" />重置</button><button type="button" onClick={applyFilters} className="rounded-lg bg-blue-600 px-5 py-2 text-sm font-medium text-white hover:bg-blue-700">应用筛选</button></div></div>}
+       {loading ? <div className="py-12 text-center text-gray-400">加载中...</div> : <><div className="w-full overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-sm"><table className="w-full table-fixed"><thead className="border-b bg-gray-50"><tr><th className="w-[25%] px-3 py-4 text-left text-sm font-medium text-gray-500"><button type="button" onClick={() => toggleSort('title')} className="inline-flex items-center hover:text-blue-600">标题{renderSortIcon('title')}</button></th><th className="w-[11%] px-3 py-4 text-left text-sm font-medium text-gray-500"><button type="button" onClick={() => toggleSort('created_by_admin.name')} className="inline-flex items-center hover:text-blue-600">发布者{renderSortIcon('created_by_admin.name')}</button></th><th className="w-[8%] px-2 py-4 text-left text-sm font-medium text-gray-500"><button type="button" onClick={() => toggleSort('primary_category.name')} className="inline-flex items-center hover:text-blue-600">一级分类{renderSortIcon('primary_category.name')}</button></th><th className="w-[8%] px-2 py-4 text-left text-sm font-medium text-gray-500"><button type="button" onClick={() => toggleSort('secondary_category.name')} className="inline-flex items-center hover:text-blue-600">二级分类{renderSortIcon('secondary_category.name')}</button></th><th className="w-[10%] px-2 py-4 text-left text-sm font-medium text-gray-500"><button type="button" onClick={() => toggleSort('review_status')} className="inline-flex items-center hover:text-blue-600">状态{renderSortIcon('review_status')}</button></th><th className="w-[12%] px-2 py-4 text-left text-sm font-medium text-gray-500"><button type="button" onClick={() => toggleSort('publish_time')} className="inline-flex items-center hover:text-blue-600">发布时间{renderSortIcon('publish_time')}</button></th><th className="w-[12%] px-2 py-4 text-left text-sm font-medium text-gray-500"><button type="button" onClick={() => toggleSort('updatedAt')} className="inline-flex items-center hover:text-blue-600">最后修改{renderSortIcon('updatedAt')}</button></th><th className="w-[14%] px-2 py-4 text-center text-sm font-medium text-gray-500">操作</th></tr></thead><tbody className="divide-y">{articles.map((article) => <tr key={article.id} className="hover:bg-gray-50"><td className="break-words px-3 py-4"><div className="font-medium leading-5 text-gray-900">{article.title}</div><div className="break-all text-xs text-gray-400">slug: {article.slug}</div></td><td className="break-words px-3 py-4 text-sm"><span className="inline-flex max-w-full break-all items-center gap-1.5"><User className="h-3.5 w-3.5 shrink-0 text-gray-400" />{relationName(article.created_by_admin)}</span></td><td className="break-words px-2 py-4 text-sm">{article.primary_category?.name || '-'}</td><td className="break-words px-2 py-4 text-sm">{article.secondary_category?.name || '不分类'}</td><td className="px-2 py-4">{getStatusBadge(article.review_status)}</td><td className="break-words px-2 py-4 text-xs text-gray-500">{renderPublishTime(article)}</td><td className="break-words px-2 py-4 text-xs text-gray-500">{renderUpdatedTime(article)}</td><td className="px-2 py-4">{renderActions(article)}</td></tr>)}{articles.length === 0 && <tr><td colSpan={8} className="p-6 text-center text-gray-400">暂无符合条件的文章</td></tr>}</tbody></table></div><div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-100 bg-white px-4 py-3 text-sm text-gray-600"><span>第 {page} / {totalPages} 页，每页 {pageSize} 篇，共 {total} 篇</span><div className="flex items-center gap-2"><button type="button" disabled={page <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))} className="rounded-lg border border-gray-200 px-3 py-1.5 disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-300">上一页</button><button type="button" disabled={page >= totalPages} onClick={() => setPage((current) => Math.min(totalPages, current + 1))} className="rounded-lg border border-gray-200 px-3 py-1.5 disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-300">下一页</button></div></div></>}
+ 
+-      {isModalOpen && <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"><div className="bg-white rounded-3xl shadow-2xl w-full max-w-[min(96vw,1500px)] mx-4 p-8 max-h-[90vh] overflow-y-auto"><h2 className="text-2xl font-bold mb-6">{editingKey ? '编辑文章' : '新增文章'}</h2><form onSubmit={saveArticle} className="space-y-6"><div><label className="mb-2 block font-medium">发布者</label>{isSuperAdmin ? <select value={form.publisherId} onChange={(event) => { const selected = publishers.find((publisher) => String(publisher.documentId || publisher.id) === event.target.value); setForm((previous) => ({ ...previous, publisherId: event.target.value, publisherLabel: selected ? `${selected.name}（${selected.email}）` : '' })); }} className="w-full rounded border px-4 py-3"><option value="">请选择发布者</option>{publishers.map((publisher) => { const key = String(publisher.documentId || publisher.id); return <option key={key} value={key}>{publisher.name}（{publisher.email}）</option>; })}</select> : <input value={form.publisherLabel || user?.name || user?.email || ''} readOnly disabled className="w-full cursor-not-allowed rounded border bg-gray-50 px-4 py-3 text-gray-500" />}<p className="mt-1 text-xs text-gray-400">普通用户只能使用本人账号发布；超级管理员可以指定其他有效后台用户。</p></div><input className="w-full px-4 py-3 border rounded" placeholder="标题" value={form.title} onChange={(event) => setForm((previous) => ({ ...previous, title: event.target.value }))} required /><textarea className="w-full px-4 py-3 border rounded" placeholder="摘要" rows={2} value={form.summary} onChange={(event) => setForm((previous) => ({ ...previous, summary: event.target.value }))} /><div><label className="block mb-2 font-medium">正文内容</label><WordLikeEditor value={form.content} onChange={(html) => setForm((previous) => ({ ...previous, content: html }))} uploadImage={handleEditorUpload} /></div><div className="grid grid-cols-1 md:grid-cols-2 gap-6"><div><label className="block mb-2 font-medium">一级分类（必选）</label><select value={form.primaryCategoryId} onChange={(event) => setForm((previous) => ({ ...previous, primaryCategoryId: event.target.value, secondaryCategoryId: '' }))} className="w-full px-4 py-3 border rounded"><option value="">请选择一级分类</option>{primaryOptions.map((category) => <option key={category.id} value={String(category.id)}>{category.name}</option>)}</select></div><div><label className="block mb-2 font-medium">二级分类（可选）</label><select value={form.secondaryCategoryId} onChange={(event) => setForm((previous) => ({ ...previous, secondaryCategoryId: event.target.value }))} className="w-full px-4 py-3 border rounded" disabled={!form.primaryCategoryId}><option value="">不分类</option>{secondaryOptions.map((category) => <option key={category.id} value={String(category.id)}>{category.name}</option>)}</select></div></div><div><label className="block mb-2 font-medium">封面图</label>{form.coverPreview && <Image src={form.coverPreview} width={160} height={96} className="w-40 h-24 object-cover rounded mb-2" alt="cover" unoptimized />}<input type="file" accept="image/*" onChange={(event) => setCoverFile(event.target.files?.[0] || null)} /></div><div className="flex justify-end gap-4"><button type="button" onClick={() => setIsModalOpen(false)} className="px-6 py-3 border rounded">取消</button><button type="submit" className="px-6 py-3 bg-blue-600 text-white rounded">保存</button></div></form></div></div>}
++      {isModalOpen && <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"><div className="bg-white rounded-3xl shadow-2xl w-full max-w-[min(96vw,1500px)] mx-4 p-8 max-h-[90vh] overflow-y-auto"><h2 className="text-2xl font-bold mb-6">{editingKey ? '编辑文章' : '新增文章'}</h2><form onSubmit={saveArticle} className="space-y-6"><div><label className="mb-2 block font-medium">发布者</label>{isSuperAdmin ? <select value={form.publisherId} onChange={(event) => { const selected = publishers.find((publisher) => String(publisher.documentId || publisher.id) === event.target.value); setForm((previous) => ({ ...previous, publisherId: event.target.value, publisherLabel: selected ? `${selected.name}（${selected.email}）` : '' })); }} className="w-full rounded border px-4 py-3"><option value="">请选择发布者</option>{publishers.map((publisher) => { const key = String(publisher.documentId || publisher.id); return <option key={key} value={key}>{publisher.name}（{publisher.email}）</option>; })}</select> : <input value={form.publisherLabel || user?.name || user?.email || ''} readOnly disabled className="w-full cursor-not-allowed rounded border bg-gray-50 px-4 py-3 text-gray-500" />}<p className="mt-1 text-xs text-gray-400">普通用户只能使用本人账号发布；超级管理员可以指定其他有效后台用户。</p></div><input className="w-full px-4 py-3 border rounded" placeholder="标题" value={form.title} onChange={(event) => setForm((previous) => ({ ...previous, title: event.target.value }))} required /><textarea className="w-full px-4 py-3 border rounded" placeholder="摘要" rows={2} value={form.summary} onChange={(event) => setForm((previous) => ({ ...previous, summary: event.target.value }))} /><div><label className="block mb-2 font-medium">正文内容</label><WordLikeEditor value={form.content} onChange={(html) => setForm((previous) => ({ ...previous, content: html }))} uploadImage={handleEditorUpload} /></div><div className="grid grid-cols-1 md:grid-cols-2 gap-6"><div><label className="block mb-2 font-medium">一级分类（必选）</label><select value={form.primaryCategoryId} onChange={(event) => setForm((previous) => ({ ...previous, primaryCategoryId: event.target.value, secondaryCategoryId: '' }))} className="w-full px-4 py-3 border rounded"><option value="">请选择一级分类</option>{primaryOptions.map((category) => <option key={category.id} value={String(category.id)}>{category.name}</option>)}</select></div><div><label className="block mb-2 font-medium">二级分类（可选）</label><select value={form.secondaryCategoryId} onChange={(event) => setForm((previous) => ({ ...previous, secondaryCategoryId: event.target.value }))} className="w-full px-4 py-3 border rounded" disabled={!form.primaryCategoryId}><option value="">不分类</option>{secondaryOptions.map((category) => <option key={category.id} value={String(category.id)}>{category.name}</option>)}</select></div></div><div><label className="block mb-2 font-medium">封面图</label>{form.coverPreview && <Image src={form.coverPreview} width={160} height={96} className="w-40 h-24 object-cover rounded mb-2" alt="cover" unoptimized />}<input type="file" accept="image/*" onChange={(event) => setCoverFile(event.target.files?.[0] || null)} /></div><section className="rounded-xl border border-gray-200 p-4"><div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-medium text-gray-900">文章附件</h3><p className="mt-1 text-xs text-gray-500">可上传多个 Word、Excel、PPT、PDF、压缩包、文本或常见图片文件。</p></div><label className="cursor-pointer rounded-lg border border-blue-200 px-4 py-2 text-sm font-medium text-blue-700 hover:bg-blue-50">选择附件<input type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.rar,.7z,.txt,.csv,.jpg,.jpeg,.png,.gif,.webp" className="sr-only" onChange={(event) => { setAttachmentFiles((current) => [...current, ...Array.from(event.target.files || [])]); event.currentTarget.value = ''; }} /></label></div>{(form.attachments.length > 0 || attachmentFiles.length > 0) ? <ul className="mt-3 divide-y divide-gray-100">{form.attachments.map((file) => <li key={`existing-${file.documentId || file.id}`} className="flex items-center justify-between gap-3 py-2 text-sm"><span className="min-w-0 truncate">📎 {file.name || `附件 ${file.id}`}</span><button type="button" onClick={() => setForm((current) => ({ ...current, attachments: current.attachments.filter((item) => item.id !== file.id) }))} className="shrink-0 text-red-600 hover:text-red-800">移除</button></li>)}{attachmentFiles.map((file, index) => <li key={`new-${index}-${file.name}`} className="flex items-center justify-between gap-3 py-2 text-sm"><span className="min-w-0 truncate">📎 {file.name} <span className="text-xs text-gray-400">（待上传）</span></span><button type="button" onClick={() => setAttachmentFiles((current) => current.filter((_, itemIndex) => itemIndex !== index))} className="shrink-0 text-red-600 hover:text-red-800">移除</button></li>)}</ul> : <p className="mt-3 text-sm text-gray-400">尚未添加附件</p>}</section><div className="flex justify-end gap-4"><button type="button" onClick={() => setIsModalOpen(false)} className="px-6 py-3 border rounded">取消</button><button type="submit" className="px-6 py-3 bg-blue-600 text-white rounded">保存</button></div></form></div></div>}
+ 
+       {timeArticle && isSuperAdmin && (
+         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+--- a/admin/lib/api.ts
++++ b/admin/lib/api.ts
+@@ -116,6 +116,23 @@
+   });
+ 
+   if (!res.ok) throw new Error(`Upload failed: ${res.status}`);
++  return res.json();
++}
++
++export async function uploadFiles(files: File[]) {
++  if (files.length === 0) return [];
++  const formData = new FormData();
++  files.forEach((file) => formData.append('files', file));
++
++  const res = await strapiFetch(`${STRAPI_URL}/api/upload`, {
++    method: 'POST',
++    body: formData,
++  });
++
++  if (!res.ok) {
++    const result = await res.json().catch(() => ({}));
++    throw new Error(result?.error?.message || `附件上传失败：${res.status}`);
++  }
+   return res.json();
+ }
+ 
+--- a/backend/src/api/article/content-types/article/schema.json
++++ b/backend/src/api/article/content-types/article/schema.json
+@@ -66,6 +66,13 @@
+       "multiple": false,
+       "allowedTypes": [
+         "images"
++      ]
++    },
++    "attachments": {
++      "type": "media",
++      "multiple": true,
++      "allowedTypes": [
++        "files"
+       ]
+     },
+     "primary_category": {
+--- a/backend/src/api/article/controllers/article.js
++++ b/backend/src/api/article/controllers/article.js
+@@ -52,6 +52,7 @@
+   'primary_category',
+   'secondary_category',
+   'cover',
++  'attachments',
+ ];
+ 
+ function roleName(admin) {
+--- a/frontend/app/article/[slug]/page.tsx
++++ b/frontend/app/article/[slug]/page.tsx
+@@ -32,6 +32,7 @@
+   view_count?: number;
+   is_top?: boolean;
+   cover?: { url?: string } | null;
++  attachments?: Array<{ id?: number; documentId?: string; name?: string; url?: string; size?: number }>;
+   primary_category?: { name?: string } | null;
+   secondary_category?: { name?: string } | null;
+ };
+@@ -71,6 +72,7 @@
+     'populate[0]': 'cover',
+     'populate[1]': 'primary_category',
+     'populate[2]': 'secondary_category',
++    'populate[3]': 'attachments',
+   }).toString();
+ 
+   const res = await fetch(`${API}/api/articles?${qs}`, {
+@@ -94,6 +96,7 @@
+     view_count: Number(item.view_count) || 0,
+     is_top: Boolean(item.is_top),
+     cover: item.cover || null,
++    attachments: Array.isArray(item.attachments) ? item.attachments : item.attachments?.data || [],
+     primary_category: item.primary_category || null,
+     secondary_category: item.secondary_category || null,
+   };
+@@ -293,6 +296,27 @@
+           className="article-content prose max-w-none"
+           dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(article.content || '<p>暂无内容</p>') }}
+         />
++
++        {article.attachments && article.attachments.length > 0 && (
++          <section className="mt-10 rounded-2xl border border-slate-200 bg-slate-50 p-5 md:p-7" aria-labelledby="article-attachments-title">
++            <h2 id="article-attachments-title" className="text-lg font-semibold text-slate-900">相关附件</h2>
++            <ul className="mt-3 divide-y divide-slate-200">
++              {article.attachments.map((attachment) => {
++                const fileKey = attachment.documentId || attachment.id;
++                if (!fileKey) return null;
++                return (
++                  <li key={String(fileKey)} className="flex flex-wrap items-center justify-between gap-3 py-3">
++                    <span className="min-w-0 break-all text-sm text-slate-700">{attachment.name || '文章附件'}</span>
++                    <a href={`/api/article-attachments/${encodeURIComponent(article.slug)}/${encodeURIComponent(String(fileKey))}`}
++                      className="inline-flex shrink-0 items-center rounded-lg bg-blue-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-800">
++                      下载附件
++                    </a>
++                  </li>
++                );
++              })}
++            </ul>
++          </section>
++        )}
+ 
+         {coverImage && (
+           <div className="relative w-full mt-10 rounded-xl overflow-hidden shadow-md aspect-[16/9]">
+--- /dev/null
++++ b/frontend/app/api/article-attachments/[slug]/[fileId]/route.ts
+@@ -0,0 +1,77 @@
++import { NextResponse } from 'next/server';
++
++const API = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:1337').replace(/\/$/, '');
++
++type MediaFile = {
++  id?: number;
++  documentId?: string;
++  name?: string;
++  url?: string;
++};
++
++function mediaItems(value: unknown): MediaFile[] {
++  if (Array.isArray(value)) return value as MediaFile[];
++  if (value && typeof value === 'object' && 'data' in value) {
++    const data = (value as { data?: unknown }).data;
++    if (Array.isArray(data)) return data as MediaFile[];
++    if (data && typeof data === 'object') return [data as MediaFile];
++  }
++  return [];
++}
++
++function encodeFilename(name: string) {
++  const safeFallback = name.replace(/[\\/:*?"<>|\u0000-\u001f]/g, '_').replace(/[. ]+$/g, '').slice(0, 150) || 'article-attachment';
++  const encoded = encodeURIComponent(name).replace(/[!'()*]/g, (char) => `%${char.charCodeAt(0).toString(16).toUpperCase()}`);
++  return `attachment; filename="${safeFallback.replace(/"/g, '_')}"; filename*=UTF-8''${encoded}`;
++}
++
++export async function GET(_request: Request, { params }: { params: Promise<{ slug: string; fileId: string }> }) {
++  const { slug, fileId } = await params;
++  if (!slug || slug.length > 180 || slug.includes('/') || !fileId || fileId.length > 128) {
++    return NextResponse.json({ error: '无效的附件链接' }, { status: 400 });
++  }
++
++  try {
++    const query = new URLSearchParams({
++      'filters[slug][$eq]': slug,
++      'filters[review_status][$eq]': 'published',
++      status: 'published',
++      'populate[0]': 'attachments',
++      'pagination[pageSize]': '1',
++    });
++    const articleResponse = await fetch(`${API}/api/articles?${query}`, {
++      cache: 'no-store',
++      headers: { Accept: 'application/json' },
++    });
++    if (!articleResponse.ok) return NextResponse.json({ error: '无法读取文章附件' }, { status: 502 });
++    const articleResult = await articleResponse.json();
++    const article = articleResult?.data?.[0];
++    if (!article) return NextResponse.json({ error: '文章不存在' }, { status: 404 });
++
++    const file = mediaItems(article.attachments).find((item) =>
++      String(item.documentId || item.id || '') === fileId
++    );
++    if (!file?.url) return NextResponse.json({ error: '该附件不属于此已发布文章' }, { status: 404 });
++
++    const fileUrl = new URL(file.url, API);
++    if (fileUrl.origin !== new URL(API).origin) {
++      return NextResponse.json({ error: '不支持此附件存储地址' }, { status: 502 });
++    }
++    const fileResponse = await fetch(fileUrl, { cache: 'no-store' });
++    if (!fileResponse.ok || !fileResponse.body) {
++      return NextResponse.json({ error: '附件文件暂不可用' }, { status: 502 });
++    }
++
++    const headers = new Headers({
++      'Content-Type': fileResponse.headers.get('content-type') || 'application/octet-stream',
++      'Content-Disposition': encodeFilename(file.name || 'article-attachment'),
++      'Cache-Control': 'public, max-age=300',
++      'X-Content-Type-Options': 'nosniff',
++    });
++    const contentLength = fileResponse.headers.get('content-length');
++    if (contentLength) headers.set('Content-Length', contentLength);
++    return new Response(fileResponse.body, { status: 200, headers });
++  } catch {
++    return NextResponse.json({ error: '附件下载服务暂不可用' }, { status: 502 });
++  }
++}
