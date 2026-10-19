@@ -16,6 +16,17 @@ type ParagraphAlignment = 'left' | 'center' | 'right' | 'justify';
 type TableAlignment = 'left' | 'center' | 'right';
 type ImageAlignment = 'left' | 'center' | 'right';
 type ImageToolsState = { left: number; top: number; width: number; height: number; alignment: ImageAlignment };
+type ImageResizeDirection = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w';
+const IMAGE_RESIZE_HANDLES: readonly { direction: ImageResizeDirection; label: string; x: number; y: number }[] = [
+  { direction: 'nw', label: '左上角', x: 0, y: 0 },
+  { direction: 'n', label: '上边中点', x: 0.5, y: 0 },
+  { direction: 'ne', label: '右上角', x: 1, y: 0 },
+  { direction: 'e', label: '右边中点', x: 1, y: 0.5 },
+  { direction: 'se', label: '右下角', x: 1, y: 1 },
+  { direction: 's', label: '下边中点', x: 0.5, y: 1 },
+  { direction: 'sw', label: '左下角', x: 0, y: 1 },
+  { direction: 'w', label: '左边中点', x: 0, y: 0.5 },
+];
 
 const MIN_COLUMN_WIDTH = 36;
 const MAX_COLUMN_WIDTH = 1200;
@@ -489,19 +500,23 @@ export default function WordLikeEditor({ value, onChange, uploadImage }: Props) 
     if (root) setImageTools((current) => current ? { ...current, left: rect.left - root.left, top: rect.top - root.top, width: rect.width, height: rect.height } : current);
   }
 
-  function beginImageResize(event: ReactPointerEvent<HTMLButtonElement>) {
+  function beginImageResize(event: ReactPointerEvent<HTMLButtonElement>, direction: ImageResizeDirection) {
     const editor = editorRef.current;
     const image = activeImageRef.current;
     if (!editor || !image?.isConnected || event.button !== 0) return;
     event.preventDefault();
     event.stopPropagation();
     const startX = event.clientX;
+    const startY = event.clientY;
+    const pointerId = event.pointerId;
     const startWidth = image.getBoundingClientRect().width;
     const startHeight = image.getBoundingClientRect().height;
-    const ratio = startWidth > 0 && startHeight > 0 ? startHeight / startWidth : 1;
     const move = (moveEvent: PointerEvent) => {
-      const width = Math.max(24, Math.min(2400, Math.round(startWidth + moveEvent.clientX - startX)));
-      const height = Math.max(24, Math.min(2400, Math.round(width * ratio)));
+      if (moveEvent.pointerId !== pointerId) return;
+      const widthDelta = direction.includes('e') ? moveEvent.clientX - startX : direction.includes('w') ? startX - moveEvent.clientX : 0;
+      const heightDelta = direction.includes('s') ? moveEvent.clientY - startY : direction.includes('n') ? startY - moveEvent.clientY : 0;
+      const width = Math.max(24, Math.min(2400, Math.round(startWidth + widthDelta)));
+      const height = Math.max(24, Math.min(2400, Math.round(startHeight + heightDelta)));
       image.style.width = `${width}px`;
       image.style.height = `${height}px`;
       image.style.maxWidth = 'none';
@@ -512,23 +527,27 @@ export default function WordLikeEditor({ value, onChange, uploadImage }: Props) 
       if (rootRect) setImageTools((current) => current ? { ...current, left: imageRect.left - rootRect.left, top: imageRect.top - rootRect.top, width: imageRect.width, height: imageRect.height } : current);
       moveEvent.preventDefault();
     };
-    const finish = () => {
+    const finish = (finishEvent: PointerEvent) => {
+      if (finishEvent.pointerId !== pointerId) return;
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', finish);
       window.removeEventListener('pointercancel', finish);
       editor.synchronizeValues();
     };
     window.addEventListener('pointermove', move);
-    window.addEventListener('pointerup', finish, { once: true });
-    window.addEventListener('pointercancel', finish, { once: true });
+    window.addEventListener('pointerup', finish);
+    window.addEventListener('pointercancel', finish);
   }
 
   return (
-    <div ref={rootRef} className="word-like-editor" data-editor-build="image-table-tools-20261019">
+    <div ref={rootRef} className="word-like-editor" data-editor-build="image-eight-handles-20261019">
       {imageTools && activeImageRef.current && <>
         <div className="word-like-editor__image-selection" aria-hidden="true" style={{ left: imageTools.left, top: imageTools.top, width: imageTools.width, height: imageTools.height }} />
-        <button type="button" className="word-like-editor__image-resize-handle" style={{ left: imageTools.left + imageTools.width - 7, top: imageTools.top + imageTools.height - 7 }}
-          onPointerDown={beginImageResize} title="拖动调整图片大小" aria-label="拖动调整图片大小" />
+        {IMAGE_RESIZE_HANDLES.map(({ direction, label, x, y }) => (
+          <button key={direction} type="button" className={`word-like-editor__image-resize-handle word-like-editor__image-resize-handle--${direction}`}
+            style={{ left: imageTools.left + imageTools.width * x - 7, top: imageTools.top + imageTools.height * y - 7 }}
+            onPointerDown={(event) => beginImageResize(event, direction)} title={`拖动${label}调整图片大小`} aria-label={`拖动${label}调整图片大小`} />
+        ))}
       </>}
       {imageTools && <div className="word-like-editor__image-tools" role="toolbar" aria-label="图片编辑工具">
         <strong>图片工具</strong>

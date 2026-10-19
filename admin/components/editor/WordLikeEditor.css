@@ -107,9 +107,17 @@
   border-radius: 50%;
   background: #2563eb;
   box-shadow: 0 1px 4px #0f172a66;
-  cursor: nwse-resize;
   touch-action: none;
 }
+
+.word-like-editor__image-resize-handle--nw,
+.word-like-editor__image-resize-handle--se { cursor: nwse-resize; }
+.word-like-editor__image-resize-handle--ne,
+.word-like-editor__image-resize-handle--sw { cursor: nesw-resize; }
+.word-like-editor__image-resize-handle--n,
+.word-like-editor__image-resize-handle--s { cursor: ns-resize; }
+.word-like-editor__image-resize-handle--e,
+.word-like-editor__image-resize-handle--w { cursor: ew-resize; }
 
 .word-like-editor__table-tools {
   display: flex;

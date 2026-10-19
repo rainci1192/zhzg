@@ -3,11 +3,9 @@ import type { Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
 import PageHero from '@/components/layout/PageHero';
-import Image from 'next/image';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import { getContentDetail } from '@/lib/strapi-content';
-import { resolveMediaUrl } from '@/lib/public-urls';
 import ArticleViewCount from '@/components/article/ArticleViewCount';
 
 export const dynamic = 'force-dynamic';
@@ -31,7 +29,6 @@ type FullArticle = {
   publish_time?: string;
   view_count?: number;
   is_top?: boolean;
-  cover?: { url?: string } | null;
   attachments?: Array<{ id?: number; documentId?: string; name?: string; url?: string; size?: number }>;
   attachment_names?: Record<string, string> | null;
   attachment_download_counts?: Record<string, number> | null;
@@ -71,10 +68,9 @@ async function getArticleFullBySlug(slug: string): Promise<FullArticle | null> {
     'filters[slug][$eq]': slug,
     'filters[review_status][$eq]': 'published',
     'status': 'published',
-    'populate[0]': 'cover',
-    'populate[1]': 'primary_category',
-    'populate[2]': 'secondary_category',
-    'populate[3]': 'attachments',
+    'populate[0]': 'primary_category',
+    'populate[1]': 'secondary_category',
+    'populate[2]': 'attachments',
   }).toString();
 
   const res = await fetch(`${API}/api/articles?${qs}`, {
@@ -97,7 +93,6 @@ async function getArticleFullBySlug(slug: string): Promise<FullArticle | null> {
     publish_time: item.publish_time || '',
     view_count: Number(item.view_count) || 0,
     is_top: Boolean(item.is_top),
-    cover: item.cover || null,
     attachments: Array.isArray(item.attachments) ? item.attachments : item.attachments?.data || [],
     attachment_names: item.attachment_names || {},
     attachment_download_counts: item.attachment_download_counts || {},
@@ -262,7 +257,6 @@ export default async function ArticlePage({
   const { prev, next } = getPrevNextByOrderedList(ordered, article.slug);
 
   const fromQuery = `?from=${effectiveFrom}`;
-  const coverImage = resolveMediaUrl(article.cover?.url);
 
   return (
     <>
@@ -326,18 +320,6 @@ export default async function ArticlePage({
           </section>
         )}
 
-        {coverImage && (
-          <div className="relative w-full mt-10 rounded-xl overflow-hidden shadow-md aspect-[16/9]">
-            <Image
-              src={coverImage}
-              alt={article.title}
-              fill
-              className="object-cover"
-              sizes="(max-width: 768px) 100vw, 80vw"
-              priority
-            />
-          </div>
-        )}
       </div>
 
       <div className="site-article-navigation w-full border-t border-gray-200 bg-white py-12">
