@@ -148,6 +148,10 @@ export const api = {
 
   // articles（关联字段自动 normalize）
   getArticles: (q = '') => strapiRequest<unknown>(`/api/articles${q}`),
+  getUploadedFileByUrl: (url: string) => {
+    const params = new URLSearchParams({ url });
+    return strapiRequest<unknown>(`/api/article-workflow/image-media?${params.toString()}`);
+  },
   getWorkflowArticles: (q = '') => strapiRequest<unknown>(`/api/article-workflow/list${q}`),
   getWorkflowStats: () => strapiRequest<unknown>('/api/article-workflow/stats'),
   getArticleCategoryOptions: () => strapiRequest<unknown>('/api/article-workflow/category-options'),

@@ -314,8 +314,21 @@ function buildTasks(articles, admin, identity) {
   const superAdmin = isSuperAdmin(admin);
   const level1 = isLevel1(admin);
   const level2 = isLevel2(admin);
-
+  // Strapi 5 returns one draft and one published row for the same document.
+  // Build workbench cards from a single current row to avoid duplicate keys
+  // and duplicate actions for one article.
+  const latestByDocument = new Map();
   for (const article of articles || []) {
+    const key = String(article.documentId || article.id);
+    const current = latestByDocument.get(key);
+    if (!current || (!article.publishedAt && current.publishedAt) ||
+      (Boolean(!article.publishedAt) === Boolean(!current.publishedAt) &&
+        String(article.updatedAt || '') > String(current.updatedAt || ''))) {
+      latestByDocument.set(key, article);
+    }
+  }
+
+  for (const article of latestByDocument.values()) {
     const mine = ownerMatches(article, admin, identity);
     const status = article.review_status;
 
@@ -377,7 +390,13 @@ function buildTasks(articles, admin, identity) {
     }
   }
 
-  return tasks.sort((a, b) => String(b.updatedAt || b.createdAt || '').localeCompare(String(a.updatedAt || a.createdAt || '')));
+  const uniqueTasks = new Map();
+  for (const task of tasks) {
+    // Keep the API response safe for React even if legacy rows produce the
+    // same document/action pair through different Strapi variants.
+    if (!uniqueTasks.has(task.id)) uniqueTasks.set(task.id, task);
+  }
+  return Array.from(uniqueTasks.values()).sort((a, b) => String(b.updatedAt || b.createdAt || '').localeCompare(String(a.updatedAt || a.createdAt || '')));
 }
 
 async function findArticle(strapi, key) {
@@ -711,6 +730,27 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
     };
   },
 
+  async imageMedia(ctx) {
+    const admin = await getCurrentAdmin(ctx, strapi);
+    if (!admin) return;
+    if (!(await hasArticleAction(strapi, admin, 'view'))) {
+      return ctx.forbidden('当前角色没有查看文章的权限。');
+    }
+
+    const mediaUrl = String(ctx.query.url || '').trim();
+    // Only resolve a media record by its local upload path. This avoids
+    // turning this helper into a general media-library enumeration endpoint.
+    if (!mediaUrl.startsWith('/uploads/') || mediaUrl.length > 2048 || mediaUrl.includes('..')) {
+      return ctx.badRequest('图片地址无效。');
+    }
+
+    const media = await strapi.db.query('plugin::upload.file').findOne({
+      where: { url: mediaUrl },
+      select: ['id', 'documentId', 'url', 'name', 'mime', 'width', 'height'],
+    });
+    ctx.body = { data: media || null };
+  },
+
   // Admin article lists must include draft and published Strapi documents.
   // The generated REST find endpoint defaults to the published content view,
   // which hides documents whose Strapi `publishedAt` is null even when the
@@ -793,7 +833,7 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
         liveDocumentIds.has(String(row.documentId)),
     }));
 
-    const sortPath = String(query.sort || 'createdAt:desc').split(':');
+    const sortPath = String(query.sort || 'updatedAt:desc').split(':');
     const sortField = sortPath[0];
     const sortDirection = sortPath[1] === 'asc' ? 1 : -1;
     const sortableFields = new Set([
@@ -813,7 +853,10 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
       const result = typeof aValue === 'number' && typeof bValue === 'number'
         ? aValue - bValue
         : String(aValue).localeCompare(String(bValue), 'zh-CN', { numeric: true });
-      return result * sortDirection;
+      if (result !== 0) return result * sortDirection;
+      const updatedDelta = Date.parse(String(right.updatedAt || '')) - Date.parse(String(left.updatedAt || ''));
+      if (Number.isFinite(updatedDelta) && updatedDelta !== 0) return updatedDelta;
+      return String(right.documentId || right.id).localeCompare(String(left.documentId || left.id), 'en', { numeric: true });
     });
 
     const total = rows.length;
@@ -1072,7 +1115,7 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
     if (!String(article.title || '').trim()) {
       return ctx.badRequest('文章标题为空，无法发布；请先编辑文章并保存标题。');
     }
-    if (article.hasPublishedVersion) {
+    if (article.review_status === 'published' && article.hasPublishedVersion) {
       return ctx.badRequest('文章已有已发布版本，不能重复直接发布；如需修改，请编辑后重新提交审核。');
     }
     if (!isSuperAdmin(admin) && article.review_status !== 'approved_pending_publish' && article.review_status !== 'approved') {

@@ -297,6 +297,13 @@ a {
   margin: 1.5em auto !important;
 }
 
+.article-content img[data-align="left"],
+.prose img[data-align="left"] { margin-left: 0 !important; margin-right: auto !important; }
+.article-content img[data-align="center"],
+.prose img[data-align="center"] { margin-left: auto !important; margin-right: auto !important; }
+.article-content img[data-align="right"],
+.prose img[data-align="right"] { margin-left: auto !important; margin-right: 0 !important; }
+
 /* 引用块样式 */
 .article-content blockquote,
 .prose blockquote {

@@ -14,7 +14,7 @@ const OPTIONS: sanitizeHtml.IOptions = {
     a: [...(sanitizeHtml.defaults.allowedAttributes.a || []), 'rel', 'style'],
     p: ['style'], div: ['style'], span: ['style'],
     h1: ['style'], h2: ['style'], h3: ['style'], h4: ['style'],
-    img: ['src', 'alt', 'title', 'width', 'height', 'loading', 'style'],
+    img: ['src', 'alt', 'title', 'width', 'height', 'loading', 'style', 'data-align'],
     iframe: ['src', 'title', 'width', 'height', 'allow', 'allowfullscreen', 'loading', 'referrerpolicy', 'sandbox'],
     table: ['width', 'border', 'cellpadding', 'cellspacing', 'align', 'style'],
     tr: ['style'], col: ['span', 'width', 'style'], colgroup: ['span', 'width', 'style'],

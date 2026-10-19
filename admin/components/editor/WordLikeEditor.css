@@ -1,4 +1,5 @@
 .word-like-editor {
+  position: relative;
   border: 1px solid #cbd5e1;
   border-radius: 12px;
   background: #f1f5f9;
@@ -47,6 +48,68 @@
 .word-like-editor .jodit-wysiwyg th { text-align: center; }
 .word-like-editor .jodit-wysiwyg table p { text-indent: 0; margin: 0; }
 .word-like-editor .jodit-wysiwyg img { max-width: 100%; height: auto; }
+
+.word-like-editor__image-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px;
+  border-bottom: 1px solid #bfd2e6;
+  background: #eff6ff;
+  color: #173d65;
+  font: 13px/1.5 "Microsoft YaHei", sans-serif;
+}
+
+.word-like-editor__image-tools .word-like-editor__tool-group {
+  border: 0;
+  padding: 0;
+}
+
+.word-like-editor__image-tools button {
+  border: 1px solid #bfd2e6;
+  border-radius: 5px;
+  padding: 4px 8px;
+  background: #fff;
+  color: #173d65;
+}
+
+.word-like-editor__image-tools button:hover,
+.word-like-editor__image-tools button[aria-pressed="true"] {
+  background: #dbeafe;
+  border-color: #60a5fa;
+}
+
+.word-like-editor__image-tools label { display: inline-flex; align-items: center; gap: 4px; }
+.word-like-editor__image-tools input {
+  width: 76px;
+  border: 1px solid #bfd2e6;
+  border-radius: 5px;
+  padding: 4px 6px;
+  background: #fff;
+  color: #1f2937;
+}
+
+.word-like-editor__image-selection {
+  position: absolute;
+  z-index: 1200;
+  box-sizing: border-box;
+  border: 2px solid #2563eb;
+  pointer-events: none;
+}
+
+.word-like-editor__image-resize-handle {
+  position: absolute;
+  z-index: 1201;
+  width: 14px;
+  height: 14px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: #2563eb;
+  box-shadow: 0 1px 4px #0f172a66;
+  cursor: nwse-resize;
+  touch-action: none;
+}
 
 .word-like-editor__table-tools {
   display: flex;

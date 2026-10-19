@@ -44,6 +44,16 @@ module.exports = {
     },
     {
       method: 'GET',
+      path: '/article-workflow/image-media',
+      handler: 'api::article.article.imageMedia',
+      config: {
+        auth: { scope: ['api::article.article.find'] },
+        policies: [],
+        middlewares: [],
+      },
+    },
+    {
+      method: 'GET',
       path: '/article-workflow/:id/preview',
       handler: 'api::article.article.preview',
       config: {
