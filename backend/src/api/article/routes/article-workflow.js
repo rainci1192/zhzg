@@ -3,6 +3,16 @@
 module.exports = {
   routes: [
     {
+      method: 'PUT',
+      path: '/article-workflow/site-content/council',
+      handler: 'api::article.article.saveCouncilContent',
+      config: {
+        auth: { scope: ['api::article.article.find'] },
+        policies: [],
+        middlewares: [],
+      },
+    },
+    {
       method: 'GET',
       path: '/article-workflow/list',
       handler: 'api::article.article.adminList',

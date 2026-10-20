@@ -66,29 +66,11 @@ export default function CouncilArticleEditor() {
     setSaving(true);
     setMessage(null);
     try {
-      const payload = {
-        data: {
-          title,
-          content,
-          slug: COUNCIL_SLUG,
-          publishedAt: new Date().toISOString(),
-        },
-      };
-
-      let res: Response;
-      if (article) {
-        res = await strapiFetch(`${STRAPI_BASE_URL}/api/articles/${article.id}`, {
-          method: 'PUT',
-          headers: authHeaders(),
-          body: JSON.stringify(payload),
-        });
-      } else {
-        res = await strapiFetch(`${STRAPI_BASE_URL}/api/articles`, {
-          method: 'POST',
-          headers: authHeaders(),
-          body: JSON.stringify(payload),
-        });
-      }
+      const res = await strapiFetch(`${STRAPI_BASE_URL}/api/article-workflow/site-content/council`, {
+        method: 'PUT',
+        headers: authHeaders(),
+        body: JSON.stringify({ title, content }),
+      });
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -101,9 +83,9 @@ export default function CouncilArticleEditor() {
       const saved = json?.data;
       if (saved) {
         const d = saved.attributes ?? saved;
-        setArticle({ id: saved.id, title: d.title ?? '', content: d.content ?? '' });
+        setArticle({ id: saved.id ?? article?.id ?? 0, title: d.title ?? '', content: d.content ?? '' });
       }
-      setMessage({ type: 'success', text: '保存成功！' });
+      setMessage({ type: 'success', text: '保存成功，已直接发布到官网。' });
     } catch (e) {
       setMessage({ type: 'error', text: '保存失败：' + (e instanceof Error ? e.message : String(e)) });
     } finally {
@@ -175,7 +157,7 @@ export default function CouncilArticleEditor() {
           disabled={saving}
           className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium disabled:opacity-50"
         >
-          {saving ? '保存中…' : article ? '保存修改' : '创建内容'}
+          {saving ? '保存中…' : '保存并发布'}
         </button>
         {article && (
           <span className="text-xs text-gray-400">ID: {article.id} · slug: {COUNCIL_SLUG}</span>

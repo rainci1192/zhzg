@@ -6,6 +6,7 @@ const { uniqueArticleSlug, repairArticleDocumentSlug } = require('../../../utils
 const ARTICLE_UID = 'api::article.article';
 const ADMIN_UID = 'api::backend-admin.backend-admin';
 const REVIEW_LOG_UID = 'api::review-log.review-log';
+const COUNCIL_CONTENT_SLUG = 'about-council-content';
 
 const LEVEL1_ROLE_NAMES = new Set([
   'article_level1_reviewer',
@@ -605,6 +606,66 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
       comment: wasPublished ? '修改已发布文章，重新进入两级审核。' : '',
     });
     ctx.body = { data: result };
+  },
+
+  async saveCouncilContent(ctx) {
+    const admin = await getCurrentAdmin(ctx, strapi);
+    if (!admin) return;
+    if (!isSuperAdmin(admin)) {
+      return ctx.forbidden('只有超级管理员可以直接保存并发布栏目内容。');
+    }
+
+    const input = ctx.request.body?.data || ctx.request.body || {};
+    const title = typeof input.title === 'string' ? input.title.trim() : '';
+    const content = typeof input.content === 'string' ? input.content : null;
+    if (!title) return ctx.badRequest('栏目标题不能为空。');
+    if (title.length > 255) return ctx.badRequest('栏目标题不能超过 255 个字符。');
+    if (content === null) return ctx.badRequest('栏目正文格式无效。');
+    if (Buffer.byteLength(content, 'utf8') > 2 * 1024 * 1024) {
+      return ctx.badRequest('栏目正文不能超过 2 MB。');
+    }
+
+    let existing = await strapi.db.query(ARTICLE_UID).findOne({
+      where: { slug: COUNCIL_CONTENT_SLUG },
+      populate: ARTICLE_POPULATE,
+    });
+    let article;
+    if (existing) {
+      article = await findArticle(strapi, existing.documentId || existing.id);
+    } else {
+      article = await strapi.db.query(ARTICLE_UID).create({
+        data: {
+          title,
+          slug: COUNCIL_CONTENT_SLUG,
+          content,
+          review_status: 'draft',
+          publish_time: new Date().toISOString(),
+          created_by_admin: admin.id,
+        },
+        populate: ARTICLE_POPULATE,
+      });
+    }
+    if (!article) return ctx.notFound('理事会栏目内容不存在。');
+
+    const published = await publishArticleDocument(
+      strapi,
+      { ...article, title, slug: COUNCIL_CONTENT_SLUG },
+      {
+        title,
+        slug: COUNCIL_CONTENT_SLUG,
+        content,
+        review_status: 'published',
+        publish_time: new Date().toISOString(),
+        level1_reviewer: null,
+        level2_reviewer: null,
+        level1_review_comment: null,
+        level1_review_date: null,
+        level2_review_comment: null,
+        level2_review_date: null,
+        rejection_reason: null,
+      }
+    );
+    ctx.body = { data: published };
   },
 
   async listLevel1Reviewers(ctx) {
