@@ -340,6 +340,14 @@ export default function WordLikeEditor({ value, onChange, uploadImage }: Props) 
           setImageTools(null);
         }
       };
+      const deleteImageOnKeyDown = (event: KeyboardEvent) => {
+        if ((event.key !== 'Delete' && event.key !== 'Backspace') || event.isComposing) return;
+        const image = activeImageRef.current;
+        if (!image?.isConnected || !editor.editor.contains(event.target as Node)) return;
+        event.preventDefault();
+        event.stopPropagation();
+        removeSelectedImage();
+      };
       const refreshSelectedImage = () => {
         if (activeImageRef.current) refreshImageTools(activeImageRef.current);
       };
@@ -405,6 +413,7 @@ export default function WordLikeEditor({ value, onChange, uploadImage }: Props) 
       editor.editor.addEventListener('keyup', trackCell);
       editor.editor.addEventListener('click', trackCell);
       editor.editor.addEventListener('click', trackImage);
+      editor.editor.addEventListener('keydown', deleteImageOnKeyDown);
       editor.editor.addEventListener('scroll', refreshSelectedImage);
       window.addEventListener('resize', refreshSelectedImage);
       window.addEventListener('scroll', refreshSelectedImage, true);
@@ -420,6 +429,7 @@ export default function WordLikeEditor({ value, onChange, uploadImage }: Props) 
         editor.editor.removeEventListener('keyup', trackCell);
         editor.editor.removeEventListener('click', trackCell);
         editor.editor.removeEventListener('click', trackImage);
+        editor.editor.removeEventListener('keydown', deleteImageOnKeyDown);
         editor.editor.removeEventListener('scroll', refreshSelectedImage);
         window.removeEventListener('resize', refreshSelectedImage);
         window.removeEventListener('scroll', refreshSelectedImage, true);
@@ -588,6 +598,21 @@ export default function WordLikeEditor({ value, onChange, uploadImage }: Props) 
     });
   }
 
+  function removeSelectedImage() {
+    const editor = editorRef.current;
+    const image = activeImageRef.current;
+    if (!editor || !image?.isConnected) return;
+    const caret = image.ownerDocument.createRange();
+    caret.setStartBefore(image);
+    caret.collapse(true);
+    image.remove();
+    activeImageRef.current = null;
+    setImageTools(null);
+    editor.s.selectRange(caret);
+    editor.s.focus();
+    editor.synchronizeValues();
+  }
+
   function applyImageSize(widthValue: string, heightValue: string) {
     const editor = editorRef.current;
     const image = activeImageRef.current;
@@ -712,6 +737,8 @@ export default function WordLikeEditor({ value, onChange, uploadImage }: Props) 
       {imageTools && <div className="word-like-editor__image-tools" role="toolbar" aria-label="图片编辑工具">
         <strong>图片工具</strong>
         <span>{Math.round(imageTools.width)} × {Math.round(imageTools.height)} px</span>
+        <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={removeSelectedImage}
+          title="删除选中的图片（Delete）" aria-label="删除选中的图片">删除图片</button>
         <div className="word-like-editor__tool-group" role="group" aria-label="图片对齐">
           {([['left', '左对齐'], ['center', '居中'], ['right', '右对齐']] as const).map(([alignment, label]) => (
             <button key={`image-${alignment}`} type="button" aria-pressed={imageTools.alignment === alignment}
