@@ -1,0 +1,13 @@
+--- a/frontend/app/about/council/page.tsx
++++ b/frontend/app/about/council/page.tsx
+@@ -42,7 +42,9 @@
+         'Content-Type': 'application/json',
+         ...(STRAPI_API_TOKEN ? { Authorization: `Bearer ${STRAPI_API_TOKEN}` } : {}),
+       },
+-      next: { revalidate: 300 },
++      // Council intro is edited in the backend. Avoid the 5-minute Data Cache
++      // so a successful admin publish is visible on the next page request.
++      cache: 'no-store',
+     });
+     if (!res.ok) {
+       console.error(`[Council] Strapi ${res.status}`);
