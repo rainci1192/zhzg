@@ -3,6 +3,7 @@ import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import PageHero from '@/components/layout/PageHero';
 import { getCouncilMembers } from '@/lib/council-members';
+import { sanitizeRichHtml } from '@/lib/sanitize-html';
 
 export default async function PartnerDetailPage({
   params,
@@ -69,9 +70,14 @@ export default async function PartnerDetailPage({
             <h2 className="text-2xl font-bold text-gray-800 mb-4 pb-2 border-b-2 border-blue-600">
               企业简介
             </h2>
-            <div className="prose prose-gray max-w-none text-lg leading-relaxed whitespace-pre-wrap">
-              {partner.intro?.trim() || '暂无单位介绍信息。'}
-            </div>
+            {partner.intro?.trim() ? (
+              <div
+                className="prose prose-gray max-w-none text-lg leading-relaxed"
+                dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(partner.intro) }}
+              />
+            ) : (
+              <p className="text-gray-500">暂无单位介绍信息。</p>
+            )}
           </div>
         </div>
       </div>

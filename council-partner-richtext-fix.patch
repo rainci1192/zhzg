@@ -1,0 +1,59 @@
+--- a/frontend/app/cooperation/partner/[id]/page.tsx
++++ b/frontend/app/cooperation/partner/[id]/page.tsx
+@@ -3,6 +3,7 @@
+ import Footer from '@/components/layout/Footer';
+ import PageHero from '@/components/layout/PageHero';
+ import { getCouncilMembers } from '@/lib/council-members';
++import { sanitizeRichHtml } from '@/lib/sanitize-html';
+ 
+ export default async function PartnerDetailPage({
+   params,
+@@ -69,9 +70,14 @@
+             <h2 className="text-2xl font-bold text-gray-800 mb-4 pb-2 border-b-2 border-blue-600">
+               企业简介
+             </h2>
+-            <div className="prose prose-gray max-w-none text-lg leading-relaxed whitespace-pre-wrap">
+-              {partner.intro?.trim() || '暂无单位介绍信息。'}
+-            </div>
++            {partner.intro?.trim() ? (
++              <div
++                className="prose prose-gray max-w-none text-lg leading-relaxed"
++                dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(partner.intro) }}
++              />
++            ) : (
++              <p className="text-gray-500">暂无单位介绍信息。</p>
++            )}
+           </div>
+         </div>
+       </div>
+--- a/frontend/lib/sanitize-html.ts
++++ b/frontend/lib/sanitize-html.ts
+@@ -1,5 +1,21 @@
+ import sanitizeHtml from 'sanitize-html';
+ 
++const STRAPI_MEDIA_ORIGIN = (
++  process.env.NEXT_PUBLIC_API_URL ||
++  process.env.NEXT_PUBLIC_STRAPI_URL ||
++  process.env.STRAPI_URL ||
++  'http://localhost:1337'
++).replace(/\/$/, '');
++
++/** Old rich-text images may have been saved with the local Strapi hostname.
++ * Replace only that known local uploads origin before sanitizing the HTML. */
++function normalizeLocalStrapiImageUrls(html: string): string {
++  return html.replace(
++    /(<img\b[^>]*\bsrc\s*=\s*["'])https?:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?(\/uploads\/[^"']*)(["'])/gi,
++    (_match, prefix: string, path: string, quote: string) => `${prefix}${STRAPI_MEDIA_ORIGIN}${path}${quote}`,
++  );
++}
++
+ // Keep common Word/WPS/Excel formatting while excluding active CSS (URLs,
+ // expressions and arbitrary layout rules). Both admin preview and public site
+ // use the same allowlist so an approved article looks the same in both places.
+@@ -62,5 +78,5 @@
+ 
+ /** Sanitize CMS rich text before inserting it into the admin preview DOM. */
+ export function sanitizeRichHtml(value: unknown): string {
+-  return sanitizeHtml(typeof value === 'string' ? value : '', OPTIONS);
++  return sanitizeHtml(normalizeLocalStrapiImageUrls(typeof value === 'string' ? value : ''), OPTIONS);
+ }

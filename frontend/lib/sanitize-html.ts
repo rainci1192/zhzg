@@ -1,5 +1,21 @@
 import sanitizeHtml from 'sanitize-html';
 
+const STRAPI_MEDIA_ORIGIN = (
+  process.env.NEXT_PUBLIC_API_URL ||
+  process.env.NEXT_PUBLIC_STRAPI_URL ||
+  process.env.STRAPI_URL ||
+  'http://localhost:1337'
+).replace(/\/$/, '');
+
+/** Old rich-text images may have been saved with the local Strapi hostname.
+ * Replace only that known local uploads origin before sanitizing the HTML. */
+function normalizeLocalStrapiImageUrls(html: string): string {
+  return html.replace(
+    /(<img\b[^>]*\bsrc\s*=\s*["'])https?:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?(\/uploads\/[^"']*)(["'])/gi,
+    (_match, prefix: string, path: string, quote: string) => `${prefix}${STRAPI_MEDIA_ORIGIN}${path}${quote}`,
+  );
+}
+
 // Keep common Word/WPS/Excel formatting while excluding active CSS (URLs,
 // expressions and arbitrary layout rules). Both admin preview and public site
 // use the same allowlist so an approved article looks the same in both places.
@@ -62,5 +78,5 @@ const OPTIONS: sanitizeHtml.IOptions = {
 
 /** Sanitize CMS rich text before inserting it into the admin preview DOM. */
 export function sanitizeRichHtml(value: unknown): string {
-  return sanitizeHtml(typeof value === 'string' ? value : '', OPTIONS);
+  return sanitizeHtml(normalizeLocalStrapiImageUrls(typeof value === 'string' ? value : ''), OPTIONS);
 }
