@@ -62,6 +62,7 @@ async function getCouncilArticle(): Promise<CouncilArticle> {
     'filters[slug][$eq]': 'about-council-content',
     'filters[review_status][$eq]': 'published',
     'status': 'published',
+    'sort': 'updatedAt:desc',
     'pagination[pageSize]': '1',
   });
   const json = await fetchFromStrapi<StrapiListResponse>(`/api/articles?${params}`);

@@ -35,6 +35,8 @@ export default function CouncilArticleEditor() {
       try {
         const params = new URLSearchParams({
           'filters[slug][$eq]': COUNCIL_SLUG,
+          status: 'published',
+          sort: 'updatedAt:desc',
           'pagination[pageSize]': '1',
         });
         const res = await strapiFetch(`${STRAPI_BASE_URL}/api/articles?${params}`, {

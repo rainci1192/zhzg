@@ -1,0 +1,105 @@
+--- a/backend/src/utils/slug-lifecycle.js
++++ b/backend/src/utils/slug-lifecycle.js
+@@ -20,6 +20,10 @@
+   'api::research-transfer.research-transfer': { prefix: 'research-transfer', sourceFields: ['title'] },
+ };
+ 
++// This article backs the fixed "学院概况 → 理事会" introduction route. Its
++// slug is a content identifier and must not change when the display title is edited.
++const PINNED_ARTICLE_SLUGS = new Set(['about-council-content']);
++
+ function asciiPart(value) {
+   return String(value || '')
+     .normalize('NFKD')
+@@ -58,6 +62,9 @@
+     if (!model || !['create', 'update'].includes(context.action)) return next();
+ 
+     const data = context.params.data || (context.params.data = {});
++    if (context.uid === 'api::article.article' && PINNED_ARTICLE_SLUGS.has(data.slug)) {
++      return next();
++    }
+     let existing = null;
+     if (context.action === 'update' && context.params.documentId) {
+       existing = await strapi.documents(context.uid).findOne(context.params.documentId, {
+--- a/backend/src/api/article/controllers/article.js
++++ b/backend/src/api/article/controllers/article.js
+@@ -625,10 +625,40 @@
+       return ctx.badRequest('栏目正文不能超过 2 MB。');
+     }
+ 
+-    let existing = await strapi.db.query(ARTICLE_UID).findOne({
++    const articleQuery = strapi.db.query(ARTICLE_UID);
++    let existing = await articleQuery.findOne({
+       where: { slug: COUNCIL_CONTENT_SLUG },
+       populate: ARTICLE_POPULATE,
+     });
++
++    // An earlier slug-middleware version could replace this fixed slug with a
++    // title-derived one. Recover that document when it is the only article
++    // with the submitted council title, then pin its slug again below.
++    if (!existing) {
++      const legacyCandidates = await articleQuery.findMany({
++        where: { title },
++        populate: ARTICLE_POPULATE,
++        orderBy: { updatedAt: 'desc' },
++      });
++      const byDocument = new Map();
++      for (const candidate of legacyCandidates) {
++        const key = String(candidate.documentId || candidate.id);
++        const current = byDocument.get(key);
++        if (!current || String(candidate.updatedAt || '') > String(current.updatedAt || '')) {
++          byDocument.set(key, candidate);
++        }
++      }
++      const candidates = Array.from(byDocument.values());
++      const owned = candidates.filter((candidate) =>
++        relationId(candidate.created_by_admin) === String(admin.id)
++      );
++      if (owned.length === 1) existing = owned[0];
++      else if (candidates.length === 1) existing = candidates[0];
++      else if (candidates.length > 1) {
++        return ctx.badRequest('发现多个同名文章，无法安全恢复理事会介绍；请管理员先核对文章列表。');
++      }
++    }
++
+     let article;
+     if (existing) {
+       article = await findArticle(strapi, existing.documentId || existing.id);
+@@ -665,6 +695,16 @@
+         rejection_reason: null,
+       }
+     );
++
++    if (published.slug !== COUNCIL_CONTENT_SLUG || published.title !== title || String(published.content ?? '') !== content) {
++      strapi.log.error('理事会栏目发布后校验不一致', {
++        documentId: published.documentId,
++        slugMatches: published.slug === COUNCIL_CONTENT_SLUG,
++        titleMatches: published.title === title,
++        contentMatches: String(published.content ?? '') === content,
++      });
++      throw new Error('栏目内容未能持久化到官网版本，请检查 Strapi 日志后重试。');
++    }
+     ctx.body = { data: published };
+   },
+ 
+--- a/admin/app/(dashboard)/dashboard/partners/_components/CouncilArticleEditor.tsx
++++ b/admin/app/(dashboard)/dashboard/partners/_components/CouncilArticleEditor.tsx
+@@ -35,6 +35,8 @@
+       try {
+         const params = new URLSearchParams({
+           'filters[slug][$eq]': COUNCIL_SLUG,
++          status: 'published',
++          sort: 'updatedAt:desc',
+           'pagination[pageSize]': '1',
+         });
+         const res = await strapiFetch(`${STRAPI_BASE_URL}/api/articles?${params}`, {
+--- a/frontend/app/about/council/page.tsx
++++ b/frontend/app/about/council/page.tsx
+@@ -62,6 +62,7 @@
+     'filters[slug][$eq]': 'about-council-content',
+     'filters[review_status][$eq]': 'published',
+     'status': 'published',
++    'sort': 'updatedAt:desc',
+     'pagination[pageSize]': '1',
+   });
+   const json = await fetchFromStrapi<StrapiListResponse>(`/api/articles?${params}`);

@@ -625,10 +625,40 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
       return ctx.badRequest('栏目正文不能超过 2 MB。');
     }
 
-    let existing = await strapi.db.query(ARTICLE_UID).findOne({
+    const articleQuery = strapi.db.query(ARTICLE_UID);
+    let existing = await articleQuery.findOne({
       where: { slug: COUNCIL_CONTENT_SLUG },
       populate: ARTICLE_POPULATE,
     });
+
+    // An earlier slug-middleware version could replace this fixed slug with a
+    // title-derived one. Recover that document when it is the only article
+    // with the submitted council title, then pin its slug again below.
+    if (!existing) {
+      const legacyCandidates = await articleQuery.findMany({
+        where: { title },
+        populate: ARTICLE_POPULATE,
+        orderBy: { updatedAt: 'desc' },
+      });
+      const byDocument = new Map();
+      for (const candidate of legacyCandidates) {
+        const key = String(candidate.documentId || candidate.id);
+        const current = byDocument.get(key);
+        if (!current || String(candidate.updatedAt || '') > String(current.updatedAt || '')) {
+          byDocument.set(key, candidate);
+        }
+      }
+      const candidates = Array.from(byDocument.values());
+      const owned = candidates.filter((candidate) =>
+        relationId(candidate.created_by_admin) === String(admin.id)
+      );
+      if (owned.length === 1) existing = owned[0];
+      else if (candidates.length === 1) existing = candidates[0];
+      else if (candidates.length > 1) {
+        return ctx.badRequest('发现多个同名文章，无法安全恢复理事会介绍；请管理员先核对文章列表。');
+      }
+    }
+
     let article;
     if (existing) {
       article = await findArticle(strapi, existing.documentId || existing.id);
@@ -665,6 +695,16 @@ module.exports = createCoreController(ARTICLE_UID, ({ strapi }) => ({
         rejection_reason: null,
       }
     );
+
+    if (published.slug !== COUNCIL_CONTENT_SLUG || published.title !== title || String(published.content ?? '') !== content) {
+      strapi.log.error('理事会栏目发布后校验不一致', {
+        documentId: published.documentId,
+        slugMatches: published.slug === COUNCIL_CONTENT_SLUG,
+        titleMatches: published.title === title,
+        contentMatches: String(published.content ?? '') === content,
+      });
+      throw new Error('栏目内容未能持久化到官网版本，请检查 Strapi 日志后重试。');
+    }
     ctx.body = { data: published };
   },
 

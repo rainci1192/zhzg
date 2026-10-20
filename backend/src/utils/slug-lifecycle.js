@@ -20,6 +20,10 @@ const SLUG_MODELS = {
   'api::research-transfer.research-transfer': { prefix: 'research-transfer', sourceFields: ['title'] },
 };
 
+// This article backs the fixed "学院概况 → 理事会" introduction route. Its
+// slug is a content identifier and must not change when the display title is edited.
+const PINNED_ARTICLE_SLUGS = new Set(['about-council-content']);
+
 function asciiPart(value) {
   return String(value || '')
     .normalize('NFKD')
@@ -58,6 +62,9 @@ module.exports = function registerSlugMiddleware(strapi) {
     if (!model || !['create', 'update'].includes(context.action)) return next();
 
     const data = context.params.data || (context.params.data = {});
+    if (context.uid === 'api::article.article' && PINNED_ARTICLE_SLUGS.has(data.slug)) {
+      return next();
+    }
     let existing = null;
     if (context.action === 'update' && context.params.documentId) {
       existing = await strapi.documents(context.uid).findOne(context.params.documentId, {
