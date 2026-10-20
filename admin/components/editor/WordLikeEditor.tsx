@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import type { Jodit as JoditEditor } from 'jodit';
 import type { Table } from 'jodit/esm/modules/table/table';
 import './WordLikeEditor.css';
@@ -30,6 +30,21 @@ const IMAGE_RESIZE_HANDLES: readonly { direction: ImageResizeDirection; label: s
 
 const MIN_COLUMN_WIDTH = 36;
 const MAX_COLUMN_WIDTH = 1200;
+const DEFAULT_IMAGE_WIDTH = 654;
+const DEFAULT_IMAGE_HEIGHT = 450;
+
+function formatInsertedImage(image: HTMLImageElement) {
+  image.style.width = `${DEFAULT_IMAGE_WIDTH}px`;
+  image.style.height = `${DEFAULT_IMAGE_HEIGHT}px`;
+  image.style.maxWidth = '100%';
+  image.style.display = 'block';
+  image.style.float = 'none';
+  image.style.marginLeft = 'auto';
+  image.style.marginRight = 'auto';
+  image.dataset.align = 'center';
+  image.setAttribute('width', String(DEFAULT_IMAGE_WIDTH));
+  image.setAttribute('height', String(DEFAULT_IMAGE_HEIGHT));
+}
 
 /** Freeze the rendered widths before changing one column. Word tables often mix
  * percentage cell widths, colgroups and an overall width; leaving any of those
@@ -82,6 +97,8 @@ function setIndependentColumnWidths(table: HTMLTableElement, widths: number[]) {
 export default function WordLikeEditor({ value, onChange, uploadImage }: Props) {
   const rootRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const imageInsertionRangeRef = useRef<Range | null>(null);
   const editorRef = useRef<JoditEditor | null>(null);
   const onChangeRef = useRef(onChange);
   const uploadRef = useRef(uploadImage);
@@ -94,6 +111,8 @@ export default function WordLikeEditor({ value, onChange, uploadImage }: Props) 
   const [columnWidth, setColumnWidth] = useState('');
   const [rowHeight, setRowHeight] = useState('');
   const [imageTools, setImageTools] = useState<ImageToolsState | null>(null);
+  const [uploadingImages, setUploadingImages] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState('');
 
   useEffect(() => { onChangeRef.current = onChange; }, [onChange]);
   useEffect(() => { uploadRef.current = uploadImage; }, [uploadImage]);
@@ -141,6 +160,8 @@ export default function WordLikeEditor({ value, onChange, uploadImage }: Props) 
         showWordsCounter: true,
         showXPathInStatusbar: false,
         zIndex: 1100,
+        imageDefaultWidth: DEFAULT_IMAGE_WIDTH,
+        imageDefaultAlign: 'center',
         defaultFontSizePoints: 'pt',
         controls: {
           font: {
@@ -175,18 +196,22 @@ export default function WordLikeEditor({ value, onChange, uploadImage }: Props) 
           url: '/api/upload',
           insertImageAsBase64URI: false,
           customUploadFunction: async (requestData: unknown, showProgress: (progress: number) => void) => {
-            const file = requestData instanceof FormData
-              ? [...requestData.values()].find((part): part is File => part instanceof File)
-              : undefined;
-            if (!file) throw new Error('请选择要上传的图片。');
-            const uploadedImage = await uploadRef.current(file);
-            const url = typeof uploadedImage === 'string' ? uploadedImage : uploadedImage.url;
-            if (!url) throw new Error('图片上传成功，但没有获得图片地址。');
-            showProgress(100);
+            const files = requestData instanceof FormData
+              ? [...requestData.values()].filter((part): part is File => part instanceof File)
+              : [];
+            if (!files.length || files.some((file) => !file.type.startsWith('image/'))) throw new Error('请选择图片文件。');
+            const urls: string[] = [];
+            for (const [index, file] of files.entries()) {
+              const uploadedImage = await uploadRef.current(file);
+              const url = typeof uploadedImage === 'string' ? uploadedImage : uploadedImage.url;
+              if (!url) throw new Error(`${file.name} 上传成功，但没有获得图片地址。`);
+              urls.push(url);
+              showProgress(Math.round(((index + 1) / files.length) * 100));
+            }
             return {
               success: true,
               time: new Date().toISOString(),
-              data: { files: [url], baseurl: '', isImages: [true] },
+              data: { files: urls, baseurl: '', isImages: urls.map(() => true) },
             };
           },
         },
@@ -197,6 +222,13 @@ export default function WordLikeEditor({ value, onChange, uploadImage }: Props) 
         const html = editor.value;
         lastValueRef.current = html;
         onChangeRef.current(html);
+      });
+      editor.events.on('afterInsertNode', (node: Node) => {
+        // Existing rich-text images may already have deliberate dimensions.
+        if (node instanceof HTMLImageElement && !node.style.height && !node.hasAttribute('height')) {
+          formatInsertedImage(node);
+          editor.synchronizeValues();
+        }
       });
 
       const cellFromNode = (node: Node | null) => {
@@ -500,6 +532,61 @@ export default function WordLikeEditor({ value, onChange, uploadImage }: Props) 
     if (root) setImageTools((current) => current ? { ...current, left: rect.left - root.left, top: rect.top - root.top, width: rect.width, height: rect.height } : current);
   }
 
+  function openImagePicker() {
+    const editor = editorRef.current;
+    if (!editor || uploadingImages) return;
+    const selection = editor.ed.getSelection();
+    const range = selection?.rangeCount ? selection.getRangeAt(0) : null;
+    imageInsertionRangeRef.current = range && editor.editor.contains(range.commonAncestorContainer) ? range.cloneRange() : null;
+    imageInputRef.current?.click();
+  }
+
+  async function insertSelectedImages(event: ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.currentTarget.files || []);
+    event.currentTarget.value = '';
+    const editor = editorRef.current;
+    if (!editor || !files.length) {
+      imageInsertionRangeRef.current = null;
+      return;
+    }
+    setUploadingImages(true);
+    setUploadStatus(`正在上传 0/${files.length} 张图片…`);
+    const uploaded: { url: string; name: string }[] = [];
+    const failures: string[] = [];
+    for (const [index, file] of files.entries()) {
+      if (editorRef.current !== editor) return;
+      if (!file.type.startsWith('image/')) {
+        failures.push(file.name);
+        continue;
+      }
+      try {
+        const result = await uploadRef.current(file);
+        const url = typeof result === 'string' ? result : result.url;
+        if (!url) throw new Error('上传未返回图片地址');
+        uploaded.push({ url, name: file.name });
+      } catch (reason) {
+        console.error(`图片上传失败：${file.name}`, reason);
+        failures.push(file.name);
+      }
+      setUploadStatus(`正在上传 ${index + 1}/${files.length} 张图片…`);
+    }
+    if (editorRef.current !== editor) return;
+    const range = imageInsertionRangeRef.current;
+    imageInsertionRangeRef.current = null;
+    if (range && editor.editor.contains(range.commonAncestorContainer)) editor.s.selectRange(range);
+    else editor.s.focus();
+    for (const { url, name } of uploaded) {
+      const image = editor.ed.createElement('img');
+      image.src = url;
+      image.alt = name;
+      formatInsertedImage(image);
+      editor.s.insertImage(image);
+    }
+    if (uploaded.length) editor.synchronizeValues();
+    setUploadingImages(false);
+    setUploadStatus(`已插入 ${uploaded.length} 张图片${failures.length ? `；${failures.length} 张失败：${failures.join('、')}` : ''}。`);
+  }
+
   function beginImageResize(event: ReactPointerEvent<HTMLButtonElement>, direction: ImageResizeDirection) {
     const editor = editorRef.current;
     const image = activeImageRef.current;
@@ -540,7 +627,7 @@ export default function WordLikeEditor({ value, onChange, uploadImage }: Props) 
   }
 
   return (
-    <div ref={rootRef} className="word-like-editor" data-editor-build="image-eight-handles-20261019">
+    <div ref={rootRef} className="word-like-editor" data-editor-build="multi-image-default-size-20261019">
       {imageTools && activeImageRef.current && <>
         <div className="word-like-editor__image-selection" aria-hidden="true" style={{ left: imageTools.left, top: imageTools.top, width: imageTools.width, height: imageTools.height }} />
         {IMAGE_RESIZE_HANDLES.map(({ direction, label, x, y }) => (
@@ -564,6 +651,11 @@ export default function WordLikeEditor({ value, onChange, uploadImage }: Props) 
           onChange={(event) => setImageTools((current) => current ? { ...current, height: Number(event.target.value) || 0 } : current)} /></label>
         <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => applyImageSize(String(imageTools.width), String(imageTools.height))}>应用尺寸</button>
       </div>}
+      <div className="word-like-editor__media-tools">
+        <button type="button" disabled={uploadingImages} onMouseDown={(event) => event.preventDefault()} onClick={openImagePicker}>插入图片（可多选）</button>
+        <input ref={imageInputRef} type="file" accept="image/*" multiple className="word-like-editor__file-input" aria-label="选择要插入的图片" onChange={(event) => void insertSelectedImages(event)} />
+        <span role="status" aria-live="polite">{uploadStatus || '新插入的图片默认 654 × 450 px、居中显示。'}</span>
+      </div>
       <div className="word-like-editor__table-tools" role="toolbar" aria-label="表格编辑工具">
         <div className="word-like-editor__tool-group" role="group" aria-label="段落对齐">
           <strong>段落对齐</strong>

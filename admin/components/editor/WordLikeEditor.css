@@ -49,6 +49,31 @@
 .word-like-editor .jodit-wysiwyg table p { text-indent: 0; margin: 0; }
 .word-like-editor .jodit-wysiwyg img { max-width: 100%; height: auto; }
 
+.word-like-editor__media-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-bottom: 1px solid #cbd5e1;
+  background: #eff6ff;
+  color: #475569;
+  font: 13px/1.5 "Microsoft YaHei", sans-serif;
+}
+
+.word-like-editor__media-tools button {
+  padding: 6px 10px;
+  border: 1px solid #93c5fd;
+  border-radius: 6px;
+  background: #fff;
+  color: #1d4ed8;
+  cursor: pointer;
+}
+
+.word-like-editor__media-tools button:hover { background: #dbeafe; }
+.word-like-editor__media-tools button:disabled { opacity: .6; cursor: wait; }
+.word-like-editor__file-input { display: none; }
+
 .word-like-editor__image-tools {
   display: flex;
   flex-wrap: wrap;
