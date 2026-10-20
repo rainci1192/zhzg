@@ -16,7 +16,7 @@ export default async function PartnerDetailPage({
 
   const partner = (await getCouncilMembers({ id }))[0];
 
-  if (!partner || !partner.intro) notFound();
+  if (!partner) notFound();
 
   const breadcrumbItems = [
     { name: '首页', href: '/' },
@@ -70,7 +70,7 @@ export default async function PartnerDetailPage({
               企业简介
             </h2>
             <div className="prose prose-gray max-w-none text-lg leading-relaxed whitespace-pre-wrap">
-              {partner.intro}
+              {partner.intro?.trim() || '暂无单位介绍信息。'}
             </div>
           </div>
         </div>

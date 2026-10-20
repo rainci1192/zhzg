@@ -297,12 +297,52 @@ a {
   margin: 1.5em auto !important;
 }
 
-.article-content img[data-align="left"],
-.prose img[data-align="left"] { margin-left: 0 !important; margin-right: auto !important; }
-.article-content img[data-align="center"],
-.prose img[data-align="center"] { margin-left: auto !important; margin-right: auto !important; }
-.article-content img[data-align="right"],
-.prose img[data-align="right"] { margin-left: auto !important; margin-right: 0 !important; }
+.article-content img:not([data-wrap]),
+.prose img:not([data-wrap]),
+.article-content img[data-wrap="top-bottom"],
+.prose img[data-wrap="top-bottom"] { clear: both !important; }
+
+.article-content img[data-wrap="inline"],
+.prose img[data-wrap="inline"] {
+  display: inline-block !important;
+  vertical-align: middle;
+  margin: 0.25em 0.5em !important;
+}
+
+.article-content img[data-wrap="square"][data-align="left"],
+.article-content img[data-wrap="tight"][data-align="left"],
+.article-content img[data-wrap="through"][data-align="left"],
+.prose img[data-wrap="square"][data-align="left"],
+.prose img[data-wrap="tight"][data-align="left"],
+.prose img[data-wrap="through"][data-align="left"] {
+  float: left !important;
+  display: block !important;
+  margin: 0.35em 1em 0.75em 0 !important;
+}
+
+.article-content img[data-wrap="square"][data-align="right"],
+.article-content img[data-wrap="tight"][data-align="right"],
+.article-content img[data-wrap="through"][data-align="right"],
+.prose img[data-wrap="square"][data-align="right"],
+.prose img[data-wrap="tight"][data-align="right"],
+.prose img[data-wrap="through"][data-align="right"] {
+  float: right !important;
+  display: block !important;
+  margin: 0.35em 0 0.75em 1em !important;
+}
+
+.article-content img:not([data-wrap])[data-align="left"],
+.prose img:not([data-wrap])[data-align="left"],
+.article-content img[data-wrap="top-bottom"][data-align="left"],
+.prose img[data-wrap="top-bottom"][data-align="left"] { margin-left: 0 !important; margin-right: auto !important; }
+.article-content img:not([data-wrap])[data-align="center"],
+.prose img:not([data-wrap])[data-align="center"],
+.article-content img[data-wrap="top-bottom"][data-align="center"],
+.prose img[data-wrap="top-bottom"][data-align="center"] { margin-left: auto !important; margin-right: auto !important; }
+.article-content img:not([data-wrap])[data-align="right"],
+.prose img:not([data-wrap])[data-align="right"],
+.article-content img[data-wrap="top-bottom"][data-align="right"],
+.prose img[data-wrap="top-bottom"][data-align="right"] { margin-left: auto !important; margin-right: 0 !important; }
 
 /* 引用块样式 */
 .article-content blockquote,

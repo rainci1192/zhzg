@@ -1,0 +1,357 @@
+--- a/frontend/app/about/council/page.tsx
++++ b/frontend/app/about/council/page.tsx
+@@ -108,11 +108,9 @@
+       ) : (
+         <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+           {councilMembers.map((member) => {
+-            const href = member.website
+-              ? member.website
+-              : member.intro
+-                ? `/cooperation/partner/${member.id}`
+-                : null;
++            // Every member without an external website still has an internal
++            // detail page, including members whose introduction is not filled in yet.
++            const href = member.website || `/cooperation/partner/${member.id}`;
+             const isExternal = !!member.website;
+ 
+             const card = (
+@@ -132,8 +130,6 @@
+               </div>
+             );
+ 
+-            if (!href) return <div key={member.id}>{card}</div>;
+-
+             return (
+               <Link
+                 key={member.id}
+--- a/frontend/app/cooperation/partner/page.tsx
++++ b/frontend/app/cooperation/partner/page.tsx
+@@ -41,11 +41,11 @@
+               ) : (
+                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                   {partners.map((partner) => {
+-                    const href = partner.website || (partner.intro ? `/cooperation/partner/${partner.id}` : null);
++                    const href = partner.website || `/cooperation/partner/${partner.id}`;
+                     const isExternal = !!partner.website;
+                     const card = <p className="text-gray-800 font-medium">{partner.name}</p>;
+ 
+-                    return href ? (
++                    return (
+                       <Link
+                         key={partner.id}
+                         href={href}
+@@ -55,7 +55,7 @@
+                       >
+                         {card}
+                       </Link>
+-                    ) : <div key={partner.id} className="bg-blue-50 rounded-lg p-6 text-center">{card}</div>;
++                    );
+                   })}
+                 </div>
+               )}
+--- a/frontend/app/cooperation/partner/[id]/page.tsx
++++ b/frontend/app/cooperation/partner/[id]/page.tsx
+@@ -16,7 +16,7 @@
+ 
+   const partner = (await getCouncilMembers({ id }))[0];
+ 
+-  if (!partner || !partner.intro) notFound();
++  if (!partner) notFound();
+ 
+   const breadcrumbItems = [
+     { name: '首页', href: '/' },
+@@ -70,7 +70,7 @@
+               企业简介
+             </h2>
+             <div className="prose prose-gray max-w-none text-lg leading-relaxed whitespace-pre-wrap">
+-              {partner.intro}
++              {partner.intro?.trim() || '暂无单位介绍信息。'}
+             </div>
+           </div>
+         </div>
+--- a/admin/components/editor/WordLikeEditor.tsx
++++ b/admin/components/editor/WordLikeEditor.tsx
+@@ -15,7 +15,8 @@
+ type ParagraphAlignment = 'left' | 'center' | 'right' | 'justify';
+ type TableAlignment = 'left' | 'center' | 'right';
+ type ImageAlignment = 'left' | 'center' | 'right';
+-type ImageToolsState = { left: number; top: number; width: number; height: number; alignment: ImageAlignment };
++type ImageWrapMode = 'inline' | 'square' | 'tight' | 'through' | 'top-bottom';
++type ImageToolsState = { left: number; top: number; width: number; height: number; alignment: ImageAlignment; wrapMode: ImageWrapMode };
+ type ImageResizeDirection = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w';
+ const IMAGE_RESIZE_HANDLES: readonly { direction: ImageResizeDirection; label: string; x: number; y: number }[] = [
+   { direction: 'nw', label: '左上角', x: 0, y: 0 },
+@@ -42,10 +43,64 @@
+   image.style.marginLeft = 'auto';
+   image.style.marginRight = 'auto';
+   image.dataset.align = 'center';
++  image.dataset.wrap = 'top-bottom';
+   image.setAttribute('width', String(DEFAULT_IMAGE_WIDTH));
+   image.setAttribute('height', String(DEFAULT_IMAGE_HEIGHT));
+ }
+ 
++function readImageWrapMode(image: HTMLImageElement): ImageWrapMode {
++  const mode = image.dataset.wrap;
++  if (mode === 'inline' || mode === 'square' || mode === 'tight' || mode === 'through' || mode === 'top-bottom') return mode;
++  return image.style.float === 'left' || image.style.float === 'right' ? 'square' : 'top-bottom';
++}
++
++function applyImageLayout(image: HTMLImageElement, alignment: ImageAlignment, wrapMode: ImageWrapMode) {
++  image.dataset.align = alignment;
++  image.dataset.wrap = wrapMode;
++  image.style.clear = '';
++  image.style.shapeOutside = '';
++  image.style.shapeMargin = '';
++
++  if (wrapMode === 'inline') {
++    image.style.display = 'inline-block';
++    image.style.float = 'none';
++    image.style.verticalAlign = 'middle';
++    image.style.marginLeft = alignment === 'right' ? '0' : alignment === 'center' ? '0.5em' : '0';
++    image.style.marginRight = alignment === 'left' ? '0' : alignment === 'center' ? '0.5em' : '0';
++    image.style.marginTop = '0.25em';
++    image.style.marginBottom = '0.25em';
++    return;
++  }
++
++  image.style.verticalAlign = '';
++  image.style.marginTop = '0.35em';
++  image.style.marginBottom = '0.75em';
++  if (wrapMode === 'top-bottom') {
++    image.style.display = 'block';
++    image.style.float = 'none';
++    image.style.clear = 'both';
++    image.style.marginLeft = alignment === 'left' ? '0' : 'auto';
++    image.style.marginRight = alignment === 'right' ? '0' : 'auto';
++    return;
++  }
++
++  const floatSide = alignment === 'right' ? 'right' : 'left';
++  image.style.display = 'block';
++  image.style.float = floatSide;
++  image.style.clear = 'none';
++  image.style.marginLeft = floatSide === 'right' ? '1em' : '0';
++  image.style.marginRight = floatSide === 'left' ? '1em' : '0';
++  if (wrapMode === 'tight') {
++    image.style.shapeOutside = 'inset(0 round 8px)';
++    image.style.shapeMargin = '6px';
++  } else if (wrapMode === 'through') {
++    // CSS cannot reproduce Word's alpha-channel text flow exactly. This gives
++    // a close browser-native contour wrap and remains safe to sanitize.
++    image.style.shapeOutside = 'inset(0 round 18%)';
++    image.style.shapeMargin = '2px';
++  }
++}
++
+ /** Freeze the rendered widths before changing one column. Word tables often mix
+  * percentage cell widths, colgroups and an overall width; leaving any of those
+  * constraints in place makes the browser take space from adjacent columns. */
+@@ -271,6 +326,7 @@
+           width: imageRect.width,
+           height: imageRect.height,
+           alignment,
++          wrapMode: readImageWrapMode(image),
+         });
+       };
+       const trackImage = (event: Event) => {
+@@ -500,21 +556,38 @@
+     const editor = editorRef.current;
+     const image = activeImageRef.current;
+     if (!editor || !image?.isConnected) return;
+-    image.style.display = 'block';
+-    image.style.float = 'none';
+-    image.style.marginLeft = alignment === 'left' ? '0' : 'auto';
+-    image.style.marginRight = alignment === 'right' ? '0' : 'auto';
+-    image.dataset.align = alignment;
++    const wrapMode = readImageWrapMode(image);
++    const effectiveAlignment = wrapMode !== 'inline' && wrapMode !== 'top-bottom' && alignment === 'center'
++      ? 'left'
++      : alignment;
++    applyImageLayout(image, effectiveAlignment, wrapMode);
+     editor.synchronizeValues();
+     window.requestAnimationFrame(() => {
+       if (activeImageRef.current === image) {
+         const rect = image.getBoundingClientRect();
+         const root = rootRef.current?.getBoundingClientRect();
+-        if (root) setImageTools({ left: rect.left - root.left, top: rect.top - root.top, width: rect.width, height: rect.height, alignment });
++        if (root) setImageTools({ left: rect.left - root.left, top: rect.top - root.top, width: rect.width, height: rect.height, alignment: effectiveAlignment, wrapMode });
+       }
+     });
+   }
+ 
++  function setImageWrapMode(wrapMode: ImageWrapMode) {
++    const editor = editorRef.current;
++    const image = activeImageRef.current;
++    if (!editor || !image?.isConnected) return;
++    const alignment = wrapMode !== 'inline' && wrapMode !== 'top-bottom' && imageTools?.alignment === 'center'
++      ? 'left'
++      : imageTools?.alignment || 'center';
++    applyImageLayout(image, alignment, wrapMode);
++    editor.synchronizeValues();
++    window.requestAnimationFrame(() => {
++      if (activeImageRef.current !== image) return;
++      const rect = image.getBoundingClientRect();
++      const root = rootRef.current?.getBoundingClientRect();
++      if (root) setImageTools({ left: rect.left - root.left, top: rect.top - root.top, width: rect.width, height: rect.height, alignment, wrapMode });
++    });
++  }
++
+   function applyImageSize(widthValue: string, heightValue: string) {
+     const editor = editorRef.current;
+     const image = activeImageRef.current;
+@@ -645,6 +718,16 @@
+               onMouseDown={(event) => event.preventDefault()} onClick={() => setImageAlignment(alignment)}>{label}</button>
+           ))}
+         </div>
++        <label className="word-like-editor__wrap-control">文字环绕
++          <select aria-label="图片文字环绕方式" value={imageTools.wrapMode}
++            onChange={(event) => setImageWrapMode(event.target.value as ImageWrapMode)}>
++            <option value="inline">嵌入型</option>
++            <option value="square">四周型</option>
++            <option value="tight">紧密型</option>
++            <option value="through">穿越型（网页近似）</option>
++            <option value="top-bottom">上下型</option>
++          </select>
++        </label>
+         <label>宽 <input type="number" min="24" max="2400" value={Math.round(imageTools.width)} aria-label="图片宽度（像素）"
+           onChange={(event) => setImageTools((current) => current ? { ...current, width: Number(event.target.value) || 0 } : current)} /></label>
+         <label>高 <input type="number" min="24" max="2400" value={Math.round(imageTools.height)} aria-label="图片高度（像素）"
+@@ -695,7 +778,7 @@
+       </div>
+       <textarea ref={textareaRef} defaultValue={initialValueRef.current} aria-label="文章正文（富文本编辑器）" />
+       {error && <p role="alert" className="word-like-editor__error">{error}</p>}
+-      <p className="word-like-editor__hint">点击表格单元格即可使用上方的表格工具；单元格边界可拖动调整列宽，选中多个单元格可使用浮动菜单合并或拆分。</p>
++      <p className="word-like-editor__hint">点击表格单元格即可使用上方的表格工具；单元格边界可拖动调整列宽，选中多个单元格可使用浮动菜单合并或拆分。图片“穿越型”使用网页轮廓环绕近似显示，具体效果会因浏览器和图片透明区域而异。</p>
+     </div>
+   );
+ }
+--- a/admin/components/editor/WordLikeEditor.css
++++ b/admin/components/editor/WordLikeEditor.css
+@@ -106,6 +106,16 @@
+ }
+ 
+ .word-like-editor__image-tools label { display: inline-flex; align-items: center; gap: 4px; }
++.word-like-editor__image-tools .word-like-editor__wrap-control { font-weight: 600; }
++.word-like-editor__image-tools select {
++  min-width: 128px;
++  border: 1px solid #bfd2e6;
++  border-radius: 5px;
++  padding: 5px 8px;
++  background: #fff;
++  color: #1f2937;
++  font: inherit;
++}
+ .word-like-editor__image-tools input {
+   width: 76px;
+   border: 1px solid #bfd2e6;
+--- a/admin/lib/sanitize-html.ts
++++ b/admin/lib/sanitize-html.ts
+@@ -14,7 +14,7 @@
+     a: [...(sanitizeHtml.defaults.allowedAttributes.a || []), 'rel', 'style'],
+     p: ['style'], div: ['style'], span: ['style'],
+     h1: ['style'], h2: ['style'], h3: ['style'], h4: ['style'],
+-    img: ['src', 'alt', 'title', 'width', 'height', 'loading', 'style', 'data-align'],
++    img: ['src', 'alt', 'title', 'width', 'height', 'loading', 'style', 'data-align', 'data-wrap'],
+     iframe: ['src', 'title', 'width', 'height', 'allow', 'allowfullscreen', 'loading', 'referrerpolicy', 'sandbox'],
+     table: ['width', 'border', 'cellpadding', 'cellspacing', 'align', 'style'],
+     tr: ['style'], col: ['span', 'width', 'style'], colgroup: ['span', 'width', 'style'],
+@@ -35,7 +35,12 @@
+       'white-space': [/^(?:normal|pre|pre-wrap|nowrap)$/i],
+       'line-height': [size, /^\d+(?:\.\d+)?$/],
+       'text-indent': [size],
+-      'margin-left': [size], 'margin-right': [size],
++      'margin-left': [size], 'margin-right': [size], 'margin-top': [size], 'margin-bottom': [size],
++      display: [/^(?:block|inline|inline-block)$/i],
++      float: [/^(?:none|left|right)$/i],
++      clear: [/^(?:none|left|right|both)$/i],
++      'shape-outside': [/^(?:none|margin-box|border-box|content-box|padding-box|inset\(0 round (?:8px|18%)\))$/i],
++      'shape-margin': [/^(?:2px|6px)$/i],
+       width: [size], height: [size],
+       'min-width': [size], 'max-width': [size, /^none$/i],
+       border: [border], 'border-top': [border], 'border-right': [border],
+--- a/frontend/lib/sanitize-html.ts
++++ b/frontend/lib/sanitize-html.ts
+@@ -14,7 +14,7 @@
+     a: [...(sanitizeHtml.defaults.allowedAttributes.a || []), 'rel', 'style'],
+     p: ['style'], div: ['style'], span: ['style'],
+     h1: ['style'], h2: ['style'], h3: ['style'], h4: ['style'],
+-    img: ['src', 'alt', 'title', 'width', 'height', 'loading', 'style', 'data-align'],
++    img: ['src', 'alt', 'title', 'width', 'height', 'loading', 'style', 'data-align', 'data-wrap'],
+     iframe: ['src', 'title', 'width', 'height', 'allow', 'allowfullscreen', 'loading', 'referrerpolicy', 'sandbox'],
+     table: ['width', 'border', 'cellpadding', 'cellspacing', 'align', 'style'],
+     tr: ['style'], col: ['span', 'width', 'style'], colgroup: ['span', 'width', 'style'],
+@@ -35,7 +35,12 @@
+       'white-space': [/^(?:normal|pre|pre-wrap|nowrap)$/i],
+       'line-height': [size, /^\d+(?:\.\d+)?$/],
+       'text-indent': [size],
+-      'margin-left': [size], 'margin-right': [size],
++      'margin-left': [size], 'margin-right': [size], 'margin-top': [size], 'margin-bottom': [size],
++      display: [/^(?:block|inline|inline-block)$/i],
++      float: [/^(?:none|left|right)$/i],
++      clear: [/^(?:none|left|right|both)$/i],
++      'shape-outside': [/^(?:none|margin-box|border-box|content-box|padding-box|inset\(0 round (?:8px|18%)\))$/i],
++      'shape-margin': [/^(?:2px|6px)$/i],
+       width: [size], height: [size],
+       'min-width': [size], 'max-width': [size, /^none$/i],
+       border: [border], 'border-top': [border], 'border-right': [border],
+--- a/frontend/app/globals.css
++++ b/frontend/app/globals.css
+@@ -297,12 +297,52 @@
+   margin: 1.5em auto !important;
+ }
+ 
+-.article-content img[data-align="left"],
+-.prose img[data-align="left"] { margin-left: 0 !important; margin-right: auto !important; }
+-.article-content img[data-align="center"],
+-.prose img[data-align="center"] { margin-left: auto !important; margin-right: auto !important; }
+-.article-content img[data-align="right"],
+-.prose img[data-align="right"] { margin-left: auto !important; margin-right: 0 !important; }
++.article-content img:not([data-wrap]),
++.prose img:not([data-wrap]),
++.article-content img[data-wrap="top-bottom"],
++.prose img[data-wrap="top-bottom"] { clear: both !important; }
++
++.article-content img[data-wrap="inline"],
++.prose img[data-wrap="inline"] {
++  display: inline-block !important;
++  vertical-align: middle;
++  margin: 0.25em 0.5em !important;
++}
++
++.article-content img[data-wrap="square"][data-align="left"],
++.article-content img[data-wrap="tight"][data-align="left"],
++.article-content img[data-wrap="through"][data-align="left"],
++.prose img[data-wrap="square"][data-align="left"],
++.prose img[data-wrap="tight"][data-align="left"],
++.prose img[data-wrap="through"][data-align="left"] {
++  float: left !important;
++  display: block !important;
++  margin: 0.35em 1em 0.75em 0 !important;
++}
++
++.article-content img[data-wrap="square"][data-align="right"],
++.article-content img[data-wrap="tight"][data-align="right"],
++.article-content img[data-wrap="through"][data-align="right"],
++.prose img[data-wrap="square"][data-align="right"],
++.prose img[data-wrap="tight"][data-align="right"],
++.prose img[data-wrap="through"][data-align="right"] {
++  float: right !important;
++  display: block !important;
++  margin: 0.35em 0 0.75em 1em !important;
++}
++
++.article-content img:not([data-wrap])[data-align="left"],
++.prose img:not([data-wrap])[data-align="left"],
++.article-content img[data-wrap="top-bottom"][data-align="left"],
++.prose img[data-wrap="top-bottom"][data-align="left"] { margin-left: 0 !important; margin-right: auto !important; }
++.article-content img:not([data-wrap])[data-align="center"],
++.prose img:not([data-wrap])[data-align="center"],
++.article-content img[data-wrap="top-bottom"][data-align="center"],
++.prose img[data-wrap="top-bottom"][data-align="center"] { margin-left: auto !important; margin-right: auto !important; }
++.article-content img:not([data-wrap])[data-align="right"],
++.prose img:not([data-wrap])[data-align="right"],
++.article-content img[data-wrap="top-bottom"][data-align="right"],
++.prose img[data-wrap="top-bottom"][data-align="right"] { margin-left: auto !important; margin-right: 0 !important; }
+ 
+ /* 引用块样式 */
+ .article-content blockquote,

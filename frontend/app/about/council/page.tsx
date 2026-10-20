@@ -108,11 +108,9 @@ export default async function AboutCouncil() {
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
           {councilMembers.map((member) => {
-            const href = member.website
-              ? member.website
-              : member.intro
-                ? `/cooperation/partner/${member.id}`
-                : null;
+            // Every member without an external website still has an internal
+            // detail page, including members whose introduction is not filled in yet.
+            const href = member.website || `/cooperation/partner/${member.id}`;
             const isExternal = !!member.website;
 
             const card = (
@@ -131,8 +129,6 @@ export default async function AboutCouncil() {
                 <p className="text-gray-700 text-sm text-center leading-6">{member.name}</p>
               </div>
             );
-
-            if (!href) return <div key={member.id}>{card}</div>;
 
             return (
               <Link

@@ -15,7 +15,8 @@ type TableAction = 'rowBefore' | 'rowAfter' | 'columnBefore' | 'columnAfter' | '
 type ParagraphAlignment = 'left' | 'center' | 'right' | 'justify';
 type TableAlignment = 'left' | 'center' | 'right';
 type ImageAlignment = 'left' | 'center' | 'right';
-type ImageToolsState = { left: number; top: number; width: number; height: number; alignment: ImageAlignment };
+type ImageWrapMode = 'inline' | 'square' | 'tight' | 'through' | 'top-bottom';
+type ImageToolsState = { left: number; top: number; width: number; height: number; alignment: ImageAlignment; wrapMode: ImageWrapMode };
 type ImageResizeDirection = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w';
 const IMAGE_RESIZE_HANDLES: readonly { direction: ImageResizeDirection; label: string; x: number; y: number }[] = [
   { direction: 'nw', label: '左上角', x: 0, y: 0 },
@@ -42,8 +43,62 @@ function formatInsertedImage(image: HTMLImageElement) {
   image.style.marginLeft = 'auto';
   image.style.marginRight = 'auto';
   image.dataset.align = 'center';
+  image.dataset.wrap = 'top-bottom';
   image.setAttribute('width', String(DEFAULT_IMAGE_WIDTH));
   image.setAttribute('height', String(DEFAULT_IMAGE_HEIGHT));
+}
+
+function readImageWrapMode(image: HTMLImageElement): ImageWrapMode {
+  const mode = image.dataset.wrap;
+  if (mode === 'inline' || mode === 'square' || mode === 'tight' || mode === 'through' || mode === 'top-bottom') return mode;
+  return image.style.float === 'left' || image.style.float === 'right' ? 'square' : 'top-bottom';
+}
+
+function applyImageLayout(image: HTMLImageElement, alignment: ImageAlignment, wrapMode: ImageWrapMode) {
+  image.dataset.align = alignment;
+  image.dataset.wrap = wrapMode;
+  image.style.clear = '';
+  image.style.shapeOutside = '';
+  image.style.shapeMargin = '';
+
+  if (wrapMode === 'inline') {
+    image.style.display = 'inline-block';
+    image.style.float = 'none';
+    image.style.verticalAlign = 'middle';
+    image.style.marginLeft = alignment === 'right' ? '0' : alignment === 'center' ? '0.5em' : '0';
+    image.style.marginRight = alignment === 'left' ? '0' : alignment === 'center' ? '0.5em' : '0';
+    image.style.marginTop = '0.25em';
+    image.style.marginBottom = '0.25em';
+    return;
+  }
+
+  image.style.verticalAlign = '';
+  image.style.marginTop = '0.35em';
+  image.style.marginBottom = '0.75em';
+  if (wrapMode === 'top-bottom') {
+    image.style.display = 'block';
+    image.style.float = 'none';
+    image.style.clear = 'both';
+    image.style.marginLeft = alignment === 'left' ? '0' : 'auto';
+    image.style.marginRight = alignment === 'right' ? '0' : 'auto';
+    return;
+  }
+
+  const floatSide = alignment === 'right' ? 'right' : 'left';
+  image.style.display = 'block';
+  image.style.float = floatSide;
+  image.style.clear = 'none';
+  image.style.marginLeft = floatSide === 'right' ? '1em' : '0';
+  image.style.marginRight = floatSide === 'left' ? '1em' : '0';
+  if (wrapMode === 'tight') {
+    image.style.shapeOutside = 'inset(0 round 8px)';
+    image.style.shapeMargin = '6px';
+  } else if (wrapMode === 'through') {
+    // CSS cannot reproduce Word's alpha-channel text flow exactly. This gives
+    // a close browser-native contour wrap and remains safe to sanitize.
+    image.style.shapeOutside = 'inset(0 round 18%)';
+    image.style.shapeMargin = '2px';
+  }
 }
 
 /** Freeze the rendered widths before changing one column. Word tables often mix
@@ -271,6 +326,7 @@ export default function WordLikeEditor({ value, onChange, uploadImage }: Props) 
           width: imageRect.width,
           height: imageRect.height,
           alignment,
+          wrapMode: readImageWrapMode(image),
         });
       };
       const trackImage = (event: Event) => {
@@ -500,18 +556,35 @@ export default function WordLikeEditor({ value, onChange, uploadImage }: Props) 
     const editor = editorRef.current;
     const image = activeImageRef.current;
     if (!editor || !image?.isConnected) return;
-    image.style.display = 'block';
-    image.style.float = 'none';
-    image.style.marginLeft = alignment === 'left' ? '0' : 'auto';
-    image.style.marginRight = alignment === 'right' ? '0' : 'auto';
-    image.dataset.align = alignment;
+    const wrapMode = readImageWrapMode(image);
+    const effectiveAlignment = wrapMode !== 'inline' && wrapMode !== 'top-bottom' && alignment === 'center'
+      ? 'left'
+      : alignment;
+    applyImageLayout(image, effectiveAlignment, wrapMode);
     editor.synchronizeValues();
     window.requestAnimationFrame(() => {
       if (activeImageRef.current === image) {
         const rect = image.getBoundingClientRect();
         const root = rootRef.current?.getBoundingClientRect();
-        if (root) setImageTools({ left: rect.left - root.left, top: rect.top - root.top, width: rect.width, height: rect.height, alignment });
+        if (root) setImageTools({ left: rect.left - root.left, top: rect.top - root.top, width: rect.width, height: rect.height, alignment: effectiveAlignment, wrapMode });
       }
+    });
+  }
+
+  function setImageWrapMode(wrapMode: ImageWrapMode) {
+    const editor = editorRef.current;
+    const image = activeImageRef.current;
+    if (!editor || !image?.isConnected) return;
+    const alignment = wrapMode !== 'inline' && wrapMode !== 'top-bottom' && imageTools?.alignment === 'center'
+      ? 'left'
+      : imageTools?.alignment || 'center';
+    applyImageLayout(image, alignment, wrapMode);
+    editor.synchronizeValues();
+    window.requestAnimationFrame(() => {
+      if (activeImageRef.current !== image) return;
+      const rect = image.getBoundingClientRect();
+      const root = rootRef.current?.getBoundingClientRect();
+      if (root) setImageTools({ left: rect.left - root.left, top: rect.top - root.top, width: rect.width, height: rect.height, alignment, wrapMode });
     });
   }
 
@@ -645,6 +718,16 @@ export default function WordLikeEditor({ value, onChange, uploadImage }: Props) 
               onMouseDown={(event) => event.preventDefault()} onClick={() => setImageAlignment(alignment)}>{label}</button>
           ))}
         </div>
+        <label className="word-like-editor__wrap-control">文字环绕
+          <select aria-label="图片文字环绕方式" value={imageTools.wrapMode}
+            onChange={(event) => setImageWrapMode(event.target.value as ImageWrapMode)}>
+            <option value="inline">嵌入型</option>
+            <option value="square">四周型</option>
+            <option value="tight">紧密型</option>
+            <option value="through">穿越型（网页近似）</option>
+            <option value="top-bottom">上下型</option>
+          </select>
+        </label>
         <label>宽 <input type="number" min="24" max="2400" value={Math.round(imageTools.width)} aria-label="图片宽度（像素）"
           onChange={(event) => setImageTools((current) => current ? { ...current, width: Number(event.target.value) || 0 } : current)} /></label>
         <label>高 <input type="number" min="24" max="2400" value={Math.round(imageTools.height)} aria-label="图片高度（像素）"
@@ -695,7 +778,7 @@ export default function WordLikeEditor({ value, onChange, uploadImage }: Props) 
       </div>
       <textarea ref={textareaRef} defaultValue={initialValueRef.current} aria-label="文章正文（富文本编辑器）" />
       {error && <p role="alert" className="word-like-editor__error">{error}</p>}
-      <p className="word-like-editor__hint">点击表格单元格即可使用上方的表格工具；单元格边界可拖动调整列宽，选中多个单元格可使用浮动菜单合并或拆分。</p>
+      <p className="word-like-editor__hint">点击表格单元格即可使用上方的表格工具；单元格边界可拖动调整列宽，选中多个单元格可使用浮动菜单合并或拆分。图片“穿越型”使用网页轮廓环绕近似显示，具体效果会因浏览器和图片透明区域而异。</p>
     </div>
   );
 }

@@ -41,11 +41,11 @@ export default async function CooperationPartners() {
               ) : (
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                   {partners.map((partner) => {
-                    const href = partner.website || (partner.intro ? `/cooperation/partner/${partner.id}` : null);
+                    const href = partner.website || `/cooperation/partner/${partner.id}`;
                     const isExternal = !!partner.website;
                     const card = <p className="text-gray-800 font-medium">{partner.name}</p>;
 
-                    return href ? (
+                    return (
                       <Link
                         key={partner.id}
                         href={href}
@@ -55,7 +55,7 @@ export default async function CooperationPartners() {
                       >
                         {card}
                       </Link>
-                    ) : <div key={partner.id} className="bg-blue-50 rounded-lg p-6 text-center">{card}</div>;
+                    );
                   })}
                 </div>
               )}

@@ -106,6 +106,16 @@
 }
 
 .word-like-editor__image-tools label { display: inline-flex; align-items: center; gap: 4px; }
+.word-like-editor__image-tools .word-like-editor__wrap-control { font-weight: 600; }
+.word-like-editor__image-tools select {
+  min-width: 128px;
+  border: 1px solid #bfd2e6;
+  border-radius: 5px;
+  padding: 5px 8px;
+  background: #fff;
+  color: #1f2937;
+  font: inherit;
+}
 .word-like-editor__image-tools input {
   width: 76px;
   border: 1px solid #bfd2e6;
