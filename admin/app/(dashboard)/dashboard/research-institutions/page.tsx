@@ -250,22 +250,32 @@ export default function ResearchInstitutionsManagement() {
       </div>
 
       <div className="bg-white rounded-lg shadow overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-200">
+        <div className="overflow-x-auto">
+        <table className="w-full min-w-[1100px] table-fixed divide-y divide-gray-200">
+          <colgroup>
+            <col className="w-[9%]" />
+            <col className="w-[25%]" />
+            <col className="w-[24%]" />
+            <col className="w-[21%]" />
+            <col className="w-[6%]" />
+            <col className="w-[7%]" />
+            <col className="w-[8%]" />
+          </colgroup>
           <thead className="bg-gray-50">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">封面</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">名称</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Slug</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">简介</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">排序</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">状态</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">封面</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">名称</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Slug</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">简介</th>
+              <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">排序</th>
+              <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">状态</th>
+              <th className="sticky right-0 z-10 bg-gray-50 px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-l border-gray-200">操作</th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {institutions.map((inst) => (
               <tr key={inst.documentId}>
-                <td className="px-6 py-4 whitespace-nowrap">
+                <td className="px-4 py-4">
                   {inst.cover_image ? (
                     <div className="relative w-16 h-16">
                       <Image src={`${STRAPI_URL}${inst.cover_image.url}`} alt={inst.name} fill className="object-cover rounded" />
@@ -274,33 +284,40 @@ export default function ResearchInstitutionsManagement() {
                     <div className="w-16 h-16 bg-gray-100 rounded flex items-center justify-center text-gray-400 text-xs">无封面</div>
                   )}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{inst.name}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{inst.slug}</td>
-                <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">
-                  {inst.summary ? inst.summary.replace(/<[^>]*>/g, '').slice(0, 50) + '…' : '无'}
+                <td className="px-4 py-4 text-sm font-medium text-gray-900 break-words">{inst.name}</td>
+                <td className="px-4 py-4 text-sm text-gray-500">
+                  <span className="block break-all leading-5" title={inst.slug}>{inst.slug}</span>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{inst.sort_order}</td>
-                <td className="px-6 py-4 whitespace-nowrap">
+                <td className="px-4 py-4 text-sm text-gray-500">
+                  <span className="block truncate" title={inst.summary?.replace(/<[^>]*>/g, '') || '无'}>
+                    {inst.summary ? inst.summary.replace(/<[^>]*>/g, '').slice(0, 50) + '…' : '无'}
+                  </span>
+                </td>
+                <td className="px-2 py-4 text-sm text-gray-900">{inst.sort_order}</td>
+                <td className="px-2 py-4">
                   <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${inst.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
                     {inst.is_active ? '启用' : '禁用'}
                   </span>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium flex gap-2">
-                  <button onClick={() => handleEdit(inst)} className="text-blue-600 hover:text-blue-900" title="编辑">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                    </svg>
-                  </button>
-                  <button onClick={() => handleDelete(inst.documentId)} className="text-red-600 hover:text-red-900" title="删除">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                  </button>
+                <td className="sticky right-0 z-10 bg-white px-2 py-4 text-sm font-medium border-l border-gray-100">
+                  <div className="flex items-center justify-center gap-3">
+                    <button onClick={() => handleEdit(inst)} className="shrink-0 text-blue-600 hover:text-blue-900" title="编辑" aria-label={`编辑 ${inst.name}`}>
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                    </button>
+                    <button onClick={() => handleDelete(inst.documentId)} className="shrink-0 text-red-600 hover:text-red-900" title="删除" aria-label={`删除 ${inst.name}`}>
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
+        </div>
       </div>
 
       {showModal && (
