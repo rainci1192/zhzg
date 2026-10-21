@@ -3,13 +3,17 @@ import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import Sidebar from '@/components/layout/Sidebar';
 import PageHero from '@/components/layout/PageHero';
-import { getContentPage, mediaUrl, mediaSize, type StrapiMedia } from '@/lib/strapi-content';
+import { getContentPage, mediaSize, type StrapiMedia } from '@/lib/strapi-content';
+import { contentDestination } from '@/lib/content-destination';
 
 const PAGE_SIZE = 5;
 
 type DownloadFile = {
   id: number;
+  documentId: string;
   title: string;
+  description?: string | null;
+  redirect_url?: string | null;
   file: StrapiMedia | null;
 };
 
@@ -69,16 +73,16 @@ export default async function DocumentsDownloads({
                 <div className="text-gray-500">暂无下载资料</div>
               ) : (
                 <ul className="space-y-4">
-                  {files.filter((file) => mediaUrl(file.file)).map((file) => (
+                  {files.map((file) => {
+                    const destination = contentDestination('download-files', file);
+                    return (
                     <li
                       key={file.id}
                       className="group border-l-4 border-blue-600 pl-4 py-3 hover:bg-blue-50 transition-colors duration-300"
                     >
                       <div className="flex items-center justify-between gap-4">
-                        {/* 标题（点击下载） */}
                         <a
-                          href={mediaUrl(file.file)!}
-                          download={file.file?.name}
+                          href={destination.href}
                           className="flex-1 min-w-0"
                         >
                           <span className="text-gray-800 font-medium group-hover:text-blue-600 transition-colors duration-300 line-clamp-1">
@@ -89,10 +93,8 @@ export default async function DocumentsDownloads({
                           )}
                         </a>
 
-                        {/* 下载按钮 */}
                         <a
-                          href={mediaUrl(file.file)!}
-                          download={file.file?.name}
+                          href={destination.href}
                           className="flex-shrink-0 flex items-center gap-1.5 px-4 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-full opacity-0 group-hover:opacity-100 hover:bg-blue-700 active:scale-95 transition-all duration-300 translate-x-2 group-hover:translate-x-0"
                         >
                           <svg
@@ -108,11 +110,12 @@ export default async function DocumentsDownloads({
                               d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
                             />
                           </svg>
-                          下载
+                          {destination.kind === 'download' ? '下载' : destination.kind === 'external' ? '访问网址' : '查看详情'}
                         </a>
                       </div>
                     </li>
-                  ))}
+                    );
+                  })}
                 </ul>
               )}
 

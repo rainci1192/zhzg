@@ -881,8 +881,7 @@ export interface ApiDownloadFileDownloadFile
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
     description: Schema.Attribute.Text;
-    file: Schema.Attribute.Media<'images' | 'videos' | 'audios' | 'files'> &
-      Schema.Attribute.Required;
+    file: Schema.Attribute.Media<'images' | 'videos' | 'audios' | 'files'>;
     is_active: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<true>;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<
@@ -891,6 +890,10 @@ export interface ApiDownloadFileDownloadFile
     > &
       Schema.Attribute.Private;
     publishedAt: Schema.Attribute.DateTime;
+    redirect_url: Schema.Attribute.String &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 2048;
+      }>;
     sort_order: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<0>;
     title: Schema.Attribute.String &
       Schema.Attribute.Required &
@@ -1167,6 +1170,10 @@ export interface ApiPolicyDocumentPolicyDocument
       Schema.Attribute.Private;
     publish_time: Schema.Attribute.DateTime;
     publishedAt: Schema.Attribute.DateTime;
+    redirect_url: Schema.Attribute.String &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 2048;
+      }>;
     slug: Schema.Attribute.UID<'title'> & Schema.Attribute.Required;
     sort_order: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<0>;
     title: Schema.Attribute.String &
@@ -1433,6 +1440,10 @@ export interface ApiStudentDocumentStudentDocument
       Schema.Attribute.Private;
     publish_time: Schema.Attribute.DateTime;
     publishedAt: Schema.Attribute.DateTime;
+    redirect_url: Schema.Attribute.String &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 2048;
+      }>;
     slug: Schema.Attribute.UID<'title'> & Schema.Attribute.Required;
     sort_order: Schema.Attribute.Integer;
     title: Schema.Attribute.String &

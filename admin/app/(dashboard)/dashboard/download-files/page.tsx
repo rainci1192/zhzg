@@ -1,6 +1,7 @@
 'use client';
 
 import { strapiFetch } from '@/lib/strapi-fetch';
+import { normalizeRedirectUrl } from '@/lib/redirect-url';
 
 import { useEffect, useState } from 'react';
 
@@ -9,6 +10,7 @@ interface DownloadFile {
   documentId: string;
   title: string;
   description?: string | null;
+  redirect_url?: string | null;
   file?: {
     id: number;
     name: string;
@@ -26,6 +28,7 @@ interface StrapiResponse {
     documentId: string;
     title: string;
     description?: string | null;
+    redirect_url?: string | null;
     file?: {
       id: number;
       name: string;
@@ -41,6 +44,7 @@ interface StrapiResponse {
 interface FormDataType {
   title: string;
   description: string;
+  redirect_url: string;
   is_active: boolean;
   sort_order: number;
 }
@@ -61,6 +65,7 @@ export default function DownloadFilesManagement() {
   const [formData, setFormData] = useState<FormDataType>({
     title: '',
     description: '',
+    redirect_url: '',
     is_active: true,
     sort_order: 0,
   });
@@ -79,6 +84,7 @@ export default function DownloadFilesManagement() {
         documentId: item.documentId,
         title: item.title,
         description: item.description,
+        redirect_url: item.redirect_url,
         file: item.file,
         is_active: item.is_active,
         sort_order: item.sort_order,
@@ -113,7 +119,11 @@ export default function DownloadFilesManagement() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+    const redirectUrl = normalizeRedirectUrl(formData.redirect_url);
+    if (formData.redirect_url.trim() && !redirectUrl) {
+      alert('跳转网址必须是完整的 http:// 或 https:// 地址');
+      return;
+    }
     try {
       let fileId = editingFile?.file?.id || null;
 
@@ -125,14 +135,15 @@ export default function DownloadFilesManagement() {
         }
       }
 
-      if (!fileId && !editingFile) {
-        alert('请上传文件');
+      if (!fileId && !redirectUrl) {
+        alert('请上传文件或填写跳转网址');
         return;
       }
 
       const payload = {
         data: {
           ...formData,
+          redirect_url: redirectUrl,
           ...(fileId ? { file: fileId } : {}),
         },
       };
@@ -157,6 +168,7 @@ export default function DownloadFilesManagement() {
         setFormData({
           title: '',
           description: '',
+          redirect_url: '',
           is_active: true,
           sort_order: 0,
         });
@@ -178,6 +190,7 @@ export default function DownloadFilesManagement() {
     setFormData({
       title: file.title,
       description: file.description || '',
+      redirect_url: file.redirect_url || '',
       is_active: file.is_active,
       sort_order: file.sort_order,
     });
@@ -211,6 +224,7 @@ export default function DownloadFilesManagement() {
     setFormData({
       title: '',
       description: '',
+      redirect_url: '',
       is_active: true,
       sort_order: 0,
     });
@@ -378,8 +392,21 @@ export default function DownloadFilesManagement() {
                 </div>
 
                 <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">跳转网址（选填）</label>
+                  <input
+                    type="url"
+                    maxLength={2048}
+                    value={formData.redirect_url}
+                    onChange={(e) => setFormData({ ...formData, redirect_url: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    placeholder="https://example.com/page"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">有网址时优先跳转；无网址、无描述时直接下载文件。</p>
+                </div>
+
+                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    文件 {!editingFile && '*'}
+                    文件（未填写跳转网址时必填）
                   </label>
                   <input
                     type="file"

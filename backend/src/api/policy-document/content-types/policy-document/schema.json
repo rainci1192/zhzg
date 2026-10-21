@@ -21,6 +21,10 @@
       "targetField": "title",
       "required": true
     },
+    "redirect_url": {
+      "type": "string",
+      "maxLength": 2048
+    },
     "attachments": {
       "type": "media",
       "multiple": true,

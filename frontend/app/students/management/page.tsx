@@ -4,14 +4,19 @@ import Footer from '@/components/layout/Footer';
 import Sidebar from '@/components/layout/Sidebar';
 import PageHero from '@/components/layout/PageHero';
 import Link from 'next/link';
-import { getContentPage } from '@/lib/strapi-content';
+import { getContentPage, type StrapiMedia } from '@/lib/strapi-content';
+import { contentDestination } from '@/lib/content-destination';
 
 const PAGE_SIZE = 5;
 
 type StudentDocument = {
   id: number;
+  documentId: string;
   title: string;
   slug: string;
+  redirect_url?: string | null;
+  content?: string | null;
+  attachments?: StrapiMedia[] | null;
   publish_time: string | null;
 };
 
@@ -70,10 +75,12 @@ export default async function StudentsManagement({
                 <div className="bg-white rounded-lg shadow-sm p-8 text-gray-500">暂无管理文档</div>
               ) : (
                 <div className="space-y-4">
-                  {documents.map((doc) => (
+                  {documents.map((doc) => {
+                    const destination = contentDestination('student-documents', doc);
+                    return destination.kind === 'detail' ? (
                     <Link
                       key={doc.id}
-                      href={`/students/document/${doc.slug}`}
+                      href={destination.href}
                       className="group block bg-white rounded-lg shadow-sm hover:shadow-xl transition-all duration-300"
                     >
                       <div className="p-6">
@@ -91,7 +98,15 @@ export default async function StudentsManagement({
                         </div>
                       </div>
                     </Link>
-                  ))}
+                    ) : (
+                    <a key={doc.id} href={destination.href} className="group block bg-white rounded-lg shadow-sm hover:shadow-xl transition-all duration-300">
+                      <div className="p-6 flex items-start gap-4">
+                        <span className="text-sm text-gray-400 flex-shrink-0">{doc.publish_time ? new Date(doc.publish_time).toLocaleDateString('zh-CN') : '--'}</span>
+                        <h3 className="text-xl font-bold text-gray-800 group-hover:text-blue-600 transition-colors">{doc.title}</h3>
+                      </div>
+                    </a>
+                    );
+                  })}
                 </div>
               )}
 

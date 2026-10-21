@@ -1,0 +1,858 @@
+diff --git a/admin/app/(dashboard)/dashboard/download-files/page.tsx b/admin/app/(dashboard)/dashboard/download-files/page.tsx
+--- a/admin/app/(dashboard)/dashboard/download-files/page.tsx
++++ b/admin/app/(dashboard)/dashboard/download-files/page.tsx
+@@ -1,6 +1,7 @@
+ 'use client';
+ 
+ import { strapiFetch } from '@/lib/strapi-fetch';
++import { normalizeRedirectUrl } from '@/lib/redirect-url';
+ 
+ import { useEffect, useState } from 'react';
+ 
+@@ -9,6 +10,7 @@
+   documentId: string;
+   title: string;
+   description?: string | null;
++  redirect_url?: string | null;
+   file?: {
+     id: number;
+     name: string;
+@@ -26,6 +28,7 @@
+     documentId: string;
+     title: string;
+     description?: string | null;
++    redirect_url?: string | null;
+     file?: {
+       id: number;
+       name: string;
+@@ -41,6 +44,7 @@
+ interface FormDataType {
+   title: string;
+   description: string;
++  redirect_url: string;
+   is_active: boolean;
+   sort_order: number;
+ }
+@@ -61,6 +65,7 @@
+   const [formData, setFormData] = useState<FormDataType>({
+     title: '',
+     description: '',
++    redirect_url: '',
+     is_active: true,
+     sort_order: 0,
+   });
+@@ -79,6 +84,7 @@
+         documentId: item.documentId,
+         title: item.title,
+         description: item.description,
++        redirect_url: item.redirect_url,
+         file: item.file,
+         is_active: item.is_active,
+         sort_order: item.sort_order,
+@@ -113,7 +119,11 @@
+ 
+   const handleSubmit = async (e: React.FormEvent) => {
+     e.preventDefault();
+-    
++    const redirectUrl = normalizeRedirectUrl(formData.redirect_url);
++    if (formData.redirect_url.trim() && !redirectUrl) {
++      alert('跳转网址必须是完整的 http:// 或 https:// 地址');
++      return;
++    }
+     try {
+       let fileId = editingFile?.file?.id || null;
+ 
+@@ -125,14 +135,15 @@
+         }
+       }
+ 
+-      if (!fileId && !editingFile) {
+-        alert('请上传文件');
++      if (!fileId && !redirectUrl) {
++        alert('请上传文件或填写跳转网址');
+         return;
+       }
+ 
+       const payload = {
+         data: {
+           ...formData,
++          redirect_url: redirectUrl,
+           ...(fileId ? { file: fileId } : {}),
+         },
+       };
+@@ -157,6 +168,7 @@
+         setFormData({
+           title: '',
+           description: '',
++          redirect_url: '',
+           is_active: true,
+           sort_order: 0,
+         });
+@@ -178,6 +190,7 @@
+     setFormData({
+       title: file.title,
+       description: file.description || '',
++      redirect_url: file.redirect_url || '',
+       is_active: file.is_active,
+       sort_order: file.sort_order,
+     });
+@@ -211,6 +224,7 @@
+     setFormData({
+       title: '',
+       description: '',
++      redirect_url: '',
+       is_active: true,
+       sort_order: 0,
+     });
+@@ -378,8 +392,21 @@
+                 </div>
+ 
+                 <div>
++                  <label className="block text-sm font-medium text-gray-700 mb-1">跳转网址（选填）</label>
++                  <input
++                    type="url"
++                    maxLength={2048}
++                    value={formData.redirect_url}
++                    onChange={(e) => setFormData({ ...formData, redirect_url: e.target.value })}
++                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
++                    placeholder="https://example.com/page"
++                  />
++                  <p className="mt-1 text-xs text-gray-500">有网址时优先跳转；无网址、无描述时直接下载文件。</p>
++                </div>
++
++                <div>
+                   <label className="block text-sm font-medium text-gray-700 mb-1">
+-                    文件 {!editingFile && '*'}
++                    文件（未填写跳转网址时必填）
+                   </label>
+                   <input
+                     type="file"
+diff --git a/admin/app/(dashboard)/dashboard/policy-documents/page.tsx b/admin/app/(dashboard)/dashboard/policy-documents/page.tsx
+--- a/admin/app/(dashboard)/dashboard/policy-documents/page.tsx
++++ b/admin/app/(dashboard)/dashboard/policy-documents/page.tsx
+@@ -1,6 +1,7 @@
+ 'use client';
+ 
+ import { strapiFetch } from '@/lib/strapi-fetch';
++import { normalizeRedirectUrl } from '@/lib/redirect-url';
+ 
+ import { useEffect, useState } from 'react';
+ import dynamic from 'next/dynamic';
+@@ -20,6 +21,7 @@
+   title: string;
+   slug: string;
+   content?: string | null;
++  redirect_url?: string | null;
+   attachments?: Array<{
+     id: number;
+     name: string;
+@@ -39,6 +41,7 @@
+     title: string;
+     slug: string;
+     content?: string | null;
++    redirect_url?: string | null;
+     attachments?: Array<{
+       id: number;
+       name: string;
+@@ -56,6 +59,7 @@
+   title: string;
+   slug: string;
+   content: string;
++  redirect_url: string;
+   publish_time: string;
+   is_active: boolean;
+   sort_order: number;
+@@ -70,6 +74,7 @@
+     title: '',
+     slug: '',
+     content: '',
++    redirect_url: '',
+     publish_time: new Date().toISOString().slice(0, 16),
+     is_active: true,
+     sort_order: 0,
+@@ -90,6 +95,7 @@
+         title: item.title,
+         slug: item.slug,
+         content: item.content,
++        redirect_url: item.redirect_url,
+         attachments: item.attachments,
+         publish_time: item.publish_time,
+         is_active: item.is_active,
+@@ -137,6 +143,12 @@
+   const handleSubmit = async (e: React.FormEvent) => {
+     e.preventDefault();
+ 
++    const redirectUrl = normalizeRedirectUrl(formData.redirect_url);
++    if (formData.redirect_url.trim() && !redirectUrl) {
++      alert('跳转网址必须是有效的 http:// 或 https:// 地址，且不能包含账号密码。');
++      return;
++    }
++
+     try {
+       let attachmentIds = editingDocument?.attachments?.map(a => a.id) || [];
+       if (attachmentFiles.length > 0) {
+@@ -151,6 +163,7 @@
+       const payload = {
+         data: {
+           ...formData,
++          redirect_url: redirectUrl,
+           ...(attachmentIds.length > 0 ? { attachments: attachmentIds } : {}),
+         },
+       };
+@@ -173,6 +186,7 @@
+           title: '',
+           slug: '',
+           content: '',
++          redirect_url: '',
+           publish_time: new Date().toISOString().slice(0, 16),
+           is_active: true,
+           sort_order: 0,
+@@ -196,6 +210,7 @@
+       title: document.title,
+       slug: document.slug,
+       content: document.content || '',
++      redirect_url: document.redirect_url || '',
+       publish_time: document.publish_time
+         ? new Date(document.publish_time).toISOString().slice(0, 16)
+         : new Date().toISOString().slice(0, 16),
+@@ -231,6 +246,7 @@
+       title: '',
+       slug: '',
+       content: '',
++      redirect_url: '',
+       publish_time: new Date().toISOString().slice(0, 16),
+       is_active: true,
+       sort_order: 0,
+@@ -360,6 +376,15 @@
+                 <p className="text-sm text-gray-500">访问标识由系统根据标题自动生成英文内容，并检查唯一性。</p>
+ 
+                 <div>
++                  <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="policy-document-redirect">跳转网址（可选）</label>
++                  <input id="policy-document-redirect" type="url" maxLength={2048} value={formData.redirect_url}
++                    onChange={(e) => setFormData({ ...formData, redirect_url: e.target.value })}
++                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
++                    placeholder="https://example.edu/page" />
++                  <p className="mt-1 text-xs text-gray-500">填写后官网列表优先跳转此网址；留空且正文为空、有附件时直接下载第一个附件。</p>
++                </div>
++
++                <div>
+                   <label className="block text-sm font-medium text-gray-700 mb-2">内容</label>
+                   <WordLikeEditor
+                     value={formData.content}
+diff --git a/admin/app/(dashboard)/dashboard/student-documents/page.tsx b/admin/app/(dashboard)/dashboard/student-documents/page.tsx
+--- a/admin/app/(dashboard)/dashboard/student-documents/page.tsx
++++ b/admin/app/(dashboard)/dashboard/student-documents/page.tsx
+@@ -1,6 +1,7 @@
+ 'use client';
+ 
+ import { strapiFetch } from '@/lib/strapi-fetch';
++import { normalizeRedirectUrl } from '@/lib/redirect-url';
+ 
+ import { useEffect, useState } from 'react';
+ import dynamic from 'next/dynamic';
+@@ -20,6 +21,7 @@
+   title: string;
+   slug: string;
+   content?: string | null;
++  redirect_url?: string | null;
+   attachments?: Array<{
+     id: number;
+     name: string;
+@@ -39,6 +41,7 @@
+     title: string;
+     slug: string;
+     content?: string | null;
++    redirect_url?: string | null;
+     attachments?: Array<{
+       id: number;
+       name: string;
+@@ -56,6 +59,7 @@
+   title: string;
+   slug: string;
+   content: string;
++  redirect_url: string;
+   publish_time: string;
+   is_active: boolean;
+   sort_order: number;
+@@ -70,6 +74,7 @@
+     title: '',
+     slug: '',
+     content: '',
++    redirect_url: '',
+     publish_time: new Date().toISOString().slice(0, 16),
+     is_active: true,
+     sort_order: 0,
+@@ -90,6 +95,7 @@
+         title: item.title,
+         slug: item.slug,
+         content: item.content,
++        redirect_url: item.redirect_url,
+         attachments: item.attachments,
+         publish_time: item.publish_time,
+         is_active: item.is_active,
+@@ -137,6 +143,12 @@
+   const handleSubmit = async (e: React.FormEvent) => {
+     e.preventDefault();
+ 
++    const redirectUrl = normalizeRedirectUrl(formData.redirect_url);
++    if (formData.redirect_url.trim() && !redirectUrl) {
++      alert('跳转网址必须是有效的 http:// 或 https:// 地址，且不能包含账号密码。');
++      return;
++    }
++
+     try {
+       let attachmentIds = editingDocument?.attachments?.map(a => a.id) || [];
+       if (attachmentFiles.length > 0) {
+@@ -151,6 +163,7 @@
+       const payload = {
+         data: {
+           ...formData,
++          redirect_url: redirectUrl,
+           ...(attachmentIds.length > 0 ? { attachments: attachmentIds } : {}),
+         },
+       };
+@@ -173,6 +186,7 @@
+           title: '',
+           slug: '',
+           content: '',
++          redirect_url: '',
+           publish_time: new Date().toISOString().slice(0, 16),
+           is_active: true,
+           sort_order: 0,
+@@ -196,6 +210,7 @@
+       title: document.title,
+       slug: document.slug,
+       content: document.content || '',
++      redirect_url: document.redirect_url || '',
+       publish_time: document.publish_time
+         ? new Date(document.publish_time).toISOString().slice(0, 16)
+         : new Date().toISOString().slice(0, 16),
+@@ -231,6 +246,7 @@
+       title: '',
+       slug: '',
+       content: '',
++      redirect_url: '',
+       publish_time: new Date().toISOString().slice(0, 16),
+       is_active: true,
+       sort_order: 0,
+@@ -360,6 +376,15 @@
+                 <p className="text-sm text-gray-500">访问标识由系统根据标题自动生成英文内容，并检查唯一性。</p>
+ 
+                 <div>
++                  <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="student-document-redirect">跳转网址（可选）</label>
++                  <input id="student-document-redirect" type="url" maxLength={2048} value={formData.redirect_url}
++                    onChange={(e) => setFormData({ ...formData, redirect_url: e.target.value })}
++                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
++                    placeholder="https://example.edu/page" />
++                  <p className="mt-1 text-xs text-gray-500">填写后官网列表优先跳转此网址；留空且正文为空、有附件时直接下载第一个附件。</p>
++                </div>
++
++                <div>
+                   <label className="block text-sm font-medium text-gray-700 mb-2">内容</label>
+                   <WordLikeEditor
+                     value={formData.content}
+diff --git a/admin/lib/redirect-url.ts b/admin/lib/redirect-url.ts
+new file mode 100644
+--- /dev/null
++++ b/admin/lib/redirect-url.ts
+@@ -0,0 +1,13 @@
++/** Accept only absolute web URLs for public content redirects. */
++export function normalizeRedirectUrl(value: string): string | null {
++  const raw = value.trim();
++  if (!raw) return null;
++  try {
++    const url = new URL(raw);
++    return (url.protocol === 'http:' || url.protocol === 'https:') && !url.username && !url.password
++      ? url.href
++      : null;
++  } catch {
++    return null;
++  }
++}
+diff --git a/backend/src/api/download-file/content-types/download-file/schema.json b/backend/src/api/download-file/content-types/download-file/schema.json
+--- a/backend/src/api/download-file/content-types/download-file/schema.json
++++ b/backend/src/api/download-file/content-types/download-file/schema.json
+@@ -19,10 +19,13 @@
+     "description": {
+       "type": "text"
+     },
++    "redirect_url": {
++      "type": "string",
++      "maxLength": 2048
++    },
+     "file": {
+       "type": "media",
+       "multiple": false,
+-      "required": true,
+       "allowedTypes": [
+         "images",
+         "videos",
+diff --git a/backend/src/api/policy-document/content-types/policy-document/schema.json b/backend/src/api/policy-document/content-types/policy-document/schema.json
+--- a/backend/src/api/policy-document/content-types/policy-document/schema.json
++++ b/backend/src/api/policy-document/content-types/policy-document/schema.json
+@@ -20,6 +20,10 @@
+       "type": "uid",
+       "targetField": "title",
+       "required": true
++    },
++    "redirect_url": {
++      "type": "string",
++      "maxLength": 2048
+     },
+     "attachments": {
+       "type": "media",
+diff --git a/backend/src/api/student-document/content-types/student-document/schema.json b/backend/src/api/student-document/content-types/student-document/schema.json
+--- a/backend/src/api/student-document/content-types/student-document/schema.json
++++ b/backend/src/api/student-document/content-types/student-document/schema.json
+@@ -20,6 +20,10 @@
+       "type": "uid",
+       "targetField": "title",
+       "required": true
++    },
++    "redirect_url": {
++      "type": "string",
++      "maxLength": 2048
+     },
+     "attachments": {
+       "type": "media",
+diff --git a/frontend/app/api/content-downloads/[resource]/[documentId]/[fileId]/route.ts b/frontend/app/api/content-downloads/[resource]/[documentId]/[fileId]/route.ts
+new file mode 100644
+--- /dev/null
++++ b/frontend/app/api/content-downloads/[resource]/[documentId]/[fileId]/route.ts
+@@ -0,0 +1,44 @@
++import { NextResponse } from 'next/server';
++import { getContentByDocumentId, mediaUrl, type StrapiMedia } from '@/lib/strapi-content';
++
++type Resource = 'student-documents' | 'policy-documents' | 'download-files';
++type Item = { documentId: string; attachments?: StrapiMedia[] | null; file?: StrapiMedia | null };
++
++function disposition(name: string): string {
++  const fallback = name.replace(/[^\x20-\x7e]/g, '_').replace(/[\\/:*?"<>|]/g, '_').slice(0, 120) || 'download';
++  const encoded = encodeURIComponent(name).replace(/[!'()*]/g, (char) => `%${char.charCodeAt(0).toString(16).toUpperCase()}`);
++  return `attachment; filename="${fallback}"; filename*=UTF-8''${encoded}`;
++}
++
++export async function GET(_request: Request, { params }: { params: Promise<{ resource: string; documentId: string; fileId: string }> }) {
++  const { resource, documentId, fileId } = await params;
++  if (!['student-documents', 'policy-documents', 'download-files'].includes(resource)
++    || !/^[a-zA-Z0-9]{1,64}$/.test(documentId) || !/^[a-zA-Z0-9]{1,128}$/.test(fileId)) {
++    return NextResponse.json({ error: '无效的附件链接' }, { status: 400 });
++  }
++
++  try {
++    // Only public, active, published entries can expose a file. Check the
++    // attachment relation before fetching the media so IDs cannot be guessed.
++    const type = resource as Resource;
++    const item = await getContentByDocumentId<Item>(type, documentId);
++    if (!item || item.documentId !== documentId) return NextResponse.json({ error: '资料不存在' }, { status: 404 });
++    const attachments = type === 'download-files' ? [item.file] : item.attachments || [];
++    const file = attachments.find((media) => media && String(media.documentId || media.id) === fileId);
++    const url = mediaUrl(file);
++    if (!file || !url) return NextResponse.json({ error: '附件不存在' }, { status: 404 });
++    const response = await fetch(url, { cache: 'no-store', redirect: 'error' });
++    if (!response.ok || !response.body) return NextResponse.json({ error: '附件文件暂不可用' }, { status: 502 });
++    const headers = new Headers({
++      'Content-Type': response.headers.get('content-type') || 'application/octet-stream',
++      'Content-Disposition': disposition(file.name || 'download'),
++      'Cache-Control': 'private, no-store',
++      'X-Content-Type-Options': 'nosniff',
++    });
++    if (response.headers.get('content-length')) headers.set('Content-Length', response.headers.get('content-length')!);
++    return new Response(response.body, { headers });
++  } catch (error) {
++    console.error('[content-downloads] Download failed', { resource, documentId, message: error instanceof Error ? error.message : String(error) });
++    return NextResponse.json({ error: '附件下载服务暂不可用' }, { status: 502 });
++  }
++}
+diff --git a/frontend/app/documents/downloads/[documentId]/page.tsx b/frontend/app/documents/downloads/[documentId]/page.tsx
+new file mode 100644
+--- /dev/null
++++ b/frontend/app/documents/downloads/[documentId]/page.tsx
+@@ -0,0 +1,49 @@
++import { notFound, redirect } from 'next/navigation';
++import Header from '@/components/layout/Header';
++import Footer from '@/components/layout/Footer';
++import PageHero from '@/components/layout/PageHero';
++import { getDownloadFileDetail, mediaSize, mediaUrl, type StrapiMedia } from '@/lib/strapi-content';
++import { contentDestination, contentDownloadHref } from '@/lib/content-destination';
++
++type DownloadFile = {
++  documentId: string;
++  title: string;
++  description?: string | null;
++  redirect_url?: string | null;
++  file?: StrapiMedia | null;
++};
++
++export default async function DownloadFileDetail({ params }: { params: Promise<{ documentId: string }> }) {
++  const { documentId } = await params;
++  const file = await getDownloadFileDetail<DownloadFile>(documentId);
++  if (!file) notFound();
++  const destination = contentDestination('download-files', file);
++  if (destination.kind !== 'detail') redirect(destination.href);
++
++  return (
++    <>
++      <Header />
++      <PageHero title="资料下载" items={[
++        { name: '首页', href: '/' },
++        { name: '管理文件', href: '/documents/policies' },
++        { name: '资料下载', href: '/documents/downloads' },
++        { name: file.title, href: `/documents/downloads/${documentId}` },
++      ]} />
++      <main className="site-detail-body max-w-5xl mx-auto px-6 py-10">
++        <article className="site-detail-panel bg-white rounded-lg shadow-lg p-8">
++          <h1 className="text-3xl font-bold text-gray-800 mb-6">{file.title}</h1>
++          {file.description && <p className="whitespace-pre-wrap text-lg leading-relaxed text-gray-700">{file.description}</p>}
++          {file.file && mediaUrl(file.file) && (
++            <div className="mt-8 pt-8 border-t">
++              <h2 className="text-2xl font-bold text-gray-800 mb-4">附件下载</h2>
++              <a className="block p-4 bg-gray-50 rounded-lg text-blue-700 hover:bg-blue-50" href={contentDownloadHref('download-files', documentId, file.file)}>
++                {file.file.name} {mediaSize(file.file) && `(${mediaSize(file.file)})`}
++              </a>
++            </div>
++          )}
++        </article>
++      </main>
++      <Footer />
++    </>
++  );
++}
+diff --git a/frontend/app/documents/downloads/page.tsx b/frontend/app/documents/downloads/page.tsx
+--- a/frontend/app/documents/downloads/page.tsx
++++ b/frontend/app/documents/downloads/page.tsx
+@@ -3,13 +3,17 @@
+ import Footer from '@/components/layout/Footer';
+ import Sidebar from '@/components/layout/Sidebar';
+ import PageHero from '@/components/layout/PageHero';
+-import { getContentPage, mediaUrl, mediaSize, type StrapiMedia } from '@/lib/strapi-content';
++import { getContentPage, mediaSize, type StrapiMedia } from '@/lib/strapi-content';
++import { contentDestination } from '@/lib/content-destination';
+ 
+ const PAGE_SIZE = 5;
+ 
+ type DownloadFile = {
+   id: number;
++  documentId: string;
+   title: string;
++  description?: string | null;
++  redirect_url?: string | null;
+   file: StrapiMedia | null;
+ };
+ 
+@@ -69,16 +73,16 @@
+                 <div className="text-gray-500">暂无下载资料</div>
+               ) : (
+                 <ul className="space-y-4">
+-                  {files.filter((file) => mediaUrl(file.file)).map((file) => (
++                  {files.map((file) => {
++                    const destination = contentDestination('download-files', file);
++                    return (
+                     <li
+                       key={file.id}
+                       className="group border-l-4 border-blue-600 pl-4 py-3 hover:bg-blue-50 transition-colors duration-300"
+                     >
+                       <div className="flex items-center justify-between gap-4">
+-                        {/* 标题（点击下载） */}
+                         <a
+-                          href={mediaUrl(file.file)!}
+-                          download={file.file?.name}
++                          href={destination.href}
+                           className="flex-1 min-w-0"
+                         >
+                           <span className="text-gray-800 font-medium group-hover:text-blue-600 transition-colors duration-300 line-clamp-1">
+@@ -89,10 +93,8 @@
+                           )}
+                         </a>
+ 
+-                        {/* 下载按钮 */}
+                         <a
+-                          href={mediaUrl(file.file)!}
+-                          download={file.file?.name}
++                          href={destination.href}
+                           className="flex-shrink-0 flex items-center gap-1.5 px-4 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-full opacity-0 group-hover:opacity-100 hover:bg-blue-700 active:scale-95 transition-all duration-300 translate-x-2 group-hover:translate-x-0"
+                         >
+                           <svg
+@@ -108,11 +110,12 @@
+                               d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                             />
+                           </svg>
+-                          下载
++                          {destination.kind === 'download' ? '下载' : destination.kind === 'external' ? '访问网址' : '查看详情'}
+                         </a>
+                       </div>
+                     </li>
+-                  ))}
++                    );
++                  })}
+                 </ul>
+               )}
+ 
+diff --git a/frontend/app/documents/policies/[slug]/page.tsx b/frontend/app/documents/policies/[slug]/page.tsx
+--- a/frontend/app/documents/policies/[slug]/page.tsx
++++ b/frontend/app/documents/policies/[slug]/page.tsx
+@@ -1,14 +1,18 @@
+ import { sanitizeRichHtml } from '@/lib/sanitize-html';
+ // app/documents/policies/[slug]/page.tsx
+-import { notFound } from 'next/navigation';
++import { notFound, redirect } from 'next/navigation';
+ import Header from '@/components/layout/Header';
+ import Footer from '@/components/layout/Footer';
+ import PageHero from '@/components/layout/PageHero';
+ import { getContentDetail, mediaUrl, mediaSize, type StrapiMedia } from '@/lib/strapi-content';
++import { contentDestination, contentDownloadHref } from '@/lib/content-destination';
+ 
+ type PolicyDocument = {
+   id: number;
++  documentId: string;
+   title: string;
++  slug: string;
++  redirect_url?: string | null;
+   content: string | null;
+   publish_time: string | null;
+   attachments: StrapiMedia[] | null;
+@@ -23,6 +27,8 @@
+ 
+   const doc = await getContentDetail<PolicyDocument>('policy-documents', slug);
+   if (!doc) notFound();
++  const destination = contentDestination('policy-documents', doc);
++  if (destination.kind !== 'detail') redirect(destination.href);
+   const attachments = (doc.attachments || []).filter((item) => mediaUrl(item));
+ 
+   const breadcrumbItems = [
+@@ -64,8 +70,7 @@
+                 {attachments.map((att, idx) => (
+                   <a
+                     key={idx}
+-                    href={mediaUrl(att)!}
+-                    download
++                    href={contentDownloadHref('policy-documents', doc.documentId, att)}
+                     className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg hover:bg-blue-50 hover:shadow-md transition-all group"
+                   >
+                     <svg
+diff --git a/frontend/app/documents/policies/page.tsx b/frontend/app/documents/policies/page.tsx
+--- a/frontend/app/documents/policies/page.tsx
++++ b/frontend/app/documents/policies/page.tsx
+@@ -4,14 +4,19 @@
+ import Sidebar from '@/components/layout/Sidebar';
+ import PageHero from '@/components/layout/PageHero';
+ import Link from 'next/link';
+-import { getContentPage } from '@/lib/strapi-content';
++import { getContentPage, type StrapiMedia } from '@/lib/strapi-content';
++import { contentDestination } from '@/lib/content-destination';
+ 
+ const PAGE_SIZE = 5;
+ 
+ type PolicyDocument = {
+   id: number;
++  documentId: string;
+   title: string;
+   slug: string;
++  redirect_url?: string | null;
++  content?: string | null;
++  attachments?: StrapiMedia[] | null;
+   publish_time: string | null;
+ };
+ 
+@@ -71,12 +76,14 @@
+                 <div className="text-gray-500">暂无政策文件</div>
+               ) : (
+                 <ul className="space-y-4">
+-                  {documents.map((doc) => (
++                  {documents.map((doc) => {
++                    const destination = contentDestination('policy-documents', doc);
++                    return (
+                     <li
+                       key={doc.id}
+                       className="border-l-4 border-blue-600 pl-4 py-3 hover:bg-blue-50 transition-colors duration-300"
+                     >
+-                      <Link href={`/documents/policies/${doc.slug}`} className="block">
++                      <a href={destination.href} className="block">
+                         <h3 className="text-lg font-semibold text-gray-800 hover:text-blue-600 transition-colors mb-2">
+                           {doc.title}
+                         </h3>
+@@ -85,9 +92,10 @@
+                             ? new Date(doc.publish_time).toLocaleDateString('zh-CN')
+                             : '--'}
+                         </span>
+-                      </Link>
++                      </a>
+                     </li>
+-                  ))}
++                    );
++                  })}
+                 </ul>
+               )}
+ 
+diff --git a/frontend/app/students/document/[slug]/page.tsx b/frontend/app/students/document/[slug]/page.tsx
+--- a/frontend/app/students/document/[slug]/page.tsx
++++ b/frontend/app/students/document/[slug]/page.tsx
+@@ -1,14 +1,18 @@
+ import { sanitizeRichHtml } from '@/lib/sanitize-html';
+ // app/students/document/[slug]/page.tsx
+-import { notFound } from 'next/navigation';
++import { notFound, redirect } from 'next/navigation';
+ import Header from '@/components/layout/Header';
+ import Footer from '@/components/layout/Footer';
+ import PageHero from '@/components/layout/PageHero';
+ import { getContentDetail, mediaUrl, mediaSize, type StrapiMedia } from '@/lib/strapi-content';
++import { contentDestination, contentDownloadHref } from '@/lib/content-destination';
+ 
+ type StudentDocument = {
+   id: number;
++  documentId: string;
+   title: string;
++  slug: string;
++  redirect_url?: string | null;
+   content: string | null;
+   publish_time: string | null;
+   attachments: StrapiMedia[] | null;
+@@ -23,6 +27,8 @@
+ 
+   const document = await getContentDetail<StudentDocument>('student-documents', slug);
+   if (!document) notFound();
++  const destination = contentDestination('student-documents', document);
++  if (destination.kind !== 'detail') redirect(destination.href);
+   const attachments = (document.attachments || []).filter((item) => mediaUrl(item));
+ 
+   const breadcrumbItems = [
+@@ -64,8 +70,7 @@
+                 {attachments.map((att, idx) => (
+                   <a
+                     key={idx}
+-                    href={mediaUrl(att)!}
+-                    download
++                    href={contentDownloadHref('student-documents', document.documentId, att)}
+                     className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg hover:bg-blue-50 hover:shadow-md transition-all group"
+                   >
+                     <svg
+diff --git a/frontend/app/students/management/page.tsx b/frontend/app/students/management/page.tsx
+--- a/frontend/app/students/management/page.tsx
++++ b/frontend/app/students/management/page.tsx
+@@ -4,14 +4,19 @@
+ import Sidebar from '@/components/layout/Sidebar';
+ import PageHero from '@/components/layout/PageHero';
+ import Link from 'next/link';
+-import { getContentPage } from '@/lib/strapi-content';
++import { getContentPage, type StrapiMedia } from '@/lib/strapi-content';
++import { contentDestination } from '@/lib/content-destination';
+ 
+ const PAGE_SIZE = 5;
+ 
+ type StudentDocument = {
+   id: number;
++  documentId: string;
+   title: string;
+   slug: string;
++  redirect_url?: string | null;
++  content?: string | null;
++  attachments?: StrapiMedia[] | null;
+   publish_time: string | null;
+ };
+ 
+@@ -70,10 +75,12 @@
+                 <div className="bg-white rounded-lg shadow-sm p-8 text-gray-500">暂无管理文档</div>
+               ) : (
+                 <div className="space-y-4">
+-                  {documents.map((doc) => (
++                  {documents.map((doc) => {
++                    const destination = contentDestination('student-documents', doc);
++                    return destination.kind === 'detail' ? (
+                     <Link
+                       key={doc.id}
+-                      href={`/students/document/${doc.slug}`}
++                      href={destination.href}
+                       className="group block bg-white rounded-lg shadow-sm hover:shadow-xl transition-all duration-300"
+                     >
+                       <div className="p-6">
+@@ -91,7 +98,15 @@
+                         </div>
+                       </div>
+                     </Link>
+-                  ))}
++                    ) : (
++                    <a key={doc.id} href={destination.href} className="group block bg-white rounded-lg shadow-sm hover:shadow-xl transition-all duration-300">
++                      <div className="p-6 flex items-start gap-4">
++                        <span className="text-sm text-gray-400 flex-shrink-0">{doc.publish_time ? new Date(doc.publish_time).toLocaleDateString('zh-CN') : '--'}</span>
++                        <h3 className="text-xl font-bold text-gray-800 group-hover:text-blue-600 transition-colors">{doc.title}</h3>
++                      </div>
++                    </a>
++                    );
++                  })}
+                 </div>
+               )}
+ 
+diff --git a/frontend/lib/content-destination.ts b/frontend/lib/content-destination.ts
+new file mode 100644
+--- /dev/null
++++ b/frontend/lib/content-destination.ts
+@@ -0,0 +1,37 @@
++import { safeExternalUrl } from './public-urls';
++import type { StrapiMedia } from './strapi-content';
++
++export type LinkedContent = {
++  redirect_url?: string | null;
++  content?: string | null;
++  description?: string | null;
++  attachments?: StrapiMedia[] | null;
++  file?: StrapiMedia | null;
++};
++
++export function hasMeaningfulContent(content: string | null | undefined): boolean {
++  if (!content) return false;
++  if (/<(?:img|video|iframe|table|hr)\b/i.test(content)) return true;
++  return content.replace(/<[^>]*>/g, '').replace(/&(?:nbsp|#160|#x[aA]0);|\u00a0/gi, ' ').trim().length > 0;
++}
++
++export function contentDownloadHref(resource: 'student-documents' | 'policy-documents' | 'download-files', documentId: string, file: StrapiMedia): string {
++  return `/api/content-downloads/${resource}/${encodeURIComponent(documentId)}/${encodeURIComponent(String(file.documentId || file.id))}`;
++}
++
++export function contentDestination(
++  resource: 'student-documents' | 'policy-documents' | 'download-files',
++  item: LinkedContent & { documentId: string; slug?: string | null },
++): { href: string; kind: 'external' | 'download' | 'detail' } {
++  const external = safeExternalUrl(item.redirect_url);
++  if (external) return { href: external, kind: 'external' };
++  const body = resource === 'download-files' ? item.description : item.content;
++  const attachment = resource === 'download-files' ? item.file : item.attachments?.[0];
++  if (!hasMeaningfulContent(body) && attachment && item.documentId) {
++    return { href: contentDownloadHref(resource, item.documentId, attachment), kind: 'download' };
++  }
++  const href = resource === 'student-documents' ? `/students/document/${encodeURIComponent(item.slug || '')}`
++    : resource === 'policy-documents' ? `/documents/policies/${encodeURIComponent(item.slug || '')}`
++    : `/documents/downloads/${encodeURIComponent(item.documentId)}`;
++  return { href, kind: 'detail' };
++}
+diff --git a/frontend/lib/strapi-content.ts b/frontend/lib/strapi-content.ts
+--- a/frontend/lib/strapi-content.ts
++++ b/frontend/lib/strapi-content.ts
+@@ -28,6 +28,7 @@
+ 
+ export type StrapiMedia = {
+   id: number;
++  documentId?: string;
+   name: string;
+   url: string;
+   size?: number; // Strapi media sizes are in KB.
+@@ -129,6 +130,20 @@
+   return result.data[0] ?? null;
+ }
+ 
++export async function getDownloadFileDetail<T>(documentId: string): Promise<T | null> {
++  return getContentByDocumentId<T>('download-files', documentId);
++}
++
++export async function getContentByDocumentId<T>(resource: 'student-documents' | 'policy-documents' | 'download-files', documentId: string): Promise<T | null> {
++  if (!/^[a-zA-Z0-9]{1,64}$/.test(documentId)) return null;
++  const params = query(resource);
++  params.set('filters[documentId][$eq]', documentId);
++  params.set('pagination[pageSize]', '1');
++  const result = await request<{ data: T[] }>(`/api/${resource}?${params}`);
++  if (!Array.isArray(result.data)) throw new Error(`Unexpected Strapi response for ${resource}`);
++  return result.data[0] ?? null;
++}
++
+ export function mediaUrl(media: StrapiMedia | null | undefined): string | null {
+   return resolveMediaUrl(media?.url);
+ }

@@ -4,14 +4,19 @@ import Footer from '@/components/layout/Footer';
 import Sidebar from '@/components/layout/Sidebar';
 import PageHero from '@/components/layout/PageHero';
 import Link from 'next/link';
-import { getContentPage } from '@/lib/strapi-content';
+import { getContentPage, type StrapiMedia } from '@/lib/strapi-content';
+import { contentDestination } from '@/lib/content-destination';
 
 const PAGE_SIZE = 5;
 
 type PolicyDocument = {
   id: number;
+  documentId: string;
   title: string;
   slug: string;
+  redirect_url?: string | null;
+  content?: string | null;
+  attachments?: StrapiMedia[] | null;
   publish_time: string | null;
 };
 
@@ -71,12 +76,14 @@ export default async function DocumentsPolicies({
                 <div className="text-gray-500">暂无政策文件</div>
               ) : (
                 <ul className="space-y-4">
-                  {documents.map((doc) => (
+                  {documents.map((doc) => {
+                    const destination = contentDestination('policy-documents', doc);
+                    return (
                     <li
                       key={doc.id}
                       className="border-l-4 border-blue-600 pl-4 py-3 hover:bg-blue-50 transition-colors duration-300"
                     >
-                      <Link href={`/documents/policies/${doc.slug}`} className="block">
+                      <a href={destination.href} className="block">
                         <h3 className="text-lg font-semibold text-gray-800 hover:text-blue-600 transition-colors mb-2">
                           {doc.title}
                         </h3>
@@ -85,9 +92,10 @@ export default async function DocumentsPolicies({
                             ? new Date(doc.publish_time).toLocaleDateString('zh-CN')
                             : '--'}
                         </span>
-                      </Link>
+                      </a>
                     </li>
-                  ))}
+                    );
+                  })}
                 </ul>
               )}
 

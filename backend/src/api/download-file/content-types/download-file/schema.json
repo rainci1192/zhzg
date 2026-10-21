@@ -19,10 +19,13 @@
     "description": {
       "type": "text"
     },
+    "redirect_url": {
+      "type": "string",
+      "maxLength": 2048
+    },
     "file": {
       "type": "media",
       "multiple": false,
-      "required": true,
       "allowedTypes": [
         "images",
         "videos",

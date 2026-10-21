@@ -1,14 +1,18 @@
 import { sanitizeRichHtml } from '@/lib/sanitize-html';
 // app/students/document/[slug]/page.tsx
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import PageHero from '@/components/layout/PageHero';
 import { getContentDetail, mediaUrl, mediaSize, type StrapiMedia } from '@/lib/strapi-content';
+import { contentDestination, contentDownloadHref } from '@/lib/content-destination';
 
 type StudentDocument = {
   id: number;
+  documentId: string;
   title: string;
+  slug: string;
+  redirect_url?: string | null;
   content: string | null;
   publish_time: string | null;
   attachments: StrapiMedia[] | null;
@@ -23,6 +27,8 @@ export default async function StudentDocumentDetail({
 
   const document = await getContentDetail<StudentDocument>('student-documents', slug);
   if (!document) notFound();
+  const destination = contentDestination('student-documents', document);
+  if (destination.kind !== 'detail') redirect(destination.href);
   const attachments = (document.attachments || []).filter((item) => mediaUrl(item));
 
   const breadcrumbItems = [
@@ -64,8 +70,7 @@ export default async function StudentDocumentDetail({
                 {attachments.map((att, idx) => (
                   <a
                     key={idx}
-                    href={mediaUrl(att)!}
-                    download
+                    href={contentDownloadHref('student-documents', document.documentId, att)}
                     className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg hover:bg-blue-50 hover:shadow-md transition-all group"
                   >
                     <svg

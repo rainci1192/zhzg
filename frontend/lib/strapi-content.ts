@@ -28,6 +28,7 @@ const mediaField: Partial<Record<ContentResource, string>> = {
 
 export type StrapiMedia = {
   id: number;
+  documentId?: string;
   name: string;
   url: string;
   size?: number; // Strapi media sizes are in KB.
@@ -123,6 +124,20 @@ export async function getContentDetail<T>(
   if (!slug || slug.length > 255) return null;
   const params = query(resource);
   params.set('filters[slug][$eq]', slug);
+  params.set('pagination[pageSize]', '1');
+  const result = await request<{ data: T[] }>(`/api/${resource}?${params}`);
+  if (!Array.isArray(result.data)) throw new Error(`Unexpected Strapi response for ${resource}`);
+  return result.data[0] ?? null;
+}
+
+export async function getDownloadFileDetail<T>(documentId: string): Promise<T | null> {
+  return getContentByDocumentId<T>('download-files', documentId);
+}
+
+export async function getContentByDocumentId<T>(resource: 'student-documents' | 'policy-documents' | 'download-files', documentId: string): Promise<T | null> {
+  if (!/^[a-zA-Z0-9]{1,64}$/.test(documentId)) return null;
+  const params = query(resource);
+  params.set('filters[documentId][$eq]', documentId);
   params.set('pagination[pageSize]', '1');
   const result = await request<{ data: T[] }>(`/api/${resource}?${params}`);
   if (!Array.isArray(result.data)) throw new Error(`Unexpected Strapi response for ${resource}`);

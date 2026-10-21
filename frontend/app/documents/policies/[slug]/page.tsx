@@ -1,14 +1,18 @@
 import { sanitizeRichHtml } from '@/lib/sanitize-html';
 // app/documents/policies/[slug]/page.tsx
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import PageHero from '@/components/layout/PageHero';
 import { getContentDetail, mediaUrl, mediaSize, type StrapiMedia } from '@/lib/strapi-content';
+import { contentDestination, contentDownloadHref } from '@/lib/content-destination';
 
 type PolicyDocument = {
   id: number;
+  documentId: string;
   title: string;
+  slug: string;
+  redirect_url?: string | null;
   content: string | null;
   publish_time: string | null;
   attachments: StrapiMedia[] | null;
@@ -23,6 +27,8 @@ export default async function PolicyDocumentDetail({
 
   const doc = await getContentDetail<PolicyDocument>('policy-documents', slug);
   if (!doc) notFound();
+  const destination = contentDestination('policy-documents', doc);
+  if (destination.kind !== 'detail') redirect(destination.href);
   const attachments = (doc.attachments || []).filter((item) => mediaUrl(item));
 
   const breadcrumbItems = [
@@ -64,8 +70,7 @@ export default async function PolicyDocumentDetail({
                 {attachments.map((att, idx) => (
                   <a
                     key={idx}
-                    href={mediaUrl(att)!}
-                    download
+                    href={contentDownloadHref('policy-documents', doc.documentId, att)}
                     className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg hover:bg-blue-50 hover:shadow-md transition-all group"
                   >
                     <svg

@@ -1,6 +1,7 @@
 'use client';
 
 import { strapiFetch } from '@/lib/strapi-fetch';
+import { normalizeRedirectUrl } from '@/lib/redirect-url';
 
 import { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
@@ -20,6 +21,7 @@ interface PolicyDocument {
   title: string;
   slug: string;
   content?: string | null;
+  redirect_url?: string | null;
   attachments?: Array<{
     id: number;
     name: string;
@@ -39,6 +41,7 @@ interface StrapiResponse {
     title: string;
     slug: string;
     content?: string | null;
+    redirect_url?: string | null;
     attachments?: Array<{
       id: number;
       name: string;
@@ -56,6 +59,7 @@ interface FormDataType {
   title: string;
   slug: string;
   content: string;
+  redirect_url: string;
   publish_time: string;
   is_active: boolean;
   sort_order: number;
@@ -70,6 +74,7 @@ export default function PolicyDocumentsManagement() {
     title: '',
     slug: '',
     content: '',
+    redirect_url: '',
     publish_time: new Date().toISOString().slice(0, 16),
     is_active: true,
     sort_order: 0,
@@ -90,6 +95,7 @@ export default function PolicyDocumentsManagement() {
         title: item.title,
         slug: item.slug,
         content: item.content,
+        redirect_url: item.redirect_url,
         attachments: item.attachments,
         publish_time: item.publish_time,
         is_active: item.is_active,
@@ -137,6 +143,12 @@ export default function PolicyDocumentsManagement() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    const redirectUrl = normalizeRedirectUrl(formData.redirect_url);
+    if (formData.redirect_url.trim() && !redirectUrl) {
+      alert('跳转网址必须是有效的 http:// 或 https:// 地址，且不能包含账号密码。');
+      return;
+    }
+
     try {
       let attachmentIds = editingDocument?.attachments?.map(a => a.id) || [];
       if (attachmentFiles.length > 0) {
@@ -151,6 +163,7 @@ export default function PolicyDocumentsManagement() {
       const payload = {
         data: {
           ...formData,
+          redirect_url: redirectUrl,
           ...(attachmentIds.length > 0 ? { attachments: attachmentIds } : {}),
         },
       };
@@ -173,6 +186,7 @@ export default function PolicyDocumentsManagement() {
           title: '',
           slug: '',
           content: '',
+          redirect_url: '',
           publish_time: new Date().toISOString().slice(0, 16),
           is_active: true,
           sort_order: 0,
@@ -196,6 +210,7 @@ export default function PolicyDocumentsManagement() {
       title: document.title,
       slug: document.slug,
       content: document.content || '',
+      redirect_url: document.redirect_url || '',
       publish_time: document.publish_time
         ? new Date(document.publish_time).toISOString().slice(0, 16)
         : new Date().toISOString().slice(0, 16),
@@ -231,6 +246,7 @@ export default function PolicyDocumentsManagement() {
       title: '',
       slug: '',
       content: '',
+      redirect_url: '',
       publish_time: new Date().toISOString().slice(0, 16),
       is_active: true,
       sort_order: 0,
@@ -358,6 +374,15 @@ export default function PolicyDocumentsManagement() {
                 </div>
 
                 <p className="text-sm text-gray-500">访问标识由系统根据标题自动生成英文内容，并检查唯一性。</p>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="policy-document-redirect">跳转网址（可选）</label>
+                  <input id="policy-document-redirect" type="url" maxLength={2048} value={formData.redirect_url}
+                    onChange={(e) => setFormData({ ...formData, redirect_url: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="https://example.edu/page" />
+                  <p className="mt-1 text-xs text-gray-500">填写后官网列表优先跳转此网址；留空且正文为空、有附件时直接下载第一个附件。</p>
+                </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">内容</label>
